@@ -1,0 +1,134 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")  // Supabase pooler (pgbouncer) connection
+  directUrl = env("DIRECT_URL")    // direct connection for migrations
+}
+
+model Family {
+  id           Int      @id @default(autoincrement())
+  slug         String   @unique
+  name         String
+  folder       String
+  category     String   @default("Display")
+  designer     String?
+  manufacturer String?
+  designerUrl  String?
+  copyright    String?
+  license      String?
+  licenseUrl   String?
+  licenseClass String   @default("Unknown")
+  version      String?
+  glyphs       Int      @default(0)
+  hasLatin     Boolean  @default(true)
+  hasCyrillic  Boolean  @default(false)
+  hasItalic    Boolean  @default(false)
+  styleCount   Int      @default(0)
+
+  // editorial / commerce (admin-editable)
+  tagline     String?
+  description String? // long editorial "CTA" text
+  history     String?
+  usage       String?
+  priceCents  Int      @default(100)
+  isFree      Boolean  @default(false)
+  tier        String   @default("demo") // free | demo | paid
+  isPublished Boolean  @default(true)
+  isFeatured  Boolean  @default(false)
+  isNew       Boolean  @default(false)
+  popularity  Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  styles    Style[]
+
+  @@index([category])
+  @@index([isFeatured])
+  // Composite indexes matching the /fonts catalog access paths (filter by
+  // isPublished, then sort). Replaces the low-cardinality boolean index.
+  @@index([isPublished, popularity])
+  @@index([isPublished, name])
+  @@index([isPublished, styleCount])
+}
+
+model Style {
+  id        Int     @id @default(autoincrement())
+  familyId  Int
+  family    Family  @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  style     String
+  subfamily String?
+  weight    Int     @default(400)
+  italic    Boolean @default(false)
+  ext       String
+  file      String
+  size      Int     @default(0)
+
+  // One row per (family, style-name); also serves as the familyId lookup index.
+  @@unique([familyId, style])
+}
+
+model Article {
+  id          Int       @id @default(autoincrement())
+  slug        String    @unique
+  type        String    @default("blog") // blog | news | article
+  title       String
+  excerpt     String?
+  body        String    @default("")
+  coverImage  String?
+  author      String    @default("Feekr")
+  tags        String    @default("")
+  isPublished Boolean   @default(false)
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([type])
+  @@index([isPublished, publishedAt])
+}
+
+model Media {
+  id        Int      @id @default(autoincrement())
+  filename  String
+  url       String
+  mime      String?
+  width     Int?
+  height    Int?
+  size      Int      @default(0)
+  alt       String?
+  createdAt DateTime @default(now())
+}
+
+model Admin {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+}
+
+model Setting {
+  key   String @id
+  value String
+}
+
+model Order {
+  id         Int      @id @default(autoincrement())
+  itemsJson  String // JSON array of {slug,name,priceCents}
+  totalCents Int
+  contact    String // email or Telegram handle the customer left for follow-up
+  status     String   @default("new") // new | contacted | done
+  createdAt  DateTime @default(now())
+
+  @@index([status, createdAt])
+}
+
+// Persistent (DB-backed) login throttle — replaces an in-memory Map, which does
+// not survive across separate serverless function instances on Vercel.
+model LoginAttempt {
+  key         String    @id // client IP (x-forwarded-for / x-real-ip), falls back to "unknown"
+  count       Int       @default(0)
+  lockedUntil DateTime?
+  updatedAt   DateTime  @updatedAt
+}

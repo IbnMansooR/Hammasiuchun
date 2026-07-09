@@ -1,0 +1,41 @@
+{
+  "name": "feekr",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "prisma generate && next build",
+    "postinstall": "prisma generate",
+    "start": "next start -p 3000",
+    "lint": "next lint",
+    "ingest:scan": "node scripts/ingest.mjs scan",
+    "ingest:organize": "node scripts/ingest.mjs organize",
+    "ingest:web": "node scripts/ingest.mjs web",
+    "ingest:stats": "node scripts/ingest.mjs stats",
+    "db:push": "prisma db push",
+    "db:seed": "node scripts/seed.mjs",
+    "db:studio": "prisma studio",
+    "storage:upload": "node scripts/upload-to-storage.mjs"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.2.0",
+    "@supabase/supabase-js": "^2.110.0",
+    "bcryptjs": "^2.4.3",
+    "fontkit": "^2.0.4",
+    "jose": "^5.9.6",
+    "jszip": "^3.10.1",
+    "next": "^15.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "wawoff2": "^2.0.1"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/fontkit": "^2.0.7",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "prisma": "^6.2.0",
+    "typescript": "^5.7.0"
+  }
+}

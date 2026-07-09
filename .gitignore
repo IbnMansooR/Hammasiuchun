@@ -1,0 +1,40 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# next
+/.next/
+/out/
+next-env.d.ts
+*.tsbuildinfo
+
+# production
+/build
+
+# font source library (huge; hardlinked originals) & generated data
+/font/
+/data/
+/public/fonts/
+/public/uploads/
+.upload-progress.json
+
+# local webfont cache (dev-only fallback; production reads from Supabase Storage)
+/.cache/
+
+# database
+/prisma/*.db
+/prisma/*.db-journal
+
+# env
+.env
+.env*.local
+
+# misc
+.DS_Store
+*.pem
+npm-debug.log*
+/coverage
+
+.vercel
+.env*
