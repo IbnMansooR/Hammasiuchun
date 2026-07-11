@@ -11,6 +11,7 @@ import { parseFontBuffer, slugify, safeFolder, shortHash, styleSlug as mkStyleSl
 import { putUpload, deleteUpload, writeFont, writeWebfont } from "@/lib/storage";
 import { DEFAULT_SETTINGS, saveSiteSettings } from "@/lib/settings";
 import { sniffImageFamily, EXT_FAMILY } from "@/lib/imagesniff";
+import { grantOrderPurchases } from "@/lib/purchases";
 
 const IMAGE_EXT = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"]);
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -177,6 +178,11 @@ export async function setOrderStatusAction(fd: FormData) {
   const status = str(fd, "status");
   if (!Number.isInteger(id) || id <= 0 || !ORDER_STATUSES.has(status)) return;
   await db.order.update({ where: { id }, data: { status } });
+
+  // Marking a logged-in customer's order "done" (e.g. after confirming a bank
+  // transfer over Telegram) is the manual equivalent of a successful payment
+  // webhook — grant the same re-downloadable ownership either way.
+  if (status === "done") await grantOrderPurchases(id, "manual");
   revalidatePath("/admin/orders");
 }
 
@@ -198,10 +204,12 @@ export async function saveSettingsAction(fd: FormData) {
     url: str(fd, `${d.key}_url`),
     enabled: bool(fd, `${d.key}_on`),
   }));
+  const rate = Number(str(fd, "usdToUzsRate"));
   await saveSiteSettings({
     socials,
     contactEmail: str(fd, "contactEmail") || DEFAULT_SETTINGS.contactEmail,
     contactTelegram: str(fd, "contactTelegram") || DEFAULT_SETTINGS.contactTelegram,
+    usdToUzsRate: Number.isFinite(rate) && rate > 0 ? rate : DEFAULT_SETTINGS.usdToUzsRate,
   });
   revalidatePath("/", "layout"); // footer is in the shared layout
   revalidatePath("/support");

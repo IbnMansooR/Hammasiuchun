@@ -5,6 +5,7 @@ export type SiteSettings = {
   socials: SocialLink[];
   contactEmail: string;
   contactTelegram: string;
+  usdToUzsRate: number; // manual exchange rate — Payme/Click charge in so'm, catalog prices are USD
 };
 
 // Defaults (used until an admin saves overrides).
@@ -17,6 +18,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   ],
   contactEmail: "jamaibnmansoor@gmail.com",
   contactTelegram: "https://t.me/Feekr_admin",
+  usdToUzsRate: 12700,
 };
 
 const KEY = "site";
@@ -38,6 +40,7 @@ export async function getSiteSettings(): Promise<SiteSettings> {
     socials,
     contactEmail: saved.contactEmail || DEFAULT_SETTINGS.contactEmail,
     contactTelegram: saved.contactTelegram || DEFAULT_SETTINGS.contactTelegram,
+    usdToUzsRate: saved.usdToUzsRate && saved.usdToUzsRate > 0 ? saved.usdToUzsRate : DEFAULT_SETTINGS.usdToUzsRate,
   };
 }
 
@@ -47,4 +50,9 @@ export async function saveSiteSettings(s: SiteSettings): Promise<void> {
     update: { value: JSON.stringify(s) },
     create: { key: KEY, value: JSON.stringify(s) },
   });
+}
+
+/** USD cents -> UZS tiyin, using the admin-set manual exchange rate. */
+export function centsToTiyin(usdCents: number, usdToUzsRate: number): number {
+  return Math.round((usdCents / 100) * usdToUzsRate * 100);
 }

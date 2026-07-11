@@ -119,9 +119,93 @@ model Order {
   totalCents Int
   contact    String // email or Telegram handle the customer left for follow-up
   status     String   @default("new") // new | contacted | done
+  userId     Int?
+  user       User?    @relation(fields: [userId], references: [id])
   createdAt  DateTime @default(now())
 
+  paymeTransactions PaymeTransaction[]
+  clickTransactions ClickTransaction[]
+
   @@index([status, createdAt])
+  @@index([userId])
+}
+
+// Payme's own transaction bookkeeping, keyed by the transaction id Payme
+// generates (not our Order id) — required by the Merchant API's
+// Check/Create/Perform/Cancel/CheckTransaction methods to be idempotent.
+model PaymeTransaction {
+  id          String   @id
+  orderId     Int
+  order       Order    @relation(fields: [orderId], references: [id])
+  amount      Int // tiyin
+  state       Int      @default(1) // 1 created | 2 performed | -1 cancelled(created) | -2 cancelled(performed)
+  reason      Int?
+  createTime  BigInt
+  performTime BigInt   @default(0)
+  cancelTime  BigInt   @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([orderId])
+}
+
+// Click's two-phase Prepare/Complete bookkeeping, keyed by Click's own
+// click_trans_id.
+model ClickTransaction {
+  id         String   @id // click_trans_id
+  orderId    Int
+  order      Order    @relation(fields: [orderId], references: [id])
+  amount     Int // so'm
+  preparedId Int? // merchant_prepare_id we hand back from Prepare
+  status     String   @default("prepared") // prepared | confirmed | cancelled
+  createdAt  DateTime @default(now())
+
+  @@index([orderId])
+}
+
+// A regular (non-admin) site account. Email+password, Google, and phone+SMS
+// are all optional login paths onto the same account — at least one of
+// email/phone/googleId is expected to be set.
+model User {
+  id           Int        @id @default(autoincrement())
+  email        String?    @unique
+  phone        String?    @unique
+  passwordHash String?
+  googleId     String?    @unique
+  name         String?
+  createdAt    DateTime   @default(now())
+  orders       Order[]
+  purchases    Purchase[]
+}
+
+// A confirmed entitlement: this user owns the full (non-demo) license for
+// this font family, regardless of how the sale happened (admin manually
+// marking an order paid today; an automated Payme/Click/Paynet webhook once
+// those are wired up). "Mening xaridlarim" reads from here, not from Order.
+model Purchase {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id])
+  familySlug String
+  familyName String
+  priceCents Int
+  provider   String   @default("manual") // manual | payme | click | paynet
+  orderId    Int? // the Order this purchase originated from, if any
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, familySlug])
+  @@index([userId])
+}
+
+// Short-lived one-time codes for phone-number login/verification.
+model PhoneOtp {
+  id        Int      @id @default(autoincrement())
+  phone     String
+  code      String
+  expiresAt DateTime
+  consumed  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([phone])
 }
 
 // Persistent (DB-backed) login throttle — replaces an in-memory Map, which does

@@ -31,7 +31,9 @@ function CountIcon({ href, label, count, children }: { href: string; label: stri
   );
 }
 
-export default function Header() {
+type HeaderUser = { name: string | null; email: string | null } | null;
+
+export default function Header({ user = null }: { user?: HeaderUser }) {
   const [open, setOpen] = useState(false);
   const { cart, wish, ready } = useStore();
   const cartN = ready ? cart.length : 0;
@@ -64,6 +66,15 @@ export default function Header() {
               <path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6" />
             </svg>
           </CountIcon>
+          {user ? (
+            <Link href="/account" className="iconbtn" aria-label="Mening kabinetim">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+              </svg>
+            </Link>
+          ) : (
+            <Link href="/login" className="btn btn-sm" style={{ marginLeft: 2 }}>Kirish</Link>
+          )}
           <button
             className="iconbtn menu-toggle"
             aria-label="Menyu"
@@ -86,6 +97,10 @@ export default function Header() {
                 {n.label}
               </Link>
             ))}
+            <Link href={user ? "/account" : "/login"} onClick={() => setOpen(false)}
+              style={{ padding: "10px 0", fontSize: 16, borderBottom: "1px solid var(--line)" }}>
+              {user ? "Mening kabinetim" : "Kirish / Ro'yxatdan o'tish"}
+            </Link>
           </nav>
         </div>
       )}
