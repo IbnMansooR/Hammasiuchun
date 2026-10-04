@@ -1,6 +1,6 @@
 "use server";
 import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { headers } from "next/headers";
 import crypto from "node:crypto";
 import path from "node:path";
@@ -12,6 +12,7 @@ import { putUpload, deleteUpload, writeFont, writeWebfont } from "@/lib/storage"
 import { DEFAULT_SETTINGS, saveSiteSettings } from "@/lib/settings";
 import { sniffImageFamily, EXT_FAMILY } from "@/lib/imagesniff";
 import { LICENSE_CLASSES } from "@/lib/license";
+import { CATALOG_TAG } from "@/lib/stats";
 
 const IMAGE_EXT = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"]);
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -106,6 +107,7 @@ export async function saveArticleAction(fd: FormData) {
     if (await db.article.findUnique({ where: { slug } })) slug = `${slug}-${Date.now().toString(36)}`;
     await db.article.create({ data: { ...data, slug } });
   }
+  revalidateTag(CATALOG_TAG);
   revalidatePath("/blog");
   revalidatePath(`/blog/${slug}`);
   revalidatePath("/");
@@ -119,6 +121,7 @@ export async function deleteArticleAction(fd: FormData) {
   if (Number.isInteger(id) && id > 0) {
     try { await db.article.delete({ where: { id } }); } catch { /* already gone */ }
   }
+  revalidateTag(CATALOG_TAG);
   revalidatePath("/blog");
   revalidatePath("/");
   revalidatePath("/admin/articles");
@@ -234,6 +237,7 @@ export async function saveFamilyAction(fd: FormData) {
       isNew: bool(fd, "isNew"),
     },
   });
+  revalidateTag(CATALOG_TAG);
   revalidatePath(`/fonts/${slug}`);
   revalidatePath("/fonts");
   revalidatePath("/");
@@ -312,6 +316,7 @@ export async function uploadFontFamilyAction(fd: FormData) {
     db.style.createMany({ data: styles.map((s) => ({ familyId: fam.id, ...s })) }),
   ]);
 
+  revalidateTag(CATALOG_TAG);
   revalidatePath("/fonts");
   revalidatePath(`/fonts/${slug}`);
   revalidatePath("/about");

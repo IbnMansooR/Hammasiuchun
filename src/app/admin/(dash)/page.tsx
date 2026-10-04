@@ -50,7 +50,7 @@ export default async function Dashboard() {
               <td>{formatDate(a.updatedAt)}</td>
             </tr>
           ))}
-          {recent.length === 0 && <tr><td colSpan={4} className="muted">Hali maqola yo&apos;q.</td></tr>}
+          {recent.length === 0 && <tr><td colSpan={4} className="muted">Hali maqola yoʻq.</td></tr>}
         </tbody>
       </table>
     </>

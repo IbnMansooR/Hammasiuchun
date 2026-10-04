@@ -41,7 +41,7 @@ export default function Header({ user = null }: { user?: HeaderUser }) {
     <header className="hdr">
       <div className="container hdr-in">
         <Link href="/" className="logo" onClick={() => setOpen(false)}>
-          <img src="/assets/logo-horizontal.png" alt="Feekr" width={101} height={26} />
+          <img src="/assets/logo-header.png" alt="Feekr" width={101} height={26} />
         </Link>
         <nav>
           {NAV.map((n) => <Link key={n.href} href={n.href}>{n.label}</Link>)}
@@ -91,7 +91,7 @@ export default function Header({ user = null }: { user?: HeaderUser }) {
             ))}
             <Link href={user ? "/account" : "/login"} onClick={() => setOpen(false)}
               style={{ padding: "10px 0", fontSize: 16, borderBottom: "1px solid var(--line)" }}>
-              {user ? "Mening kabinetim" : "Kirish / Ro'yxatdan o'tish"}
+              {user ? "Mening kabinetim" : "Kirish / Roʻyxatdan oʻtish"}
             </Link>
           </nav>
         </div>

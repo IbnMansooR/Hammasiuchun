@@ -9,6 +9,7 @@
 @font-face { font-family: "Feekr"; src: url("/fonts/montserrat/montserrat-cyrillic-ext.woff2") format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; unicode-range: U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F; }
 
 :root {
+  color-scheme: light; /* the design is light-only; keep form controls/scrollbars light too */
   --bg: #ffffff;
   --fg: #0b0b0c;
   --muted: #64646b; /* ≥4.5:1 on --soft/--soft-2 too (#71717a was 4.31:1 on #f2f2f0) */
@@ -190,7 +191,6 @@ p { margin: 0 0 1em; }
 
 /* two-column content + sidebar layouts (stack on small screens) */
 .detail-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 40px; align-items: start; margin-top: 20px; }
-.cart-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 40px; align-items: start; }
 
 /* ---------- editorial / prose ---------- */
 .prose { max-width: 760px; font-size: 1.0625rem; line-height: 1.7; }
@@ -237,14 +237,14 @@ select.sel { border: 1px solid var(--line); border-radius: 999px; padding: 7px 1
 .post-card:hover { border-color: var(--fg); }
 .post-cover { aspect-ratio: 16/9; background: var(--soft); object-fit: cover; }
 .post-body { padding: 20px 22px; display: flex; flex-direction: column; gap: 8px; }
-.post-body h3 { font-size: 1.25rem; }
+.post-body h2, .post-body h3 { font-size: 1.25rem; }
 
 /* ---------- footer ---------- */
 .footer { background: var(--dark); color: #fff; margin-top: 60px; padding: 64px 0 40px; }
 .footer a { color: rgba(255,255,255,.72); font-size: 0.875rem; }
 .footer a:hover { color: #fff; }
 .footer-grid { display: grid; grid-template-columns: minmax(0,1.6fr) repeat(3, minmax(0,1fr)); gap: 40px; }
-.footer h4 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: .12em; color: rgba(255,255,255,.5); margin-bottom: 16px; }
+.footer h2 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: .12em; color: rgba(255,255,255,.5); margin-bottom: 16px; }
 .footer .col a { display: block; margin-bottom: 10px; }
 .footer .big { font-size: clamp(40px, 8vw, 120px); font-weight: 800; letter-spacing: -.04em; line-height: .9; margin-top: 40px; opacity: .96; }
 .footer-bottom { display: flex; justify-content: space-between; gap: 20px; margin-top: 40px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,.14); color: rgba(255,255,255,.55); font-size: 0.8125rem; flex-wrap: wrap; }
@@ -293,7 +293,7 @@ select.sel { border: 1px solid var(--line); border-radius: 999px; padding: 7px 1
   .grid, .grid.cols-3 { grid-template-columns: minmax(0, 1fr); }
   .pairs-grid { grid-template-columns: minmax(0, 1fr); }
   .showcase-meta { grid-template-columns: minmax(0, 1fr); gap: 8px; }
-  .detail-grid, .cart-grid { grid-template-columns: minmax(0, 1fr); }
+  .detail-grid { grid-template-columns: minmax(0, 1fr); }
   .buybox { position: static; }
   .footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
 }

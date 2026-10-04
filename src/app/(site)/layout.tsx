@@ -7,8 +7,9 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   const user = await getCurrentUser();
   return (
     <StoreProvider>
+      <a href="#main" className="skip-link">Asosiy qismga oʻtish</a>
       <Header user={user} />
-      <main>{children}</main>
+      <main id="main" tabIndex={-1}>{children}</main>
       <Footer />
     </StoreProvider>
   );

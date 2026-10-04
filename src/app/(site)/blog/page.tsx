@@ -39,7 +39,7 @@ export default async function BlogPage({ searchParams }: { searchParams: Promise
       </div>
 
       {posts.length === 0 ? (
-        <p className="muted" style={{ padding: "40px 0" }}>Hozircha maqola yo&apos;q.</p>
+        <p className="muted" style={{ padding: "40px 0" }}>Hozircha maqola yoʻq.</p>
       ) : (
         <div className="grid cols-3">
           {posts.map((p) => (
@@ -47,7 +47,7 @@ export default async function BlogPage({ searchParams }: { searchParams: Promise
               {p.coverImage ? <CardCover src={p.coverImage} alt={p.title} /> : <div className="post-cover" />}
               <div className="post-body">
                 <span className="badge">{TYPE_LABEL[p.type] ?? "Blog"}</span>
-                <h3>{p.title}</h3>
+                <h2>{p.title}</h2>
                 <p className="muted" style={{ margin: 0 }}>{p.excerpt}</p>
                 <span className="fcard-tags">{formatDate(p.publishedAt)} · {p.author}</span>
               </div>

@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { db, isBuildPhase } from "./db";
 
 export type SocialLink = { key: string; label: string; url: string; enabled: boolean };
 export type SiteSettings = {
@@ -23,6 +23,7 @@ const KEY = "site";
 
 export async function getSiteSettings(): Promise<SiteSettings> {
   let saved: Partial<SiteSettings> = {};
+  if (isBuildPhase) return DEFAULT_SETTINGS;
   try {
     const row = await db.setting.findUnique({ where: { key: KEY } });
     if (row) saved = JSON.parse(row.value);

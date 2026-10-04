@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { getSiteSettings } from "@/lib/settings";
+import { getPublicCounts } from "@/lib/stats";
+import { formatNumber } from "@/lib/format";
 
 export default async function Footer() {
-  const { socials } = await getSiteSettings();
+  const [{ socials }, { families }] = await Promise.all([getSiteSettings(), getPublicCounts()]);
   const visible = socials.filter((s) => s.enabled && s.url);
   return (
     <footer className="footer">
@@ -11,11 +13,11 @@ export default async function Footer() {
           <div>
             <div style={{ fontWeight: 800, fontSize: 22, letterSpacing: "-.03em" }}>Feekr</div>
             <p className="muted" style={{ maxWidth: 320, marginTop: 12, color: "rgba(255,255,255,.6)" }}>
-              Mustaqil shrift ombori. Dizaynerlar va brendlar uchun 2000+ oila.
+              Bepul shriftlar kutubxonasi.{families > 0 ? ` ${formatNumber(families)} ta oila — hammasi bepul.` : ""}
             </p>
           </div>
           <div className="col">
-            <h4>Shriftlar</h4>
+            <h2>Shriftlar</h2>
             <Link href="/fonts">Barcha shriftlar</Link>
             <Link href="/pairs">Juftliklar</Link>
             <Link href="/fonts?cat=Sans">Sans-serif</Link>
@@ -23,7 +25,7 @@ export default async function Footer() {
             <Link href="/fonts?cat=Serif">Serif</Link>
           </div>
           <div className="col">
-            <h4>Kompaniya</h4>
+            <h2>Kompaniya</h2>
             <Link href="/about">Biz haqimizda</Link>
             <Link href="/blog">Blog</Link>
             <Link href="/support">Yordam</Link>
@@ -31,7 +33,7 @@ export default async function Footer() {
           </div>
           {visible.length > 0 && (
             <div className="col">
-              <h4>Ijtimoiy</h4>
+              <h2>Ijtimoiy</h2>
               {visible.map((s) => (
                 <a key={s.key} href={s.url} target="_blank" rel="noreferrer noopener">{s.label}</a>
               ))}

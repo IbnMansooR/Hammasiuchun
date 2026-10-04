@@ -6,22 +6,21 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Feekr — Mustaqil shrift ombori",
+    default: "Feekr — Bepul shriftlar kutubxonasi",
     template: "%s — Feekr",
   },
   description:
-    "Feekr — dizaynerlar va brendlar uchun mustaqil shrift ombori. 2000+ shrift oilasi, bepul demo va litsenziyalar.",
+    "Feekr — dizaynerlar va brendlar uchun bepul shriftlar kutubxonasi. Oʻzbek lotin va kirill yozuvini qoʻllab-quvvatlaydigan shriftlar, sinab koʻrish va bir bosishda yuklab olish.",
   icons: { icon: "/assets/favicon.png" },
   openGraph: {
     type: "website",
     siteName: "Feekr",
     locale: "uz_UZ",
-    title: "Feekr — Mustaqil shrift ombori",
-    description: "2000+ shrift oilasi, bepul demo va litsenziyalar.",
-    // Placeholder share image (square logo) until a 1200×630 card is designed.
-    images: [{ url: "/assets/logo-full.png", width: 1080, height: 1081, alt: "Feekr" }],
+    title: "Feekr — Bepul shriftlar kutubxonasi",
+    description: "Bepul shriftlar: sinab koʻring va bir bosishda yuklab oling.",
+    // og:image comes from app/opengraph-image.tsx (and a per-font one under /fonts/[slug]).
   },
-  twitter: { card: "summary" },
+  twitter: { card: "summary_large_image" },
 };
 
 export const viewport: Viewport = {

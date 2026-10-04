@@ -1,25 +1,10 @@
-import { db } from "@/lib/db";
 import { formatNumber } from "@/lib/format";
-import { PUBLIC_FAMILY } from "@/lib/license";
+import { getPublicCounts } from "@/lib/stats";
 
 export const metadata = { title: "Biz haqimizda" };
-// Refresh periodically so the counts don't stay frozen at build time.
-export const revalidate = 3600;
-
-async function counts(): Promise<[number, number]> {
-  // Never let a build-time DB hiccup fail prerender; revalidate fills real values.
-  try {
-    return await Promise.all([
-      db.family.count({ where: PUBLIC_FAMILY }),
-      db.style.count({ where: { family: PUBLIC_FAMILY } }),
-    ]);
-  } catch {
-    return [2000, 10000];
-  }
-}
 
 export default async function AboutPage() {
-  const [families, styles] = await counts();
+  const { families, styles } = await getPublicCounts();
   return (
     <div className="container section" style={{ paddingTop: 40 }}>
       <div style={{ maxWidth: 820 }}>

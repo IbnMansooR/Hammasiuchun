@@ -24,12 +24,12 @@ export default async function EditFont({
       <style dangerouslySetInnerHTML={{ __html: faceCSS }} />
       <div className="adm-head">
         <h1 style={{ margin: 0 }}>{f.name}</h1>
-        <a href={`/fonts/${slug}`} target="_blank" className="btn btn-sm">↗ Saytda ko&apos;rish</a>
+        <a href={`/fonts/${slug}`} target="_blank" className="btn btn-sm">↗ Saytda koʻrish</a>
       </div>
 
       {(saved || uploaded) && (
         <div style={{ background: "#e7f8f0", color: "#065f46", padding: "10px 14px", borderRadius: 10, fontSize: 14, marginBottom: 18 }}>
-          {uploaded ? "Shrift muvaffaqiyatli yuklandi." : "O'zgarishlar saqlandi."}
+          {uploaded ? "Shrift muvaffaqiyatli yuklandi." : "Oʻzgarishlar saqlandi."}
         </div>
       )}
 
@@ -83,18 +83,18 @@ export default async function EditFont({
         </div>
         <div className="field">
           <label>Slogan (tagline)</label>
-          <input type="text" name="tagline" defaultValue={f.tagline ?? ""} placeholder="Qisqa ta'rif" />
+          <input type="text" name="tagline" defaultValue={f.tagline ?? ""} placeholder="Qisqa taʼrif" />
         </div>
         <div className="field">
           <label>Tavsif (asosiy matn / CTA)</label>
-          <textarea name="description" rows={4} defaultValue={f.description ?? ""} placeholder="Bo'sh qoldirsangiz metadata asosida avtomatik matn ko'rsatiladi." />
+          <textarea name="description" rows={4} defaultValue={f.description ?? ""} placeholder="Boʻsh qoldirsangiz metadata asosida avtomatik matn koʻrsatiladi." />
         </div>
         <div className="field">
           <label>Tarixi</label>
           <textarea name="history" rows={3} defaultValue={f.history ?? ""} />
         </div>
         <div className="field">
-          <label>Qo&apos;llanilishi</label>
+          <label>Qoʻllanilishi</label>
           <textarea name="usage" rows={3} defaultValue={f.usage ?? ""} />
         </div>
         <div style={{ display: "flex", gap: 22, flexWrap: "wrap", margin: "8px 0 22px" }}>

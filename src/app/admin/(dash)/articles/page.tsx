@@ -29,14 +29,14 @@ export default async function ArticlesList() {
                   <form action={deleteArticleAction}>
                     <input type="hidden" name="id" value={a.id} />
                     <ConfirmButton className="chip" style={{ color: "#b91c1c" }} message="Maqola oʻchirilsinmi? Bu amalni qaytarib boʻlmaydi.">
-                      O&apos;chirish
+                      Oʻchirish
                     </ConfirmButton>
                   </form>
                 </div>
               </td>
             </tr>
           ))}
-          {posts.length === 0 && <tr><td colSpan={5} className="muted">Hali maqola yo&apos;q.</td></tr>}
+          {posts.length === 0 && <tr><td colSpan={5} className="muted">Hali maqola yoʻq.</td></tr>}
         </tbody>
       </table>
     </>

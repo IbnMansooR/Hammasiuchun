@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/userAuth";
 import { userLoginAction } from "../account/actions";
 import { googleEnabled } from "@/lib/googleAuth";
 import { smsEnabled } from "@/lib/eskiz";
+import { mailEnabled } from "@/lib/mailer";
 import SubmitButton from "@/components/SubmitButton";
 import AuthTabs from "@/components/AuthTabs";
 
@@ -34,17 +35,27 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <p className="muted" style={{ fontSize: 14, marginBottom: 22 }}>Hisobingizga kiring.</p>
         {error === "1" && (
           <div style={{ background: "#fdecec", color: "#b91c1c", padding: "10px 12px", borderRadius: 10, fontSize: 13.5, marginBottom: 16 }}>
-            Email yoki parol noto&apos;g&apos;ri.
+            Email yoki parol notoʻgʻri.
+          </div>
+        )}
+        {error === "locked" && (
+          <div style={{ background: "#fdecec", color: "#b91c1c", padding: "10px 12px", borderRadius: 10, fontSize: 13.5, marginBottom: 16 }}>
+            Juda koʻp notoʻgʻri urinish. Iltimos, 15 daqiqadan soʻng qayta urining.
           </div>
         )}
         {error === "google" && (
           <div style={{ background: "#fdecec", color: "#b91c1c", padding: "10px 12px", borderRadius: 10, fontSize: 13.5, marginBottom: 16 }}>
-            Google orqali kirishda xatolik yuz berdi. Qaytadan urinib ko&apos;ring.
+            Google orqali kirishda xatolik yuz berdi. Qaytadan urinib koʻring.
           </div>
         )}
         <AuthTabs emailForm={emailForm} googleEnabled={googleEnabled} smsEnabled={smsEnabled} />
+        {mailEnabled && (
+          <p style={{ fontSize: 13.5, marginTop: 14, textAlign: "center" }}>
+            <Link href="/forgot">Parolni unutdingizmi?</Link>
+          </p>
+        )}
         <p className="muted" style={{ fontSize: 13.5, marginTop: 18, textAlign: "center" }}>
-          Hisobingiz yo&apos;qmi? <Link href="/register">Ro&apos;yxatdan o&apos;tish</Link>
+          Hisobingiz yoʻqmi? <Link href="/register">Roʻyxatdan oʻtish</Link>
         </p>
       </div>
     </div>

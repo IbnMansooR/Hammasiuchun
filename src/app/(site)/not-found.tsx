@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+export const metadata = { title: "Sahifa topilmadi", robots: { index: false } };
+
 export default function NotFound() {
   return (
     <div className="container section" style={{ paddingTop: 60, textAlign: "center" }}>

@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { logoutAction } from "../actions";
 
+// Admin is always per-request (auth + live data): never try to prerender it at build.
+export const dynamic = "force-dynamic";
+
 const NAV = [
   { href: "/admin", label: "Boshqaruv" },
   { href: "/admin/orders", label: "Buyurtmalar" },

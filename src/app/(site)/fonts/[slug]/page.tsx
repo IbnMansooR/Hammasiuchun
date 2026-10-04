@@ -105,7 +105,7 @@ export default async function FontDetail({ params }: { params: Promise<{ slug: s
                 <div className="txt" style={{ fontFamily: `"${styleFamily(slug, s.style)}", var(--font)`, fontWeight: s.weight, fontStyle: s.italic ? "italic" : "normal" }}>
                   {sample}
                 </div>
-                <div className="lbl">{s.subfamily || s.style}</div>
+                <div className="lbl">{s.subfamily || s.style} · {s.weight}</div>
               </div>
             ))}
           </div>
