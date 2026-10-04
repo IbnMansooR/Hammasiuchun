@@ -157,7 +157,7 @@ export default function Tester({
           {(["left", "center", "right"] as Align[]).map((a) => (
             <button key={a} type="button" className={`chip${align === a ? " active" : ""}`} aria-pressed={align === a} onClick={() => setAlign(a)}
               aria-label={a === "left" ? "Chapga" : a === "center" ? "Markazga" : "Oʻngga"}>
-              {a === "left" ? "⟸" : a === "center" ? "⇔" : "⟹"}
+              <AlignIcon align={a} />
             </button>
           ))}
         </div>
@@ -193,5 +193,15 @@ export default function Tester({
         }}
       />
     </div>
+  );
+}
+
+// Classic "text align" glyph: four lines, the short ones pushed to the chosen side.
+function AlignIcon({ align }: { align: Align }) {
+  const x = (w: number) => (align === "left" ? 2 : align === "center" ? (16 - w) / 2 : 14 - w);
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">
+      {[12, 8, 12, 8].map((w, i) => <rect key={i} x={x(w)} y={2 + i * 3.5} width={w} height="1.8" rx="0.9" />)}
+    </svg>
   );
 }

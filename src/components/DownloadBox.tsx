@@ -22,8 +22,8 @@ export default function DownloadBox({
       </a>
 
       <button
-        className="btn"
-        style={{ width: "100%", justifyContent: "center", marginTop: 10, borderColor: wished ? "var(--accent)" : undefined, color: wished ? "var(--accent)" : undefined }}
+        className={`btn${wished ? " btn-on" : ""}`}
+        style={{ width: "100%", justifyContent: "center", marginTop: 10 }}
         aria-pressed={wished}
         onClick={() => toggleWish({ slug, name })}
       >

@@ -63,6 +63,8 @@ p { margin: 0 0 1em; }
 .btn-light { border-color: rgba(255,255,255,.4); color: #fff; }
 .btn-light:hover { background: #fff; color: var(--dark); border-color: #fff; }
 .btn-sm { padding: 8px 16px; font-size: 0.8125rem; }
+.btn-on { border-color: var(--accent); color: var(--accent); }
+.btn-on:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 /* ---------- badges ---------- */
 .badge {
@@ -120,7 +122,8 @@ p { margin: 0 0 1em; }
 }
 
 /* ---------- section ---------- */
-.section { padding: 56px 0; }
+/* Vertical only — `.container section` must keep the container's side gutter. */
+.section { padding-top: 56px; padding-bottom: 56px; }
 .section-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 26px; gap: 20px; }
 .section-head h2 { font-size: clamp(26px, 3vw, 40px); }
 .eyebrow { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .14em; color: var(--accent); margin-bottom: 12px; }
@@ -182,7 +185,9 @@ p { margin: 0 0 1em; }
 .tester-input { width: 100%; border: none; outline: none; resize: none; padding: 26px 22px; font-size: 4.5rem; line-height: 1.1; letter-spacing: -.02em; font-family: inherit; }
 .style-row { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; padding: 20px 18px; margin: 0 -18px; border-top: 1px solid var(--line); border-radius: 12px; transition: background .18s ease; }
 .style-row:hover { background: var(--soft); }
-.style-row .txt { flex: 1 1 auto; min-width: 0; font-size: clamp(28px, 4vw, 46px); line-height: 1; overflow: hidden; white-space: nowrap; transition: opacity .18s; }
+.style-row .txt { flex: 1 1 auto; min-width: 0; font-size: clamp(28px, 4vw, 46px); line-height: 1; overflow: hidden; white-space: nowrap; transition: opacity .18s;
+  /* fade the overflow instead of slicing a letter in half */
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 56px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 56px), transparent); }
 .style-row .lbl { flex-shrink: 0; font-size: 0.8125rem; color: var(--muted); white-space: nowrap; transition: color .18s; }
 .style-row:hover .lbl { color: var(--accent); }
 
