@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { db } from "@/lib/db";
 import { FREEWARE_WARNING, LICENSE_NOTE, isRedistributable } from "@/lib/license";
 import { readFont } from "@/lib/storage";
@@ -62,6 +63,8 @@ export async function GET(
     });
 
     const dlName = `${base}.zip`;
+    // Count it once the file is on its way; a failed counter never blocks a download.
+    after(() => db.family.update({ where: { slug }, data: { downloads: { increment: 1 } } }).catch(() => {}));
     return new Response(new Uint8Array(content), {
       headers: {
         "Content-Type": "application/zip",

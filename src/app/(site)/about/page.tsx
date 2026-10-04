@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { formatNumber } from "@/lib/format";
-import { getPublicCounts } from "@/lib/stats";
+import { getPublicCounts, DOWNLOADS_SHOWN_FROM } from "@/lib/stats";
+import Facts from "@/components/Facts";
 import { IconArrow } from "@/components/Icons";
 
 export const metadata = { title: "Biz haqimizda", description: "Feekr — oʻzbek tili uchun bepul shriftlar kutubxonasi.", alternates: { canonical: "/about" } };
@@ -12,7 +13,7 @@ const PRINCIPLES = [
 ];
 
 export default async function AboutPage() {
-  const { families, styles } = await getPublicCounts();
+  const { families, styles, downloads } = await getPublicCounts();
   return (
     <div className="container">
       <header className="page-head narrow">
@@ -24,12 +25,12 @@ export default async function AboutPage() {
         </p>
       </header>
 
-      <dl className="hero-facts" style={{ marginTop: 8 }}>
-        <div><dt className="sr-only">Oilalar</dt><dd style={{ margin: 0 }}><b>{formatNumber(families)}</b><span>shrift oilasi</span></dd></div>
-        <div><dt className="sr-only">Uslublar</dt><dd style={{ margin: 0 }}><b>{formatNumber(styles)}</b><span>uslub va kesim</span></dd></div>
-        <div><dt className="sr-only">Narx</dt><dd style={{ margin: 0 }}><b>0 soʻm</b><span>har bir yuklab olish</span></dd></div>
-        <div><dt className="sr-only">Joylashuv</dt><dd style={{ margin: 0 }}><b>Toshkent</b><span>Oʻzbekiston</span></dd></div>
-      </dl>
+      <Facts style={{ marginTop: 8 }} items={[
+        [formatNumber(families), "shrift oilasi"],
+        [formatNumber(styles), "uslub va kesim"],
+        ...(downloads >= DOWNLOADS_SHOWN_FROM ? [[formatNumber(downloads), "marta yuklab olingan"] as [string, string]] : []),
+        ["Toshkent", "Oʻzbekiston"],
+      ]} />
 
       <section className="section" aria-labelledby="p-h">
         <div className="section-head"><h2 id="p-h">Tamoyillarimiz</h2></div>

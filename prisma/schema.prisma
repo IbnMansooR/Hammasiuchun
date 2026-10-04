@@ -40,6 +40,7 @@ model Family {
   isFeatured  Boolean  @default(false)
   isNew       Boolean  @default(false)
   popularity  Int      @default(0)
+  downloads   Int      @default(0) // ZIP + single-cut downloads, counted by the download routes
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

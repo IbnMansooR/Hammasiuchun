@@ -2,13 +2,14 @@ import Link from "next/link";
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { PUBLIC_FAMILY } from "@/lib/license";
-import { CATALOG_TAG } from "@/lib/stats";
+import { CATALOG_TAG, DOWNLOADS_SHOWN_FROM } from "@/lib/stats";
 import { getPairings } from "@/lib/pairs";
 import { CardCover } from "@/components/Cover";
 import { fetchCards, cardsFaceCSS, cardFontStyle, type CardFont } from "@/lib/queries";
 import { CATEGORIES, CATEGORY_LABEL, styleFamily, webfontUrl } from "@/lib/fonts";
 import { formatDate, formatNumber } from "@/lib/format";
 import FontCard from "@/components/FontCard";
+import Facts from "@/components/Facts";
 import { PreviewText } from "@/components/PreviewProvider";
 import HeroRotator from "@/components/home/HeroRotator";
 import HeroTypebar from "@/components/home/HeroTypebar";
@@ -20,7 +21,7 @@ export const dynamic = "force-dynamic";
 
 const getHomeData = unstable_cache(
   async () => {
-    const [newest, posts, families, styles, cyrillic, showcasePool, catCounts, catReps, pairings] = await Promise.all([
+    const [newest, posts, families, styles, cyrillic, showcasePool, catCounts, catReps, pairings, dl] = await Promise.all([
       fetchCards({ where: PUBLIC_FAMILY, orderBy: [{ isNew: "desc" }, { popularity: "desc" }, { name: "asc" }], take: 6 }),
       db.article.findMany({
         where: { isPublished: true }, orderBy: { publishedAt: "desc" }, take: 3,
@@ -33,10 +34,11 @@ const getHomeData = unstable_cache(
       db.family.groupBy({ by: ["category"], where: PUBLIC_FAMILY, _count: true }),
       Promise.all(CATEGORIES.map((c) => fetchCards({ where: { ...PUBLIC_FAMILY, category: c }, orderBy: [{ popularity: "desc" }, { name: "asc" }], take: 1 }))),
       getPairings(),
+      db.family.aggregate({ _sum: { downloads: true } }),
     ]);
-    return { newest, posts, families, styles, cyrillic, showcasePool, catCounts, catReps: catReps.map((r) => r[0] ?? null), pairings: pairings.slice(0, 2) };
+    return { newest, posts, families, styles, cyrillic, showcasePool, catCounts, catReps: catReps.map((r) => r[0] ?? null), pairings: pairings.slice(0, 2), downloads: dl._sum.downloads ?? 0 };
   },
-  ["home-data-v2"],
+  ["home-data-v3"],
   { revalidate: 300, tags: [CATALOG_TAG] },
 );
 
@@ -52,7 +54,7 @@ function pick<T>(arr: T[], n: number): T[] {
 const TYPE_LABEL: Record<string, string> = { blog: "Blog", news: "Yangilik", article: "Maqola" };
 
 export default async function HomePage() {
-  const { newest, posts, families, styles, cyrillic, showcasePool, catCounts, catReps, pairings } = await getHomeData();
+  const { newest, posts, families, styles, cyrillic, showcasePool, catCounts, catReps, pairings, downloads } = await getHomeData();
 
   // One family per category gives the rotating headline its range of voices.
   const rotator = catReps.filter((c): c is CardFont => !!c && c.hasLatin && c.category !== "Dingbat");
@@ -95,12 +97,12 @@ export default async function HomePage() {
           </div>
         </div>
         <div className="typebar-wrap"><HeroTypebar /></div>
-        <dl className="hero-facts">
-          <div><dt className="sr-only">Shrift oilalari</dt><dd style={{ margin: 0 }}><b>{formatNumber(families)}</b><span>shrift oilasi</span></dd></div>
-          <div><dt className="sr-only">Uslublar</dt><dd style={{ margin: 0 }}><b>{formatNumber(styles)}</b><span>uslub va kesim</span></dd></div>
-          <div><dt className="sr-only">Kirill</dt><dd style={{ margin: 0 }}><b>{formatNumber(cyrillic)}</b><span>kirill yozuvli oila</span></dd></div>
-          <div><dt className="sr-only">Narx</dt><dd style={{ margin: 0 }}><b>0 soʻm</b><span>har bir yuklab olish</span></dd></div>
-        </dl>
+        <Facts items={[
+          [formatNumber(families), "shrift oilasi"],
+          [formatNumber(styles), "uslub va kesim"],
+          [formatNumber(cyrillic), "kirill yozuvli oila"],
+          ...(downloads >= DOWNLOADS_SHOWN_FROM ? [[formatNumber(downloads), "marta yuklab olingan"] as [string, string]] : []),
+        ]} />
       </section>
 
       {/* Featured specimens */}

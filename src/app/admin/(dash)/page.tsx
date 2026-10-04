@@ -2,11 +2,12 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { formatDate, formatNumber } from "@/lib/format";
 import { PUBLIC_FAMILY } from "@/lib/license";
+import { DOWNLOADS_SHOWN_FROM } from "@/lib/stats";
 
 export const metadata = { title: "Admin — Boshqaruv" };
 
 export default async function Dashboard() {
-  const [families, publicFamilies, styles, articles, media, drafts, recent, newOrders] = await Promise.all([
+  const [families, publicFamilies, styles, articles, media, drafts, recent, newOrders, dl] = await Promise.all([
     db.family.count(),
     db.family.count({ where: PUBLIC_FAMILY }),
     db.style.count(),
@@ -15,7 +16,9 @@ export default async function Dashboard() {
     db.article.count({ where: { isPublished: false } }),
     db.article.findMany({ orderBy: { updatedAt: "desc" }, take: 5 }),
     db.order.count({ where: { status: "new" } }),
+    db.family.aggregate({ _sum: { downloads: true } }),
   ]);
+  const downloads = dl._sum.downloads ?? 0;
   return (
     <>
       <div className="adm-head">
@@ -24,6 +27,7 @@ export default async function Dashboard() {
       </div>
       <div className="stat-grid">
         <div className="stat"><div className="n">{formatNumber(publicFamilies)}</div><div className="l">Saytda (jami {formatNumber(families)})</div></div>
+        <div className="stat"><div className="n">{formatNumber(downloads)}</div><div className="l">Yuklab olishlar{downloads < DOWNLOADS_SHOWN_FROM ? ` (saytda ${DOWNLOADS_SHOWN_FROM} dan keyin koʻrinadi)` : ""}</div></div>
         <div className="stat"><div className="n">{formatNumber(styles)}</div><div className="l">Uslub</div></div>
         <div className="stat"><div className="n">{articles}</div><div className="l">Maqola ({drafts} qoralama)</div></div>
         <div className="stat"><div className="n">{media}</div><div className="l">Rasm</div></div>

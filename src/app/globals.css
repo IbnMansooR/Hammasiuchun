@@ -331,7 +331,7 @@ select.sel { width: auto; height: 34px; padding: 0 32px 0 14px; border-radius: 9
 .hero-side { padding-bottom: 14px; }
 .hero-side .lead { margin-bottom: 24px; }
 .hero-cta { display: flex; flex-wrap: wrap; gap: 10px; }
-.hero-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 56px; border-top: 1px solid var(--line); }
+.hero-facts { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); margin-top: 56px; border-top: 1px solid var(--line); }
 .hero-facts > div { padding: 18px 20px 0 0; }
 .hero-facts > div + div { padding-left: 20px; border-left: 1px solid var(--line); }
 .hero-facts b { display: block; font-family: var(--font-display); font-weight: 500; font-size: clamp(26px, 2.6vw, 36px); letter-spacing: -.03em; line-height: 1.05; font-variant-numeric: lining-nums; }

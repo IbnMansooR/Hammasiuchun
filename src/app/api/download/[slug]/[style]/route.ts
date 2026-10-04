@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { db } from "@/lib/db";
 import { isRedistributable } from "@/lib/license";
 import { readFont } from "@/lib/storage";
@@ -39,6 +40,8 @@ export async function GET(
 
     const base = fam.name.replace(/[^A-Za-z0-9]+/g, "") || slug;
     const dlName = `${base}-${st.style}.${st.ext}`;
+    // Count it once the file is on its way; a failed counter never blocks a download.
+    after(() => db.family.update({ where: { slug }, data: { downloads: { increment: 1 } } }).catch(() => {}));
     return new Response(new Uint8Array(buf), {
       headers: {
         "Content-Type": MIME[st.ext] ?? "application/octet-stream",
