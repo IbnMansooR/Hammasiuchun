@@ -238,15 +238,15 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* Portfolio */}
+      {/* Dizaynerlar */}
       {works.length > 0 && (
         <section className="container section cv" style={{ paddingTop: 0 }} aria-labelledby="works-h">
           <div className="section-head">
             <div>
-              <h2 id="works-h">Portfolio</h2>
+              <h2 id="works-h">Dizaynerlar</h2>
               <p>Shriftlar amalda: brending, qadoq va tipografiya loyihalari.</p>
             </div>
-            <Link href="/portfolio" className="arrow-link">Barcha ishlar <IconArrow /></Link>
+            <Link href="/dizaynerlar" className="arrow-link">Barcha ishlar <IconArrow /></Link>
           </div>
           <div className="pf-grid pf-grid-3">
             {works.map((w) => <WorkCard key={w.slug} w={w} />)}

@@ -1,4 +1,4 @@
-// Portfolio ("Work") helpers shared by the public pages and the admin.
+// "Dizaynerlar" section (Work model) helpers shared by the public pages and the admin.
 import { unstable_cache } from "next/cache";
 import { db, isBuildPhase } from "./db";
 

@@ -20,11 +20,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     select: { title: true, summary: true, coverImage: true, isPublished: true, kind: true, authorName: true },
   });
   if (!w || !w.isPublished) return {};
-  const description = w.summary ?? (w.kind === "partner" && w.authorName ? `${w.authorName} ishi — Feekr portfoliosida.` : undefined);
+  const description = w.summary ?? (w.kind === "partner" && w.authorName ? `${w.authorName} ishi — Feekr’ning “Dizaynerlar” boʻlimida.` : undefined);
   return {
     title: w.title,
     description,
-    alternates: { canonical: `/portfolio/${slug}` },
+    alternates: { canonical: `/dizaynerlar/${slug}` },
     openGraph: { title: w.title, description, type: "article", images: w.coverImage ? [{ url: abs(w.coverImage) }] : undefined },
     twitter: { card: w.coverImage ? "summary_large_image" : "summary" },
   };
@@ -67,7 +67,7 @@ export default async function WorkPage({ params }: { params: Promise<{ slug: str
     image: w.coverImage ? abs(w.coverImage) : undefined,
     dateCreated: w.year ? String(w.year) : undefined,
     creator: w.authorName ? { "@type": partner ? "Person" : "Organization", name: w.authorName, url: w.authorUrl ?? undefined } : { "@type": "Organization", name: "Feekr" },
-    url: `${SITE_URL}/portfolio/${w.slug}`,
+    url: `${SITE_URL}/dizaynerlar/${w.slug}`,
   };
 
   return (
@@ -76,7 +76,7 @@ export default async function WorkPage({ params }: { params: Promise<{ slug: str
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
 
       <nav className="crumbs" aria-label="Yoʻl">
-        <Link href="/portfolio">Portfolio</Link>
+        <Link href="/dizaynerlar">Dizaynerlar</Link>
         <IconChevron />
         <span>{KIND_LABEL[w.kind] ?? "Ish"}</span>
       </nav>
@@ -123,7 +123,7 @@ export default async function WorkPage({ params }: { params: Promise<{ slug: str
       {partner && (
         <aside className="work-partner">
           <p>
-            Bu ish {w.authorName ? <b>{w.authorName}</b> : "hamkor dizayner"} tomonidan yaratilgan va Feekr portfoliosida hamkorlik asosida koʻrsatilmoqda.
+            Bu ish {w.authorName ? <b>{w.authorName}</b> : "hamkor dizayner"} tomonidan yaratilgan va Feekr’ning “Dizaynerlar” boʻlimida hamkorlik asosida koʻrsatilmoqda.
           </p>
           {w.authorUrl && (
             <a className="btn" href={w.authorUrl} target="_blank" rel="noreferrer noopener">
@@ -141,7 +141,7 @@ export default async function WorkPage({ params }: { params: Promise<{ slug: str
       )}
 
       {next && next.slug !== w.slug && (
-        <Link href={`/portfolio/${next.slug}`} className="work-next">
+        <Link href={`/dizaynerlar/${next.slug}`} className="work-next">
           <span className="label">Keyingi ish</span>
           <span className="work-next-title">{next.title} <IconArrow /></span>
         </Link>

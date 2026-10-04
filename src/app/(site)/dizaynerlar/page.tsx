@@ -5,9 +5,9 @@ import WorkCard from "@/components/WorkCard";
 import { IconArrow } from "@/components/Icons";
 
 export const metadata: Metadata = {
-  title: "Portfolio",
-  description: "Feekr dizayn ishlari va hamkor dizaynerlar portfoliosi: brending, logotip, qadoq va tipografiya loyihalari.",
-  alternates: { canonical: "/portfolio" },
+  title: "Dizaynerlar",
+  description: "Dizaynerlar: Feekr jamoasi va hamkor dizaynerlarning brending, logotip, qadoq va tipografiya ishlari.",
+  alternates: { canonical: "/dizaynerlar" },
 };
 
 const KINDS = [
@@ -16,7 +16,7 @@ const KINDS = [
   { key: "partner", label: "Hamkorlar" },
 ] as const;
 
-export default async function PortfolioPage({ searchParams }: { searchParams: Promise<{ kind?: string; tag?: string }> }) {
+export default async function DesignersPage({ searchParams }: { searchParams: Promise<{ kind?: string; tag?: string }> }) {
   const sp = await searchParams;
   const kind = sp.kind === "own" || sp.kind === "partner" ? sp.kind : "";
   const tag = (sp.tag ?? "").trim();
@@ -38,15 +38,15 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
     if (k) u.set("kind", k);
     if (t) u.set("tag", t);
     const s = u.toString();
-    return s ? `/portfolio?${s}` : "/portfolio";
+    return s ? `/dizaynerlar?${s}` : "/dizaynerlar";
   };
 
   return (
     <div className="container">
       <header className="page-head">
-        <div className="eyebrow">Portfolio</div>
-        <h1>Ishlar</h1>
-        <p className="lead">Brending, logotip, qadoq va tipografiya loyihalari — oʻzimizniki va biz tavsiya qiladigan dizaynerlarniki.</p>
+        <div className="eyebrow">Ishlar</div>
+        <h1>Dizaynerlar</h1>
+        <p className="lead">Brending, logotip, qadoq va tipografiya loyihalari — Feekr jamoasi va biz tavsiya qiladigan dizaynerlardan.</p>
       </header>
 
       {all.length > 0 && (
@@ -72,7 +72,7 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
         <div className="empty">
           <p className="display">{filtered ? "Bu boʻlimda hali ish yoʻq" : "Tez orada"}</p>
           <p>{filtered ? "Boshqa filtrni tanlab koʻring." : "Birinchi loyihalar shu yerda paydo boʻladi."}</p>
-          {filtered && <Link href="/portfolio" className="btn">Barcha ishlar</Link>}
+          {filtered && <Link href="/dizaynerlar" className="btn">Barcha ishlar</Link>}
         </div>
       ) : (
         <>

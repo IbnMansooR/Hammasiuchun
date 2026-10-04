@@ -26,7 +26,7 @@ export default async function DashLayout({ children }: { children: React.ReactNo
       items: [
         { href: "/admin/fonts", label: "Shriftlar" },
         { href: "/admin/fonts/upload", label: "Shrift yuklash" },
-        { href: "/admin/works", label: "Portfolio", badge: drafts },
+        { href: "/admin/works", label: "Dizaynerlar", badge: drafts },
         { href: "/admin/articles", label: "Maqolalar" },
         { href: "/admin/media", label: "Rasmlar" },
       ],

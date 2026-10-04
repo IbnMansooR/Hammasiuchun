@@ -7,7 +7,7 @@ import { PUBLIC_FAMILY } from "@/lib/license";
 // under the 50k-URL sitemap limit.
 export const dynamic = "force-dynamic";
 
-const STATIC = ["", "/fonts", "/pairs", "/portfolio", "/blog", "/about", "/license", "/support"];
+const STATIC = ["", "/fonts", "/pairs", "/dizaynerlar", "/blog", "/about", "/license", "/support"];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [families, articles, works] = await Promise.all([
@@ -19,6 +19,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...STATIC.map((p) => ({ url: `${SITE_URL}${p}` })),
     ...families.map((f) => ({ url: `${SITE_URL}/fonts/${f.slug}`, lastModified: f.updatedAt })),
     ...articles.map((a) => ({ url: `${SITE_URL}/blog/${a.slug}`, lastModified: a.updatedAt })),
-    ...works.map((w) => ({ url: `${SITE_URL}/portfolio/${w.slug}`, lastModified: w.updatedAt })),
+    ...works.map((w) => ({ url: `${SITE_URL}/dizaynerlar/${w.slug}`, lastModified: w.updatedAt })),
   ];
 }

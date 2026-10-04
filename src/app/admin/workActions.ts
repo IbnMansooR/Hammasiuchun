@@ -22,8 +22,8 @@ function httpsOrNull(raw: string): string | null {
 
 function revalidateWorks(slugs: string[], fonts: string[]) {
   revalidateTag(WORKS_TAG);
-  revalidatePath("/portfolio");
-  for (const s of slugs) revalidatePath(`/portfolio/${s}`);
+  revalidatePath("/dizaynerlar");
+  for (const s of slugs) revalidatePath(`/dizaynerlar/${s}`);
   for (const f of fonts) revalidatePath(`/fonts/${f}`);
   revalidatePath("/");
   revalidatePath("/admin/works");

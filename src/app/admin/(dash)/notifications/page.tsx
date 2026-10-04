@@ -54,7 +54,7 @@ export default async function NotificationsAdmin({ searchParams }: { searchParam
           </div>
           <div className="field">
             <label htmlFor="b-link">Havola (ixtiyoriy)</label>
-            <input id="b-link" type="text" name="link" placeholder="/portfolio yoki https://…" />
+            <input id="b-link" type="text" name="link" placeholder="/dizaynerlar yoki https://…" />
           </div>
           <ConfirmButton className="btn btn-accent btn-sm" message="Xabar tanlangan barcha foydalanuvchilarga yuborilsinmi?">Yuborish</ConfirmButton>
         </form>

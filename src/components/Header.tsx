@@ -11,7 +11,7 @@ import { IconArrow, IconBell, IconClose, IconHeart, IconMenu, IconSearch, IconUs
 const NAV = [
   { href: "/fonts", label: "Shriftlar" },
   { href: "/pairs", label: "Juftliklar" },
-  { href: "/portfolio", label: "Portfolio" },
+  { href: "/dizaynerlar", label: "Dizaynerlar" },
   { href: "/blog", label: "Jurnal" },
   { href: "/about", label: "Biz haqimizda" },
 ];

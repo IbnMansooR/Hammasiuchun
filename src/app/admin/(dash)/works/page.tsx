@@ -7,7 +7,7 @@ import Notice from "@/components/admin/Notice";
 import ConfirmButton from "@/components/ConfirmButton";
 import { IconImage } from "@/components/Icons";
 
-export const metadata = { title: "Admin — Portfolio" };
+export const metadata = { title: "Admin — Dizaynerlar" };
 
 export default async function WorksAdmin({ searchParams }: { searchParams: Promise<{ ok?: string }> }) {
   const { ok } = await searchParams;
@@ -18,11 +18,11 @@ export default async function WorksAdmin({ searchParams }: { searchParams: Promi
     <>
       <div className="adm-head">
         <div>
-          <h1>Portfolio</h1>
+          <h1>Dizaynerlar</h1>
           <p className="adm-sub">Oʻz ishlaringiz va reklama qilinadigan hamkor dizaynerlar ishlari · {published} ta saytda</p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <Link href="/portfolio" target="_blank" className="btn btn-sm">Sahifani ochish</Link>
+          <Link href="/dizaynerlar" target="_blank" className="btn btn-sm">Sahifani ochish</Link>
           <Link href="/admin/works/new" className="btn btn-accent btn-sm">+ Yangi ish</Link>
         </div>
       </div>
@@ -33,7 +33,7 @@ export default async function WorksAdmin({ searchParams }: { searchParams: Promi
         <div className="adm-card adm-pad adm-blank">
           <IconImage />
           <h2>Birinchi ishingizni qoʻshing</h2>
-          <p className="muted">Rasmlarni yuklang, qaysi shriftlar ishlatilganini belgilang — ish /portfolio sahifasida va shrift sahifalarida chiqadi.</p>
+          <p className="muted">Rasmlarni yuklang, qaysi shriftlar ishlatilganini belgilang — ish “Dizaynerlar” sahifasida va shrift sahifalarida chiqadi.</p>
           <Link href="/admin/works/new" className="btn btn-accent btn-sm">+ Yangi ish</Link>
         </div>
       ) : (

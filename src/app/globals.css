@@ -665,7 +665,7 @@ select.sel { width: auto; height: 34px; padding: 0 32px 0 14px; border-radius: 9
 .footer-bottom { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 22px 0 28px; border-top: 1px solid var(--footer-line); color: var(--footer-muted); font-size: 13px; }
 .footer-bottom a:hover { color: var(--footer-fg); }
 
-/* ---------- portfolio ---------- */
+/* ---------- dizaynerlar (portfolio) ---------- */
 .pf-filters { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 32px; }
 .seg-link { display: inline-grid; place-items: center; height: 32px; padding: 0 14px; border-radius: 999px; color: var(--muted); font-size: 13px; font-weight: 500; transition: background .15s, color .15s; }
 .seg-link:hover { color: var(--fg); }
@@ -823,7 +823,7 @@ form:has(input[name="period"][value="custom"]:checked) .adm-until { display: fle
 .media-item img { width: 100%; aspect-ratio: 1; object-fit: cover; background: var(--subtle); }
 .media-item .mrow { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; font-size: 12px; }
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 22px; }
-/* portfolio manager */
+/* dizaynerlar manager */
 .adm-works { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
 .adm-works > li { display: grid; grid-template-columns: 176px minmax(0, 1fr); gap: 20px; padding: 12px; }
 .adm-work-cover { display: grid; place-items: center; aspect-ratio: 4 / 3; border-radius: var(--r-sm); overflow: hidden; background: var(--subtle); color: var(--muted); }

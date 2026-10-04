@@ -608,3 +608,5 @@ The same migration also enables Row Level Security on all 15 public tables. Befo
 - axe (WCAG 2.1 AA + best practice): 0 violations on every new page, in light and dark.
 - `tsc` and `next build` pass.
 - Screenshots: `screenshots/portfolio/`.
+
+**Rename (owner's request):** the section is called **"Dizaynerlar"** in the header, on the home page and in the admin, and it lives at `/dizaynerlar`. The old `/portfolio` and `/portfolio/<slug>` addresses redirect there permanently (308, query string kept).

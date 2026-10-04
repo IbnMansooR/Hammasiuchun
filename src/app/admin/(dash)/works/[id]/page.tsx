@@ -18,12 +18,12 @@ export default async function EditWork({ params, searchParams }: { params: Promi
   return (
     <>
       <nav className="crumbs" aria-label="Yoʻl" style={{ paddingTop: 0, marginBottom: 14 }}>
-        <Link href="/admin/works">Portfolio</Link><IconChevron /><span>{work.title}</span>
+        <Link href="/admin/works">Dizaynerlar</Link><IconChevron /><span>{work.title}</span>
       </nav>
       <div className="adm-head">
         <h1>{work.title}</h1>
         {work.isPublished && (
-          <Link href={`/portfolio/${work.slug}`} target="_blank" className="btn btn-sm">Saytda koʻrish <IconArrowUR className="ico" /></Link>
+          <Link href={`/dizaynerlar/${work.slug}`} target="_blank" className="btn btn-sm">Saytda koʻrish <IconArrowUR className="ico" /></Link>
         )}
       </div>
       {error && <Notice tone="error">{ERR[error] ?? "Xatolik yuz berdi."}</Notice>}

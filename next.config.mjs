@@ -18,6 +18,13 @@ const nextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: SECURITY_HEADERS }];
   },
+  // The section was briefly published as /portfolio before being renamed.
+  async redirects() {
+    return [
+      { source: "/portfolio", destination: "/dizaynerlar", permanent: true },
+      { source: "/portfolio/:slug", destination: "/dizaynerlar/:slug", permanent: true },
+    ];
+  },
   // Browsers/bots request /favicon.ico regardless of <link rel="icon">.
   async rewrites() {
     return [{ source: "/favicon.ico", destination: "/assets/favicon.png" }];
