@@ -11,6 +11,10 @@ const SECURITY_HEADERS = [
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // subset-font loads HarfBuzz's wasm via require.resolve() + readFile at run
+  // time; bundling would turn that path into a module id. Keep it external so
+  // it runs from node_modules (and output tracing ships the .wasm).
+  serverExternalPackages: ["subset-font"],
   async headers() {
     return [{ source: "/:path*", headers: SECURITY_HEADERS }];
   },

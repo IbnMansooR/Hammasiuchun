@@ -2,8 +2,18 @@ import { db } from "@/lib/db";
 import { isRedistributable } from "@/lib/license";
 import { readFont, readWebfont, writeWebfont } from "@/lib/storage";
 import * as wawoff2 from "wawoff2";
+import subsetFont from "subset-font";
 
 export const runtime = "nodejs";
+
+// Families this big are CJK / pan-Unicode fonts (Noto Sans JP is ~16 MB). A
+// specimen on this site only ever needs Latin, Uzbek and Cyrillic, so those are
+// served as a subset: ~100 KB instead of 3–6 MB, and seconds instead of a 40 s
+// first-time conversion.
+const SUBSET_OVER = 1_500_000;
+const range = (a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i) => String.fromCodePoint(a + i)).join("");
+const PREVIEW_CHARS =
+  range(0x20, 0x7e) + range(0xa0, 0x17f) + range(0x400, 0x4ff) + range(0x2010, 0x203a) + "ʻʼ€₽№™←↑→↓−×÷";
 
 // WOFF2 files start with the signature "wOF2".
 function isWoff2(buf: Buffer): boolean {
@@ -42,14 +52,21 @@ export async function GET(
       return new Response("Not found", { status: 404 });
     }
 
-    // Serve a valid cache hit; ignore truncated files and regenerate.
+    // Serve a valid cache hit; ignore truncated files and regenerate. An
+    // oversized hit is a full CJK font cached before subsetting existed —
+    // rebuild it as a subset (this also overwrites the cache).
     const hit = await readWebfont(slug, style);
-    if (hit && isWoff2(hit)) return ok(hit);
+    if (hit && isWoff2(hit) && hit.length <= SUBSET_OVER) return ok(hit);
 
     const raw = await readFont(fam.folder, st.file);
     if (!raw) return new Response("Missing source", { status: 404 });
 
-    const woff2: Uint8Array = st.ext === "woff2" ? raw : await wawoff2.compress(raw);
+    let woff2: Uint8Array;
+    if (raw.length > SUBSET_OVER) {
+      woff2 = await subsetFont(raw, PREVIEW_CHARS, { targetFormat: "woff2" });
+    } else {
+      woff2 = st.ext === "woff2" ? raw : await wawoff2.compress(raw);
+    }
     const buf = Buffer.from(woff2);
     try { await writeWebfont(slug, style, buf); } catch { /* cache is best-effort */ }
     return ok(buf);
