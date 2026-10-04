@@ -3,6 +3,7 @@ import { isRedistributable } from "@/lib/license";
 import { readFont, readWebfont, writeWebfont } from "@/lib/storage";
 import * as wawoff2 from "wawoff2";
 import subsetFont from "subset-font";
+import * as fontkit from "fontkit";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,23 @@ const SUBSET_OVER = 1_500_000;
 const range = (a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i) => String.fromCodePoint(a + i)).join("");
 const PREVIEW_CHARS =
   range(0x20, 0x7e) + range(0xa0, 0x17f) + range(0x400, 0x4ff) + range(0x2010, 0x203a) + "ʻʼ€₽№™←↑→↓−×÷";
+
+/** Browsers' font sanitizer (OTS) rejects a Unicode/Windows cmap subtable whose
+ * language field isn't 0 — common in old Mac-made fonts — and silently falls
+ * back to another font. HarfBuzz rebuilds a clean cmap with every glyph kept. */
+type CmapFont = { cmap?: { tables?: { platformID: number; table?: { language?: number } }[] }; characterSet: number[] };
+function badCmap(buf: Buffer): boolean {
+  try {
+    const f = fontkit.create(buf) as unknown as CmapFont;
+    return (f.cmap?.tables ?? []).some((t) => t.platformID !== 1 && (t.table?.language ?? 0) !== 0);
+  } catch {
+    return false;
+  }
+}
+function allChars(buf: Buffer): string {
+  const f = fontkit.create(buf) as unknown as CmapFont;
+  return f.characterSet.map((c) => String.fromCodePoint(c)).join("");
+}
 
 // WOFF2 files start with the signature "wOF2".
 function isWoff2(buf: Buffer): boolean {
@@ -53,10 +71,10 @@ export async function GET(
     }
 
     // Serve a valid cache hit; ignore truncated files and regenerate. An
-    // oversized hit is a full CJK font cached before subsetting existed —
-    // rebuild it as a subset (this also overwrites the cache).
+    // oversized hit (a full CJK font) or one with a browser-rejected cmap was
+    // cached before those fixes existed — rebuild it (this overwrites the cache).
     const hit = await readWebfont(slug, style);
-    if (hit && isWoff2(hit) && hit.length <= SUBSET_OVER) return ok(hit);
+    if (hit && isWoff2(hit) && hit.length <= SUBSET_OVER && !badCmap(hit)) return ok(hit);
 
     const raw = await readFont(fam.folder, st.file);
     if (!raw) return new Response("Missing source", { status: 404 });
@@ -64,6 +82,8 @@ export async function GET(
     let woff2: Uint8Array;
     if (raw.length > SUBSET_OVER) {
       woff2 = await subsetFont(raw, PREVIEW_CHARS, { targetFormat: "woff2" });
+    } else if (badCmap(raw)) {
+      woff2 = await subsetFont(raw, allChars(raw), { targetFormat: "woff2" });
     } else {
       woff2 = st.ext === "woff2" ? raw : await wawoff2.compress(raw);
     }
