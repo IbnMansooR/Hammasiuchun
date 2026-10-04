@@ -8,6 +8,16 @@
 
 # 🇺🇿 O‘ZBEKCHA (qisqa)
 
+> ## 🎨 3-bosqich (2026-10-04): to‘liq qayta dizayn
+> - **Yangi dizayn tizimi:** sarlavhalar uchun logotipdagi serifga mos “Feekr Display”, interfeys uchun Inter. Monoxrom fon va bitta brend yashili, ikkalasi ham tokenlar orqali boshqariladi. **Tungi rejim** qo‘shildi: tizim sozlamasiga ergashadi va tugma bilan almashtiriladi.
+> - **Logotip** SVG’ga o‘tkazildi, shuning uchun tungi rejimda ham tiniq ko‘rinadi. Favicon va OG rasmlari ham brendga moslandi.
+> - **Funksiyalar:**
+>   - har qanday sahifada ⌘K yoki “/” orqali tezkor qidiruv;
+>   - bitta matnni yozsangiz, u barcha shriftlarda ko‘rinadi (bosh sahifa, katalog, sevimlilar);
+>   - katalogda hajm slayderi va to‘r/ro‘yxat ko‘rinishi;
+>   - shrift sahifasida sticky navigatsiya, belgilar xaritasi, matn namunalari va “uslubni sinashda ochish” tugmasi.
+> - **O‘lchovlar:** Lighthouse mobilda 91–95, desktopda 98–100. Accessibility, Best Practices va SEO 100. axe 15 sahifa × 2 rejim × 2 o‘lchamda 0 xato. Batafsil 10-bo‘limda.
+
 > ## 🔄 2-bosqich (2026-10-04): barcha shriftlar bepul + qolgan kamchiliklar tuzatildi
 > - **Pullik toifa olib tashlandi.** Narx, savat, Payme/Click va xaridlar kutubxonasi yo‘q. Saytdagi har bir shrift bepul, butun oila bitta ZIP faylda yuklanadi (ichida `LITSENZIYA.txt` bor).
 > - **Litsenziya filtri.** Faqat ochiq litsenziyali (OFL, Apache, Public Domain), Freeware (ogohlantirish bilan) yoki admin “Oʻz shriftimiz / Huquq tasdiqlangan” deb belgilagan oilalar saytda ko‘rinadi. Adobe, Monotype, Linotype, Bitstream, “All Rights Reserved” va Unknown oilalar yashirildi; ular bazada qoladi. ⚠️ 81 ta tasodifiy shriftdan faqat 4 tasi ochiq litsenziyali chiqdi, demak katalogning katta qismi yashirinadi. Sizniki yoki ruxsati bor oilalarni admin paneldan qaytaring (**Shriftlar → Yashirin**).
@@ -487,3 +497,57 @@ Legend: ✅ fixed · 🟡 partial / needs an owner action · ➖ no longer appli
 5. Confirm the Supabase region is ap-south-1 (Mumbai); otherwise change `vercel.json → regions`.
 6. Re-run Lighthouse after deploy; TTFB should drop well below 1 s on cached pages.
 7. ~~Decide whether to keep login~~ — **decided: login stays** (profile + wishlist link; Google/SMS/password reset switch on via env vars).
+
+
+## 10. Round 3 — full redesign (2026-10-04)
+
+Goal set by the owner: 10/10 on beauty, functionality, minimalism, typography and hierarchy, component consistency, mobile, layout, brand identity and font-site functionality. Verified against a local copy with 18 real OFL families (Google Fonts sources, static cuts) plus a hidden "All Rights Reserved" family and a Freeware family. Screenshots: `screenshots/redesign/` (`overview.png` first).
+
+**Design system**
+- Type: **Feekr Display** for headings and **Feekr Sans** (Inter variable, 4 script subsets) for UI. Feekr Display is Fraunces pinned to its soft, wordmark-like cut, subset to Uzbek Latin, with ʻ mapped (≈33 KB). Both fonts are self-hosted under the OFL (see `public/fonts/ui/README.txt`). The display font uses `font-display: optional` + preload, so headings never reflow.
+- Colour: monochrome surfaces and one brand green (`--brand` #009A76 for marks; `--accent` #0b7a55 for AA text and buttons). Every colour is a token, redefined for dark mode.
+- Dark mode: follows the system and can be switched in the header. A nonce'd inline script applies it before first paint. Admin stays light.
+- Logo traced to SVG: the mark keeps the brand green and the wordmark follows `currentColor`. It is also used for the SVG favicon, the admin sidebar, the footer signature and the OG images (now in the brand fonts).
+- Components: buttons, chips, segmented controls, a unified range slider, inputs, tags, cards, alerts and a FAQ accordion. Spacing uses 4/8 steps; radii are 6/10/14/22 px.
+
+**Functionality added**
+- ⌘K / “/” quick search dialog (native `<dialog>`, ARIA combobox, keyboard navigation, “Aa” previewed in each font). New public API `/api/search` (only public families; also used by the wishlist).
+- One shared specimen text for the whole site, kept per browser: typed in the home hero, it appears in the featured rows, the catalog cards and the wishlist.
+- Catalog:
+  - sticky controls (text, size 20–160 px, grid/list view) plus URL-driven filters;
+  - category intros and an empty state;
+  - each card has a heart button.
+- Font page:
+  - hero rendered in the family itself, with the download card and Uzbek support tags;
+  - spec sheet and a sticky section nav with scroll-spy and a compact download button;
+  - tester with weight, italic, size, alignment, inverse and presets;
+  - style rows that load a cut into the tester;
+  - glyph map with an inspector and copy button;
+  - waterfall and paragraph settings;
+  - an about section with facts, and related cards.
+- Home:
+  - headline whose last word cycles through one family per category (fonts are preloaded before each swap; the cycle pauses in background tabs and is off with reduced motion);
+  - type bar and featured specimen rows;
+  - category tiles drawn in a representative family;
+  - newest cards, an Uzbek-first block, pairings and the journal.
+- Wishlist shows real specimen cards. Secondary pages (pairs, journal, article, about, licence, support, auth, account, 404/error) were rebuilt on the same system.
+- Leftover paid-era copy on the register page was removed.
+
+**Bugs found and fixed during the redesign**
+- `.section`/`.hero` shorthand padding wiped the container gutter: content sat flush against the screen edge. Fixed site-wide.
+- `backdrop-filter` on the header made it the containing block for the fixed mobile menu, so the menu was clipped. The blur now lives on `::before`.
+- A nonce attribute hydration warning (browsers blank `nonce` after parsing) was fixed with `suppressHydrationWarning` on that one script.
+
+**Measured (production build, local DB)**
+
+| Page | Lighthouse mobile | Lighthouse desktop |
+|---|---|---|
+| `/` | perf 92–95 · a11y 100 · BP 100 · SEO 100 | 100 · 100 · 100 · 100 |
+| `/fonts` | perf 91–95 · 100 · 100 · 100 | 98 · 100 · 100 · 100 |
+| `/fonts/lora` | perf 90 · 100 · 100 · 100 (was 64 before deferring off-screen sections) | 99 · 100 · 100 · 100 |
+
+- axe-core (WCAG 2.1 AA + best practice): **0 violations** on 15 pages, in light and dark, at 1440 px and 390 px.
+- Console: 0 errors.
+- No horizontal scroll at 390 px.
+- Licence gate re-checked: a restricted family returns 404 for its page, webfont and ZIP, and `/api/search?slugs=` drops it.
+- Performance technique: below-the-fold sections and off-screen cards use `content-visibility: auto`, so their webfonts load only when they are near the viewport. The hero cut of a font page is preloaded.

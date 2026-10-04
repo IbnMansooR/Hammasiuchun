@@ -1,38 +1,30 @@
 import Link from "next/link";
-import { cssFamily, UZ_SAMPLE, CATEGORY_LABEL } from "@/lib/fonts";
-import type { CardFont } from "@/lib/queries";
+import { CATEGORY_LABEL, cardSample } from "@/lib/fonts";
+import { cardFontStyle, type CardFont } from "@/lib/cards";
+import { PreviewText } from "./PreviewProvider";
+import WishButton from "./WishButton";
 
-// Cyrillic sample for families that carry Cyrillic but no Latin coverage, so the
-// card previews the actual typeface instead of the fallback UI font.
-const CYR_ALPHA = "АаБбВвГгДдЕе";
-const CYR_PANGRAM = "Съешь ещё этих мягких французских булок";
-
-export default function FontCard({ f }: { f: CardFont }) {
-  const style = {
-    fontFamily: `"${cssFamily(f.slug)}", var(--font)`,
-    fontWeight: f.previewWeight,
-    fontStyle: f.previewItalic ? ("italic" as const) : ("normal" as const),
-  };
+/** One family in a grid/list. The whole card is clickable through a stretched
+ * link on the name; the heart sits above it as its own button. */
+export default function FontCard({ f, headingLevel = 3 }: { f: CardFont; headingLevel?: 2 | 3 }) {
+  const H = headingLevel === 2 ? "h2" : "h3";
   const cyrillicOnly = !f.hasLatin && f.hasCyrillic;
-  const alpha = cyrillicOnly ? CYR_ALPHA : "AaBbCcDdEe";
-  const pangram = cyrillicOnly ? CYR_PANGRAM : UZ_SAMPLE;
   return (
-    <Link href={`/fonts/${f.slug}`} className="fcard">
-      <div className="fcard-top">
-        <div className="fcard-name">{f.name}</div>
-        <div className="fcard-tags">
-          {f.styleCount} uslub{f.hasItalic ? " · Kursiv" : ""}
-        </div>
+    <article className="fcard">
+      <div className="fcard-head">
+        <H className="fcard-name">
+          <Link href={`/fonts/${f.slug}`} className="fcard-link">{f.name}</Link>
+        </H>
+        <WishButton slug={f.slug} name={f.name} />
       </div>
-      <div className="fcard-sample" style={style}>{alpha}</div>
-      <div className="fcard-pangram" style={style}>{pangram}</div>
+      <PreviewText className="fcard-sample" style={cardFontStyle(f)} fallback={cardSample(f.category, cyrillicOnly)} />
       <div className="fcard-foot">
-        <div className="fcard-badges">
-          {f.isNew && <span className="badge badge-new">Yangi</span>}
-          <span className="badge">{CATEGORY_LABEL[f.category] ?? f.category}</span>
-        </div>
-        <span className="fcard-cta">Koʻrish →</span>
+        <span>{CATEGORY_LABEL[f.category] ?? f.category}</span>
+        <span className="sep" aria-hidden="true" />
+        <span>{f.styleCount} uslub</span>
+        {f.hasCyrillic && <span className="tag" title="Kirill yozuvi bor">Кир</span>}
+        {f.isNew && <span className="tag tag-new">Yangi</span>}
       </div>
-    </Link>
+    </article>
   );
 }

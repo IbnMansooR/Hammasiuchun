@@ -9,10 +9,10 @@ export const contentType = "image/png";
 export default async function Image() {
   return new ImageResponse(
     (
-      <OgFrame footer="Sinab koʻring va bir bosishda yuklab oling">
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <div style={{ fontSize: 92, fontWeight: 700, color: "#0b0b0c", lineHeight: 1.02, letterSpacing: -3 }}>Bepul shriftlar</div>
-          <div style={{ fontSize: 92, fontWeight: 700, color: "#0b7a55", lineHeight: 1.02, letterSpacing: -3 }}>kutubxonasi</div>
+      <OgFrame footer="Oʻzbek lotin va kirill yozuvi uchun · hammasi bepul">
+        <div style={{ display: "flex", flexDirection: "column", fontFamily: "Feekr Display", fontSize: 112, lineHeight: 1, letterSpacing: -4, color: "#0e0e0d" }}>
+          <div>Brendingizga ovoz</div>
+          <div style={{ display: "flex" }}>beradigan<span style={{ color: "#0b7a55", marginLeft: 28 }}>shriftlar.</span></div>
         </div>
       </OgFrame>
     ),

@@ -3,19 +3,20 @@ import { db } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { CardCover } from "@/components/Cover";
 
-export const metadata = { title: "Blog" };
+export const metadata = { title: "Jurnal", description: "Tipografika, shriftlar va Feekr yangiliklari haqida maqolalar.", alternates: { canonical: "/blog" } };
 
 const TABS: { key: string; label: string }[] = [
   { key: "", label: "Hammasi" },
+  { key: "article", label: "Maqolalar" },
   { key: "blog", label: "Blog" },
   { key: "news", label: "Yangiliklar" },
-  { key: "article", label: "Maqolalar" },
 ];
 
 const TYPE_LABEL: Record<string, string> = { blog: "Blog", news: "Yangilik", article: "Maqola" };
 
 export default async function BlogPage({ searchParams }: { searchParams: Promise<{ type?: string }> }) {
-  const { type = "" } = await searchParams;
+  const { type: rawType = "" } = await searchParams;
+  const type = TABS.some((t) => t.key === rawType) ? rawType : "";
   const posts = await db.article.findMany({
     where: { isPublished: true, ...(type ? { type } : {}) },
     orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
@@ -25,31 +26,36 @@ export default async function BlogPage({ searchParams }: { searchParams: Promise
   });
 
   return (
-    <div className="container section" style={{ paddingTop: 30 }}>
-      <div className="eyebrow">Jurnal</div>
-      <h1 style={{ fontSize: "clamp(32px,5vw,64px)", marginBottom: 24 }}>Blog va yangiliklar</h1>
+    <div className="container">
+      <header className="page-head narrow">
+        <div className="eyebrow">Jurnal</div>
+        <h1>Harflar haqida hikoyalar</h1>
+        <p className="lead">Tipografika boʻyicha maqolalar, maslahatlar va Feekr yangiliklari.</p>
+      </header>
 
-      <div className="toolbar">
+      <nav className="chips" aria-label="Turlar" style={{ marginBottom: 28 }}>
         {TABS.map((t) => (
-          <Link key={t.key} href={t.key ? `/blog?type=${t.key}` : "/blog"}
-            className={`chip${type === t.key ? " active" : ""}`}>
+          <Link key={t.key} href={t.key ? `/blog?type=${t.key}` : "/blog"} className={`chip${type === t.key ? " active" : ""}`} aria-current={type === t.key ? "page" : undefined}>
             {t.label}
           </Link>
         ))}
-      </div>
+      </nav>
 
       {posts.length === 0 ? (
-        <p className="muted" style={{ padding: "40px 0" }}>Hozircha maqola yoʻq.</p>
+        <div className="empty">
+          <div className="display">Hozircha maqola yoʻq</div>
+          <p>Tez orada bu yerda tipografika haqidagi maqolalar paydo boʻladi.</p>
+        </div>
       ) : (
-        <div className="grid cols-3">
+        <div className="posts">
           {posts.map((p) => (
             <Link key={p.id} href={`/blog/${p.slug}`} className="post-card">
-              {p.coverImage ? <CardCover src={p.coverImage} alt={p.title} /> : <div className="post-cover" />}
+              {p.coverImage ? <CardCover src={p.coverImage} alt="" /> : <div className="post-cover typo" aria-hidden="true">{[...p.title][0]}</div>}
               <div className="post-body">
-                <span className="badge">{TYPE_LABEL[p.type] ?? "Blog"}</span>
+                <span className="label">{TYPE_LABEL[p.type] ?? "Blog"}</span>
                 <h2>{p.title}</h2>
-                <p className="muted" style={{ margin: 0 }}>{p.excerpt}</p>
-                <span className="fcard-tags">{formatDate(p.publishedAt)} · {p.author}</span>
+                {p.excerpt && <p>{p.excerpt}</p>}
+                <span className="post-date">{formatDate(p.publishedAt)} · {p.author}</span>
               </div>
             </Link>
           ))}

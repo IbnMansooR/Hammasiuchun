@@ -2,33 +2,40 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/userAuth";
 import { userLogoutAction } from "./actions";
+import { IconArrow, IconHeart } from "@/components/Icons";
 
-export const metadata = { title: "Mening kabinetim" };
+export const metadata = { title: "Mening kabinetim", robots: { index: false } };
 
 export default async function AccountPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
   return (
-    <div className="container section" style={{ paddingTop: 34 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16, marginBottom: 24 }}>
+    <div className="container">
+      <header className="page-head narrow" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 24, flexWrap: "wrap", maxWidth: "none" }}>
         <div>
-          <h1 style={{ fontSize: "clamp(28px,4vw,44px)", marginBottom: 6 }}>Mening kabinetim</h1>
-          <p className="muted">{user.name ? `${user.name} · ` : ""}{user.email ?? user.phone}</p>
+          <div className="eyebrow">Kabinet</div>
+          <h1>Salom{user.name ? `, ${user.name}` : ""}.</h1>
+          <p className="lead">{user.email ?? user.phone}</p>
         </div>
         <form action={userLogoutAction}>
           <button className="btn">Chiqish</button>
         </form>
-      </div>
+      </header>
 
-      <p className="muted" style={{ fontSize: 15.5, maxWidth: 560 }}>
-        Feekr’dagi barcha shriftlar bepul — istalgan oilani shrift sahifasidan ZIP qilib yuklab olishingiz mumkin.
-        Yoqqanlarini ♡ bilan sevimlilarga qoʻshib qoʻying.
-      </p>
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 16 }}>
-        <Link href="/wishlist" className="btn btn-accent">Sevimlilar</Link>
-        <Link href="/fonts" className="btn">Shriftlarni koʻrish</Link>
+      <div className="contact-grid">
+        <Link className="contact-card" href="/wishlist">
+          <span className="label"><IconHeart style={{ width: 16, height: 16, display: "inline", verticalAlign: "-3px" }} /> Sevimlilar</span>
+          <b>Saqlangan shriftlar</b>
+        </Link>
+        <Link className="contact-card" href="/fonts">
+          <span className="label">Katalog</span>
+          <b>Yangi shrift topish <IconArrow style={{ width: 26, height: 26, display: "inline", verticalAlign: "-4px" }} /></b>
+        </Link>
       </div>
+      <p className="muted" style={{ maxWidth: "60ch" }}>
+        Feekr’dagi barcha shriftlar bepul — istalgan oilani shrift sahifasidan ZIP qilib yuklab olishingiz mumkin.
+      </p>
     </div>
   );
 }

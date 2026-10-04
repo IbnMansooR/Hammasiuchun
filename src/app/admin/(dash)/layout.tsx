@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Logo } from "@/components/Logo";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { logoutAction } from "../actions";
@@ -23,7 +24,7 @@ export default async function DashLayout({ children }: { children: React.ReactNo
     <div className="admin-wrap">
       <aside className="admin-side">
         <div className="brand">
-          <img src="/assets/mark.png" alt="" style={{ height: 22 }} /> Feekr
+          <Logo className="admin-logo" title="Feekr admin" />
         </div>
         <nav className="adm-nav">
           {NAV.map((n) => <Link key={n.href} href={n.href}>{n.label}</Link>)}
@@ -33,7 +34,7 @@ export default async function DashLayout({ children }: { children: React.ReactNo
             ↗ Saytni ochish
           </Link>
           <form action={logoutAction}>
-            <button className="btn btn-light btn-sm" style={{ width: "100%", justifyContent: "center" }}>
+            <button className="btn btn-sm admin-out">
               Chiqish ({session.username})
             </button>
           </form>

@@ -91,3 +91,19 @@ export function uzSample(support?: { uzLatin: boolean } | null): string {
 }
 export const UZ_SAMPLE = uzSample(null);
 export const ALPHABET = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz";
+
+/** Short default specimen for a card, matched to the category's voice. Uses ‘
+ * (U+2018) for oʻ/gʻ: nearly every font has it, far fewer have U+02BB. */
+const CARD_SAMPLE: Record<string, string> = {
+  Sans: "Shrift — brendning ovozi",
+  Serif: "So‘z va shakl uyg‘unligi",
+  Slab: "Kuchli, ishonchli, aniq",
+  Display: "Ovozingizni toping",
+  Script: "Shirin so‘zlar",
+  Monospace: "const shrift = 'bepul';",
+  Dingbat: "ABCDEFGHIJ abcdefghij",
+};
+export function cardSample(category: string, cyrillicOnly = false): string {
+  if (cyrillicOnly) return "Шрифт — бренд овози";
+  return CARD_SAMPLE[category] ?? CARD_SAMPLE.Sans;
+}

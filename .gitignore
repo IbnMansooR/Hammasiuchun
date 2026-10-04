@@ -17,7 +17,7 @@ next-env.d.ts
 /data/
 /public/fonts/*
 # …except the site's own UI font (OFL), which must ship with every deploy.
-!/public/fonts/montserrat/
+!/public/fonts/ui/
 /public/uploads/
 .upload-progress.json
 

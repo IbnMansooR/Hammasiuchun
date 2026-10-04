@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { HeroCover } from "@/components/Cover";
 import { formatDate } from "@/lib/format";
 import { renderMarkdown } from "@/lib/markdown";
+import { IconChevron } from "@/components/Icons";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -25,18 +26,23 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
   if (!p || !p.isPublished) notFound();
 
   return (
-    <article className="container section" style={{ paddingTop: 30 }}>
+    <article className="container">
       <div style={{ maxWidth: 760, margin: "0 auto" }}>
-        <Link href="/blog" className="fcard-tags">← Jurnal</Link>
-        <div style={{ margin: "16px 0 10px" }}>
-          <span className="badge">{TYPE_LABEL[p.type] ?? "Blog"}</span>
-        </div>
-        <h1 style={{ fontSize: "clamp(30px,4.5vw,56px)", lineHeight: 1.05 }}>{p.title}</h1>
-        <div className="muted" style={{ margin: "16px 0 26px", fontSize: 14 }}>
-          {formatDate(p.publishedAt)} · {p.author}
-        </div>
+        <nav className="crumbs" aria-label="Yoʻl">
+          <Link href="/blog">Jurnal</Link>
+          <IconChevron />
+          <span>{TYPE_LABEL[p.type] ?? "Blog"}</span>
+        </nav>
+        <header style={{ padding: "32px 0 36px" }}>
+          <h1 className="display" style={{ fontSize: "clamp(40px, 5.4vw, 72px)" }}>{p.title}</h1>
+          {p.excerpt && <p className="lead" style={{ marginTop: 20 }}>{p.excerpt}</p>}
+          <div className="label" style={{ marginTop: 20 }}>{formatDate(p.publishedAt)} · {p.author}</div>
+        </header>
         {p.coverImage && <HeroCover src={p.coverImage} alt={p.title} />}
-        <div className="prose" dangerouslySetInnerHTML={{ __html: renderMarkdown(p.body) }} />
+        <div className="prose" style={{ paddingTop: 8, borderTop: "1px solid var(--line)" }} dangerouslySetInnerHTML={{ __html: renderMarkdown(p.body) }} />
+        <div style={{ marginTop: 48 }}>
+          <Link href="/blog" className="arrow-link">← Barcha maqolalar</Link>
+        </div>
       </div>
     </article>
   );

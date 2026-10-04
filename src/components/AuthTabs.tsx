@@ -14,9 +14,9 @@ export default function AuthTabs({
   return (
     <div>
       {smsEnabled && (
-        <div className="toolbar" style={{ marginBottom: 18 }}>
-          <button type="button" className={`chip${tab === "email" ? " active" : ""}`} onClick={() => setTab("email")}>Email</button>
-          <button type="button" className={`chip${tab === "phone" ? " active" : ""}`} onClick={() => setTab("phone")}>Telefon</button>
+        <div className="seg" role="group" aria-label="Kirish usuli" style={{ marginBottom: 20, display: "flex" }}>
+          <button type="button" style={{ flex: 1 }} aria-pressed={tab === "email"} onClick={() => setTab("email")}>Email</button>
+          <button type="button" style={{ flex: 1 }} aria-pressed={tab === "phone"} onClick={() => setTab("phone")}>Telefon</button>
         </div>
       )}
 
@@ -24,12 +24,8 @@ export default function AuthTabs({
 
       {googleEnabled && (
         <>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "18px 0" }}>
-            <div style={{ flex: 1, height: 1, background: "var(--line)" }} />
-            <span className="muted" style={{ fontSize: 12.5 }}>yoki</span>
-            <div style={{ flex: 1, height: 1, background: "var(--line)" }} />
-          </div>
-          <a href="/api/auth/google" className="btn" style={{ width: "100%", justifyContent: "center" }}>
+          <div className="divider">yoki</div>
+          <a href="/api/auth/google" className="btn btn-lg btn-block">
             Google orqali davom etish
           </a>
         </>

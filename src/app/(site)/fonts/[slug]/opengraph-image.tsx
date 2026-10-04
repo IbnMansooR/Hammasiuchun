@@ -42,13 +42,13 @@ export default async function Image({ params }: { params: Promise<{ slug: string
     }
   }
   const name = f && pub ? f.name : "Feekr";
-  const meta = f && pub ? `${CATEGORY_LABEL[f.category] ?? f.category} · ${f.styleCount} uslub · bepul` : "Bepul shriftlar";
+  const meta = f && pub ? `${CATEGORY_LABEL[f.category] ?? f.category} · ${f.styleCount} uslub · bepul yuklab olish` : "Bepul shriftlar kutubxonasi";
 
   const render = (useSpecimen: boolean) =>
     new ImageResponse(
       (
         <OgFrame footer={meta}>
-          <div style={{ display: "flex", fontFamily: useSpecimen ? "Specimen" : "Feekr", fontWeight: useSpecimen ? 400 : 700, fontSize: name.length > 16 ? 96 : 140, color: "#0b0b0c", lineHeight: 1.05 }}>
+          <div style={{ display: "flex", fontFamily: useSpecimen ? "Specimen" : "Feekr Display", fontWeight: useSpecimen ? 400 : 500, fontSize: name.length > 16 ? 104 : 156, color: "#0e0e0d", lineHeight: 1.05, letterSpacing: useSpecimen ? -2 : -4 }}>
             {name}
           </div>
         </OgFrame>

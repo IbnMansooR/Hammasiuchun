@@ -22,15 +22,14 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
   const altLogin = [googleEnabled && "Google", smsEnabled && "telefon raqami"].filter(Boolean).join(" yoki ");
 
   return (
-    <div className="container section" style={{ paddingTop: 40, display: "grid", placeItems: "center" }}>
-      <div style={{ background: "var(--surface, #fff)", border: "1px solid var(--line)", borderRadius: 18, padding: 34, width: "100%", maxWidth: 400 }}>
-        <h1 style={{ fontWeight: 800, fontSize: 24, marginBottom: 4, letterSpacing: "normal", lineHeight: 1.5 }}>Roʻyxatdan oʻtish</h1>
-        <p className="muted" style={{ fontSize: 14, marginBottom: 22 }}>
-          Hisob oching — sotib olgan shriftlaringiz doim &quot;Mening xaridlarim&quot;da qoladi, kompyuteringizdan
-          oʻchib ketsa ham qayta yuklab olasiz.
+    <div className="container auth">
+      <div className="auth-card">
+        <h1>Roʻyxatdan oʻtish</h1>
+        <p className="sub">
+          Hisob ochish ixtiyoriy — shriftlarni usiz ham yuklab olasiz. Hisob bilan kabinetingiz har doim qoʻl ostida boʻladi.
         </p>
         {error && (
-          <div style={{ background: "#fdecec", color: "#b91c1c", padding: "10px 12px", borderRadius: 10, fontSize: 13.5, marginBottom: 16 }}>
+          <div className="alert alert-error" role="alert">
             {ERRORS[error] ?? "Xatolik yuz berdi."}
           </div>
         )}
@@ -47,9 +46,9 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
             <label htmlFor="reg-password">Parol</label>
             <input id="reg-password" type="password" name="password" autoComplete="new-password" required minLength={8} />
           </div>
-          <SubmitButton pendingLabel="Yuborilmoqda…" style={{ width: "100%", justifyContent: "center", marginTop: 6 }}>Roʻyxatdan oʻtish</SubmitButton>
+          <SubmitButton pendingLabel="Yuborilmoqda…" className="btn btn-primary btn-lg btn-block" style={{ marginTop: 8 }}>Roʻyxatdan oʻtish</SubmitButton>
         </form>
-        <p className="muted" style={{ fontSize: 13.5, marginTop: 18, textAlign: "center" }}>
+        <p className="auth-foot">
           Hisobingiz bormi? <Link href="/login">Kirish</Link>
           {altLogin && (
             <>

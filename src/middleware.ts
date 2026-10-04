@@ -54,7 +54,7 @@ export const config = {
     "/admin/:path*",
     {
       // Pages only — API routes, static files and font/asset folders don't need a CSP nonce.
-      source: "/((?!api/|_next/static|_next/image|assets/|fonts/montserrat/|favicon.ico|robots.txt|sitemap.xml).*)",
+      source: "/((?!api/|_next/static|_next/image|assets/|fonts/ui/|favicon.ico|robots.txt|sitemap.xml).*)",
       missing: [
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },

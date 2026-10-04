@@ -1,6 +1,7 @@
 "use client";
 import { useStore } from "./StoreProvider";
 import { FREEWARE_WARNING, LICENSE_NOTE } from "@/lib/license";
+import { IconDownload, IconHeart } from "./Icons";
 
 export default function DownloadBox({
   slug, name, styleCount, licenseClass,
@@ -11,33 +12,18 @@ export default function DownloadBox({
   const wished = ready && inWish(slug);
 
   return (
-    <div className="buybox">
-      <div className="price">Bepul</div>
-      <p className="muted" style={{ fontSize: 14, margin: "6px 0 18px" }}>
-        Toʻliq oila — {styleCount} uslub, bitta ZIP faylda.
-      </p>
-
-      <a className="btn btn-accent" style={{ width: "100%", justifyContent: "center" }} href={`/api/download-family/${slug}`}>
-        Butun oilani yuklab olish ({styleCount})
+    <div className="dl-card">
+      <div className="free"><b>Bepul</b><span>{styleCount} uslub · ZIP</span></div>
+      <p>Toʻliq oila bitta faylda: barcha uslublar va litsenziya matni.</p>
+      <a id="hero-cta" className="btn btn-accent btn-lg btn-block" href={`/api/download-family/${slug}`}>
+        <IconDownload className="ico" /> Yuklab olish
       </a>
-
-      <button
-        className={`btn${wished ? " btn-on" : ""}`}
-        style={{ width: "100%", justifyContent: "center", marginTop: 10 }}
-        aria-pressed={wished}
-        onClick={() => toggleWish({ slug, name })}
-      >
-        {wished ? "♥ Sevimlilarda" : "♡ Sevimlilarga qoʻshish"}
+      <button type="button" className={`btn btn-block${wished ? " btn-on" : ""}`} aria-pressed={wished} onClick={() => toggleWish({ slug, name })}>
+        <IconHeart className="ico" /> {wished ? "Sevimlilarda" : "Sevimlilarga qoʻshish"}
       </button>
-
-      <div style={{ margin: "18px 0 0", fontSize: 13.5, color: "var(--muted)", borderTop: "1px solid var(--line)", paddingTop: 12 }}>
-        <strong style={{ color: "var(--fg)" }}>Litsenziya:</strong> {LICENSE_NOTE[licenseClass] ?? licenseClass}
-        {licenseClass === "Freeware" && (
-          <p role="note" style={{ margin: "10px 0 0", padding: "10px 12px", borderRadius: 10, background: "#fff7e6", color: "#7a4b00", fontSize: 13 }}>
-            {FREEWARE_WARNING}
-          </p>
-        )}
-        <p style={{ margin: "10px 0 0", fontSize: 12.5 }}>ZIP ichida <code>LITSENZIYA.txt</code> — muallif va shartlar.</p>
+      <div className="dl-lic">
+        <strong>Litsenziya:</strong> {LICENSE_NOTE[licenseClass] ?? licenseClass}
+        {licenseClass === "Freeware" && <p role="note" className="alert alert-warn">{FREEWARE_WARNING}</p>}
       </div>
     </div>
   );

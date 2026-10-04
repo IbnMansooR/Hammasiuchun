@@ -1,14 +1,22 @@
 "use client";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { useState, useEffect, useCallback, useRef, useTransition } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, useTransition } from "react";
 import { CATEGORIES, CATEGORY_LABEL, SORTS } from "@/lib/fonts";
 import { formatNumber } from "@/lib/format";
+import { usePreview, PREVIEW_MIN, PREVIEW_MAX } from "./PreviewProvider";
+import { IconClose, IconGrid, IconList, IconSearch } from "./Icons";
 
-export default function CatalogToolbar({ total }: { total: number }) {
+// Lets the results grid dim while a filter navigation is in flight.
+const PendingCtx = createContext(false);
+
+/** Sticky catalog controls: specimen text + size + view (client-side, instant)
+ * and the URL-driven filters (search, category, Cyrillic, sort). */
+export function CatalogShell({ total, children }: { total: number; children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   const [isPending, startTransition] = useTransition();
+  const { text, setText, size, setSize, view, setView } = usePreview();
   const urlQ = params.get("q") ?? "";
   const [q, setQ] = useState(urlQ);
 
@@ -39,12 +47,11 @@ export default function CatalogToolbar({ total }: { total: number }) {
       p.delete("filter"); // legacy "Bepul" filter — every font is free now
       const qs = p.toString();
       pendingQs.current = qs;
-      startTransition(() => router.push(qs ? `${pathname}?${qs}` : pathname));
+      startTransition(() => router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false }));
     },
     [params, pathname, router],
   );
 
-  // Always call the latest push from the debounce timer (avoids a stale params snapshot).
   const pushRef = useRef(push);
   pushRef.current = push;
 
@@ -55,52 +62,97 @@ export default function CatalogToolbar({ total }: { total: number }) {
     if (urlQ !== lastQ.current) { setQ(urlQ); lastQ.current = urlQ; }
   }, [urlQ]);
 
-  // Debounce the search box.
+  // Debounce the name search.
   useEffect(() => {
     if (q === (params.get("q") ?? "")) return;
     const t = setTimeout(() => { lastQ.current = q; pushRef.current({ q: q || null }); }, 350);
     return () => clearTimeout(t);
   }, [q]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const pct = ((size - PREVIEW_MIN) / (PREVIEW_MAX - PREVIEW_MIN)) * 100;
+
   return (
-    <div aria-busy={isPending}>
-      <div className="toolbar">
-        <div className="search">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-            <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" />
-          </svg>
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Shrift qidirish…"
-            aria-label="Qidiruv"
-          />
+    <PendingCtx.Provider value={isPending}>
+      <div className="ctrl">
+        <div className="container">
+          <div className="ctrl-row">
+            <label className="ctrl-preview">
+              <span className="aa" aria-hidden="true">Aa</span>
+              <span className="sr-only">Namuna matni — barcha shriftlarda koʻrsatiladi</span>
+              <input
+                type="text"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Matn yozing — barcha shriftlarda koʻring"
+                autoComplete="off"
+                spellCheck={false}
+              />
+              {text && (
+                <button type="button" className="clear" onClick={() => setText("")} aria-label="Matnni tozalash">
+                  <IconClose style={{ width: 16, height: 16 }} />
+                </button>
+              )}
+            </label>
+            <label className="ctl ctrl-size">
+              <span>Hajm</span>
+              <input
+                className="range"
+                type="range"
+                min={PREVIEW_MIN}
+                max={PREVIEW_MAX}
+                value={size}
+                onChange={(e) => setSize(Number(e.target.value))}
+                style={{ "--p": `${pct}%` } as React.CSSProperties}
+                aria-valuetext={`${size} piksel`}
+              />
+              <output>{size}px</output>
+            </label>
+            <div className="seg" role="group" aria-label="Koʻrinish">
+              <button type="button" aria-pressed={view === "grid"} onClick={() => setView("grid")} aria-label="Toʻr" title="Toʻr"><IconGrid /></button>
+              <button type="button" aria-pressed={view === "list"} onClick={() => setView("list")} aria-label="Roʻyxat" title="Roʻyxat"><IconList /></button>
+            </div>
+          </div>
+          <div className="ctrl-filters">
+            <label className="search">
+              <IconSearch />
+              <span className="sr-only">Shrift nomi boʻyicha qidirish</span>
+              <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nomi boʻyicha…" />
+            </label>
+            <span className="vr" aria-hidden="true" />
+            <div className="chips" role="group" aria-label="Kategoriya">
+              <button type="button" className="chip" aria-pressed={cat === ""} onClick={() => push({ cat: null })}>Hammasi</button>
+              {CATEGORIES.map((c) => (
+                <button type="button" key={c} className="chip" aria-pressed={cat === c} onClick={() => push({ cat: cat === c ? null : c })}>
+                  {CATEGORY_LABEL[c]}
+                </button>
+              ))}
+              <button type="button" className="chip" aria-pressed={cyr} onClick={() => push({ cyr: cyr ? null : "1" })} title="Kirill yozuvini qoʻllab-quvvatlaydigan shriftlar">
+                Kirill
+              </button>
+            </div>
+            <span className="ctrl-count" role="status">{isPending ? "Yuklanmoqda…" : `${formatNumber(total)} oila`}</span>
+            <select className="sel" value={sort} aria-label="Saralash" onChange={(e) => push({ sort: e.target.value })}>
+              {Object.entries(SORTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </div>
         </div>
-        <button
-          className={`chip${cyr ? " active" : ""}`}
-          aria-pressed={cyr}
-          onClick={() => push({ cyr: cyr ? null : "1" })}
-          aria-label="Kirill yozuvini qoʻllab-quvvatlaydigan shriftlar"
-        >
-          Kirill yozuvi
-        </button>
-        <div style={{ flex: 1 }} />
-        <span className="muted" style={{ fontSize: 13 }} role="status">
-          {isPending ? "Yuklanmoqda…" : `${formatNumber(total)} oila`}
-        </span>
-        <select className="sel" value={sort} aria-label="Saralash" onChange={(e) => push({ sort: e.target.value })}>
-          {Object.entries(SORTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
       </div>
-      <div className="toolbar">
-        <button className={`chip${cat === "" ? " active" : ""}`} aria-pressed={cat === ""} onClick={() => push({ cat: null })}>Hammasi</button>
-        {CATEGORIES.map((c) => (
-          <button key={c} className={`chip${cat === c ? " active" : ""}`} aria-pressed={cat === c} onClick={() => push({ cat: c })}>
-            {CATEGORY_LABEL[c]}
-          </button>
-        ))}
-      </div>
+      {children}
+    </PendingCtx.Provider>
+  );
+}
+
+/** The card grid: view mode and specimen size come from the shared preview state. */
+export function CatalogGrid({ children }: { children: React.ReactNode }) {
+  const { size, view, ready } = usePreview();
+  const pending = useContext(PendingCtx);
+  return (
+    <div
+      className={`fgrid${ready && view === "list" ? " is-list" : ""}`}
+      style={ready ? ({ "--ps": `${size}px` } as React.CSSProperties) : undefined}
+      aria-busy={pending}
+    >
+      {children}
     </div>
   );
 }
