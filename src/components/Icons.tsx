@@ -16,4 +16,6 @@ export const IconGrid = (p: P) => <svg {...base} {...p}><rect x="4" y="4" width=
 export const IconList = (p: P) => <svg {...base} {...p}><path d="M4 6.5h16M4 12h16M4 17.5h16" /></svg>;
 export const IconDownload = (p: P) => <svg {...base} {...p}><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14" /></svg>;
 export const IconCopy = (p: P) => <svg {...base} {...p}><rect x="8.5" y="8.5" width="11" height="11" rx="2.5" /><path d="M15.5 5.5A2 2 0 0 0 13.5 4H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 1.5 2" /></svg>;
+export const IconBell = (p: P) => <svg {...base} {...p}><path d="M6 16.5V11a6 6 0 1 1 12 0v5.5l1.5 2H4.5l1.5-2Z" /><path d="M10 20.5a2.2 2.2 0 0 0 4 0" /></svg>;
+export const IconImage = (p: P) => <svg {...base} {...p}><rect x="3.5" y="4.5" width="17" height="15" rx="2.5" /><circle cx="9" cy="10" r="1.8" /><path d="m4 18 5.5-5.5 4 4 2.5-2.5L20 18" /></svg>;
 export const IconReset = (p: P) => <svg {...base} {...p}><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4" /></svg>;

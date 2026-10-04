@@ -8,9 +8,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const { error } = await searchParams;
   if (await getSession()) redirect("/admin");
   return (
-    <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--soft)", padding: 20 }}>
+    <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--subtle)", padding: 20 }}>
       <form action={loginAction}
-        style={{ background: "#fff", border: "1px solid var(--line)", borderRadius: 18, padding: 34, width: "100%", maxWidth: 360 }}>
+        style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 18, padding: 34, width: "100%", maxWidth: 360 }}>
         <h1 style={{ fontWeight: 800, fontSize: 24, marginBottom: 4, letterSpacing: "normal", lineHeight: 1.5 }}>Feekr Admin</h1>
         <p className="muted" style={{ fontSize: 14, marginBottom: 22 }}>Boshqaruv paneliga kiring</p>
         {error && (

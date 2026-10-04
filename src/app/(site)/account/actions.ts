@@ -4,12 +4,13 @@ import { revalidatePath } from "next/cache";
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
-import { createUserSession, destroyUserSession, verifyUserPassword, isValidEmail } from "@/lib/userAuth";
+import { startUserSession, destroyUserSession, verifyUserPassword, isValidEmail, blockedLoginUrl } from "@/lib/userAuth";
 import { sendSms, normalizePhone, smsEnabled } from "@/lib/eskiz";
 import { clientIp, isLocked, hit, clear } from "@/lib/rateLimit";
 import { mailEnabled, sendMail } from "@/lib/mailer";
 import { signResetToken, verifyResetToken } from "@/lib/resetToken";
 import { SITE_URL } from "@/lib/site";
+import { formatDate } from "@/lib/format";
 
 function str(fd: FormData, k: string): string {
   return String(fd.get(k) ?? "").trim();
@@ -35,7 +36,7 @@ export async function registerAction(fd: FormData) {
   const user = await db.user.create({
     data: { email, passwordHash, name: name || null },
   });
-  await createUserSession(user.id);
+  await startUserSession(user.id);
   redirect("/account");
 }
 
@@ -54,7 +55,8 @@ export async function userLoginAction(fd: FormData) {
   }
 
   await clear(lk);
-  await createUserSession(userId);
+  const blocked = await startUserSession(userId);
+  if (blocked) redirect(blockedLoginUrl(blocked));
   redirect("/account");
 }
 
@@ -122,7 +124,15 @@ export async function verifyPhoneOtpAction(rawPhone: string, code: string): Prom
   let user = await db.user.findUnique({ where: { phone } });
   if (!user) user = await db.user.create({ data: { phone } });
 
-  await createUserSession(user.id);
+  const blocked = await startUserSession(user.id);
+  if (blocked) {
+    return {
+      ok: false,
+      error: blocked.until
+        ? `Hisobingiz ${formatDate(blocked.until)} gacha cheklangan.`
+        : "Hisobingiz bloklangan. Savollar boʻlsa, biz bilan bogʻlaning.",
+    };
+  }
   return { ok: true };
 }
 
@@ -160,6 +170,8 @@ export async function resetPasswordAction(fd: FormData) {
   if (!uid) redirect("/reset?error=invalid");
 
   await db.user.update({ where: { id: uid }, data: { passwordHash: await bcrypt.hash(password, 12) } });
-  await createUserSession(uid);
+  const blocked = await startUserSession(uid);
+  if (blocked) redirect(blockedLoginUrl(blocked));
   redirect("/account");
 }
+

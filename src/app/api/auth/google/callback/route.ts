@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { exchangeGoogleCode, googleEnabled } from "@/lib/googleAuth";
-import { createUserSession } from "@/lib/userAuth";
+import { startUserSession, blockedLoginUrl } from "@/lib/userAuth";
 
 export const runtime = "nodejs";
 
@@ -40,8 +40,8 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  await createUserSession(user.id);
-  const res = NextResponse.redirect(new URL("/account", req.url));
+  const blocked = await startUserSession(user.id);
+  const res = NextResponse.redirect(new URL(blocked ? blockedLoginUrl(blocked) : "/account", req.url));
   res.cookies.delete("feekr_g_state");
   return res;
 }

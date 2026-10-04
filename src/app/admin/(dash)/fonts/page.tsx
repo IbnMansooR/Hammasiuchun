@@ -41,7 +41,7 @@ export default async function AdminFonts({ searchParams }: { searchParams: Promi
       </form>
 
       <table className="adm-table">
-        <thead><tr><th>Nomi</th><th>Toifa</th><th>Uslub</th><th>Litsenziya</th><th>Holat</th><th></th></tr></thead>
+        <thead><tr><th>Nomi</th><th>Toifa</th><th>Uslub</th><th>Litsenziya</th><th>Holat</th><th><span className="sr-only">Amallar</span></th></tr></thead>
         <tbody>
           {rows.map((f) => (
             <tr key={f.slug}>

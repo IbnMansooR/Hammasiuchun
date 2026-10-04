@@ -12,6 +12,8 @@ import GlyphMap from "@/components/specimen/GlyphMap";
 import Subnav from "@/components/specimen/Subnav";
 import DownloadBox from "@/components/DownloadBox";
 import FontCard from "@/components/FontCard";
+import WorkCard from "@/components/WorkCard";
+import { worksUsingFont } from "@/lib/works";
 import { IconArrow, IconChevron } from "@/components/Icons";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
@@ -76,12 +78,13 @@ export default async function FontDetail({ params }: { params: Promise<{ slug: s
   // The hero title is the page's largest paint — fetch its cut first.
   if (pv) preload(webfontUrl(slug, pv.style), { as: "font", type: "font/woff2", crossOrigin: "anonymous" });
 
-  const [relatedRows, glyph] = await Promise.all([
+  const [relatedRows, glyph, works] = await Promise.all([
     db.family.findMany({
       where: { ...PUBLIC_FAMILY, category: f.category, slug: { not: slug } },
       include: cardInclude, take: 3, orderBy: { popularity: "desc" },
     }),
     pvFile ? getGlyphInfo(slug, pvFile.style, f.folder, pvFile.file).catch(() => null) : Promise.resolve(null),
+    worksUsingFont(slug),
   ]);
   const related = relatedRows.map(toCard);
   const support = glyph?.support ?? null;
@@ -193,6 +196,15 @@ export default async function FontDetail({ params }: { params: Promise<{ slug: s
             </dl>
           </div>
         </section>
+
+        {works.length > 0 && (
+          <section className="fsec cv" aria-labelledby="h-works">
+            <div className="fsec-head"><h2 id="h-works">Amalda</h2><span className="label">{f.name} ishlatilgan loyihalar</span></div>
+            <div className="pf-grid pf-grid-3">
+              {works.slice(0, 3).map((w) => <WorkCard key={w.slug} w={w} />)}
+            </div>
+          </section>
+        )}
 
         {related.length > 0 && (
           <section className="fsec cv" aria-labelledby="h-related" style={{ paddingTop: 80 }}>

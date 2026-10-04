@@ -2,45 +2,65 @@ import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
+import { db } from "@/lib/db";
 import { logoutAction } from "../actions";
+import AdminNav, { type NavGroup } from "@/components/admin/AdminNav";
+import ThemeToggle from "@/components/ThemeToggle";
+import { IconArrowUR } from "@/components/Icons";
 
 // Admin is always per-request (auth + live data): never try to prerender it at build.
 export const dynamic = "force-dynamic";
 
-const NAV = [
-  { href: "/admin", label: "Boshqaruv" },
-  { href: "/admin/orders", label: "Buyurtmalar" },
-  { href: "/admin/articles", label: "Maqolalar" },
-  { href: "/admin/media", label: "Rasmlar" },
-  { href: "/admin/fonts", label: "Shriftlar" },
-  { href: "/admin/fonts/upload", label: "Shrift yuklash" },
-  { href: "/admin/settings", label: "Sozlamalar" },
-];
-
 export default async function DashLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
   if (!session) redirect("/admin/login");
+  const [newOrders, drafts] = await Promise.all([
+    db.order.count({ where: { status: "new" } }),
+    db.work.count({ where: { isPublished: false } }),
+  ]);
+
+  const groups: NavGroup[] = [
+    { label: "Umumiy", items: [{ href: "/admin", label: "Boshqaruv" }] },
+    {
+      label: "Kontent",
+      items: [
+        { href: "/admin/fonts", label: "Shriftlar" },
+        { href: "/admin/fonts/upload", label: "Shrift yuklash" },
+        { href: "/admin/works", label: "Portfolio", badge: drafts },
+        { href: "/admin/articles", label: "Maqolalar" },
+        { href: "/admin/media", label: "Rasmlar" },
+      ],
+    },
+    {
+      label: "Odamlar",
+      items: [
+        { href: "/admin/users", label: "Foydalanuvchilar" },
+        { href: "/admin/notifications", label: "Bildirishnomalar" },
+        { href: "/admin/orders", label: "Buyurtmalar", badge: newOrders },
+      ],
+    },
+    { label: "Tizim", items: [{ href: "/admin/settings", label: "Sozlamalar" }] },
+  ];
+
   return (
     <div className="admin-wrap">
       <aside className="admin-side">
-        <div className="brand">
-          <Logo className="admin-logo" title="Feekr admin" />
+        <div className="admin-brand">
+          <Link href="/admin" aria-label="Boshqaruv paneli"><Logo className="admin-logo" title="Feekr admin" /></Link>
+          <span className="tag">Admin</span>
         </div>
-        <nav className="adm-nav">
-          {NAV.map((n) => <Link key={n.href} href={n.href}>{n.label}</Link>)}
-        </nav>
-        <div style={{ position: "absolute", bottom: 20, left: 18, right: 18 }}>
-          <Link href="/" target="_blank" style={{ color: "rgba(255,255,255,.6)", fontSize: 13, display: "block", marginBottom: 10 }}>
-            ↗ Saytni ochish
-          </Link>
+        <AdminNav groups={groups} />
+        <div className="admin-foot">
+          <div className="admin-foot-row">
+            <Link href="/" target="_blank" className="admin-site">Saytni ochish <IconArrowUR /></Link>
+            <ThemeToggle />
+          </div>
           <form action={logoutAction}>
-            <button className="btn btn-sm admin-out">
-              Chiqish ({session.username})
-            </button>
+            <button className="btn btn-sm btn-block">Chiqish · {session.username}</button>
           </form>
         </div>
       </aside>
-      <div className="admin-main">{children}</div>
+      <main className="admin-main" id="main">{children}</main>
     </div>
   );
 }

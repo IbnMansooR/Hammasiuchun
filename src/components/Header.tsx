@@ -1,23 +1,26 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useStore } from "./StoreProvider";
 import { Logo } from "./Logo";
 import ThemeToggle from "./ThemeToggle";
 import SearchDialog from "./SearchDialog";
-import { IconArrow, IconClose, IconHeart, IconMenu, IconSearch, IconUser } from "./Icons";
+import { IconArrow, IconBell, IconClose, IconHeart, IconMenu, IconSearch, IconUser } from "./Icons";
 
 const NAV = [
   { href: "/fonts", label: "Shriftlar" },
   { href: "/pairs", label: "Juftliklar" },
+  { href: "/portfolio", label: "Portfolio" },
   { href: "/blog", label: "Jurnal" },
   { href: "/about", label: "Biz haqimizda" },
 ];
 
 type HeaderUser = { name: string | null; email: string | null } | null;
 
-export default function Header({ user = null }: { user?: HeaderUser }) {
+const INBOX = "/account/notifications";
+
+export default function Header({ user = null, unread: initialUnread = 0 }: { user?: HeaderUser; unread?: number }) {
   const pathname = usePathname() ?? "/";
   const [menu, setMenu] = useState(false);
   const [search, setSearch] = useState(false);
@@ -25,6 +28,25 @@ export default function Header({ user = null }: { user?: HeaderUser }) {
   const wishN = ready ? wish.length : 0;
   const openSearch = useCallback(() => { setMenu(false); setSearch(true); }, []);
   const closeSearch = useCallback(() => setSearch(false), []);
+
+  // The layout's count is only rendered on full loads; refresh it (at most every
+  // 30 s) after client-side navigations so the bell doesn't go stale.
+  const signedIn = !!user;
+  const [unread, setUnread] = useState(initialUnread);
+  const lastCheck = useRef(0);
+  useEffect(() => { setUnread(initialUnread); lastCheck.current = Date.now(); }, [initialUnread]);
+  useEffect(() => {
+    if (!signedIn) return;
+    if (pathname.startsWith(INBOX)) { setUnread(0); return; }
+    if (Date.now() - lastCheck.current < 30_000) return;
+    lastCheck.current = Date.now();
+    let live = true;
+    fetch("/api/me/unread", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (live && d && typeof d.unread === "number") setUnread(d.unread); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [pathname, signedIn]);
 
   // Close the sheet on navigation; lock page scroll while it is open.
   useEffect(() => { setMenu(false); }, [pathname]);
@@ -59,6 +81,12 @@ export default function Header({ user = null }: { user?: HeaderUser }) {
             <IconHeart />
             {wishN > 0 && <span className="count" aria-hidden="true">{wishN}</span>}
           </Link>
+          {user && (
+            <Link href={INBOX} prefetch={false} className="icon-btn" aria-label={unread ? `Bildirishnomalar (${unread} ta yangi)` : "Bildirishnomalar"} aria-current={current(INBOX)}>
+              <IconBell />
+              {unread > 0 && <span className="count" aria-hidden="true">{unread > 99 ? "99+" : unread}</span>}
+            </Link>
+          )}
           {user ? (
             <Link href="/account" className="icon-btn hide-m" aria-label="Mening kabinetim"><IconUser /></Link>
           ) : (

@@ -7,12 +7,16 @@ import { smsEnabled } from "@/lib/eskiz";
 import { mailEnabled } from "@/lib/mailer";
 import SubmitButton from "@/components/SubmitButton";
 import AuthTabs from "@/components/AuthTabs";
+import { formatDateTime } from "@/lib/format";
 
 export const metadata = { title: "Kirish" };
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; until?: string }> }) {
   if (await getCurrentUser()) redirect("/account");
-  const { error } = await searchParams;
+  const { error, until } = await searchParams;
+  // Only the date is taken from the URL (never free text), so the message can't be spoofed.
+  const untilAt = until ? new Date(until) : null;
+  const untilText = untilAt && untilAt > new Date() ? formatDateTime(untilAt) : "";
 
   const emailForm = (
     <form action={userLoginAction}>
@@ -41,6 +45,12 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         {error === "locked" && (
           <div className="alert alert-error" role="alert">
             Juda koʻp notoʻgʻri urinish. Iltimos, 15 daqiqadan soʻng qayta urining.
+          </div>
+        )}
+        {error === "blocked" && (
+          <div className="alert alert-error" role="alert">
+            {untilText ? <>Hisobingiz <b>{untilText}</b> gacha vaqtincha cheklangan.</> : <>Hisobingiz bloklangan.</>}{" "}
+            Savollar boʻlsa, <Link href="/support" className="link">biz bilan bogʻlaning</Link>.
           </div>
         )}
         {error === "google" && (

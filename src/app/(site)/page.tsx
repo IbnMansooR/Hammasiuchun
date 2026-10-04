@@ -9,6 +9,8 @@ import { fetchCards, cardsFaceCSS, cardFontStyle, type CardFont } from "@/lib/qu
 import { CATEGORIES, CATEGORY_LABEL, styleFamily, webfontUrl } from "@/lib/fonts";
 import { formatDate, formatNumber } from "@/lib/format";
 import FontCard from "@/components/FontCard";
+import WorkCard from "@/components/WorkCard";
+import { getPublishedWorks } from "@/lib/works";
 import Facts from "@/components/Facts";
 import { PreviewText } from "@/components/PreviewProvider";
 import HeroRotator from "@/components/home/HeroRotator";
@@ -54,7 +56,11 @@ function pick<T>(arr: T[], n: number): T[] {
 const TYPE_LABEL: Record<string, string> = { blog: "Blog", news: "Yangilik", article: "Maqola" };
 
 export default async function HomePage() {
-  const { newest, posts, families, styles, cyrillic, showcasePool, catCounts, catReps, pairings, downloads } = await getHomeData();
+  const [{ newest, posts, families, styles, cyrillic, showcasePool, catCounts, catReps, pairings, downloads }, allWorks] = await Promise.all([
+    getHomeData(),
+    getPublishedWorks(),
+  ]);
+  const works = allWorks.slice(0, 3);
 
   // One family per category gives the rotating headline its range of voices.
   const rotator = catReps.filter((c): c is CardFont => !!c && c.hasLatin && c.category !== "Dingbat");
@@ -228,6 +234,22 @@ export default async function HomePage() {
                 </div>
               </article>
             ))}
+          </div>
+        </section>
+      )}
+
+      {/* Portfolio */}
+      {works.length > 0 && (
+        <section className="container section cv" style={{ paddingTop: 0 }} aria-labelledby="works-h">
+          <div className="section-head">
+            <div>
+              <h2 id="works-h">Portfolio</h2>
+              <p>Shriftlar amalda: brending, qadoq va tipografiya loyihalari.</p>
+            </div>
+            <Link href="/portfolio" className="arrow-link">Barcha ishlar <IconArrow /></Link>
+          </div>
+          <div className="pf-grid pf-grid-3">
+            {works.map((w) => <WorkCard key={w.slug} w={w} />)}
           </div>
         </section>
       )}

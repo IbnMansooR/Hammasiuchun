@@ -21,7 +21,7 @@ export default async function OrdersPage() {
         <p className="muted">Hali buyurtma yoʻq.</p>
       ) : (
         <table className="adm-table">
-          <thead><tr><th>Shriftlar</th><th>Jami</th><th>Aloqa</th><th>Holat</th><th>Sana</th><th></th></tr></thead>
+          <thead><tr><th>Shriftlar</th><th>Jami</th><th>Aloqa</th><th>Holat</th><th>Sana</th><th><span className="sr-only">Amallar</span></th></tr></thead>
           <tbody>
             {orders.map((o) => {
               let items: OrderItem[] = [];

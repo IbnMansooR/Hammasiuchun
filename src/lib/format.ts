@@ -30,6 +30,17 @@ export function formatDate(d: Date | string | null): string {
   return `${date.getUTCDate()}-${MONTHS[date.getUTCMonth()]}, ${date.getUTCFullYear()}`;
 }
 
+/** Date + time in Tashkent (fixed UTC+5, no DST), e.g. "4-oktabr, 2026, 18:30". */
+export function formatDateTime(d: Date | string | null): string {
+  if (!d) return "";
+  const date = typeof d === "string" ? new Date(d) : d;
+  if (Number.isNaN(date.getTime())) return "";
+  const t = new Date(date.getTime() + 5 * 60 * 60 * 1000);
+  const hh = String(t.getUTCHours()).padStart(2, "0");
+  const mm = String(t.getUTCMinutes()).padStart(2, "0");
+  return `${formatDate(t)}, ${hh}:${mm}`;
+}
+
 export function fmtBytes(n: number): string {
   if (!Number.isFinite(n) || n < 0) return "0 B";
   if (n >= 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;

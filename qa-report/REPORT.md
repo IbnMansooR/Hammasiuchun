@@ -562,3 +562,49 @@ Goal set by the owner: 10/10 on beauty, functionality, minimalism, typography an
 - **Metadata refresh** (the equivalent of `npm run meta:refresh --apply`). The source font bucket is private and this session has no service key, so it ran in two parts:
   - **Public families (35):** files were read through the live webfont route, using the script's logic plus Google Fonts' own category where one exists, with a visual check of the uncertain ones. 14 categories were corrected (e.g. Montserrat, Poppins, Jost, Manrope, Barlow, Inter UI → Sans; Aleo → Serif; DreamerOne → Script). No `hasCyrillic` changes were needed. Report: `meta-refresh-2026-10-04.csv`.
   - **Hidden "Display" families:** the script's name rules were applied in SQL. That gave 37 changes: 31 Serif (Caslon, Baskerville, Antiqua…), 4 Slab (Egyptian 505, American Typewriter) and 2 Monospace. The file-based checks for hidden families still need the owner's `npm run meta:refresh` run locally, where the files are available.
+
+## 12. Portfolio, user management and notifications (2026-10-04)
+
+**Database (production first).** The migration `users_notifications_portfolio_rls` adds:
+- `User.lastLoginAt`, `blockedAt`, `blockedUntil` and `blockReason`;
+- a `Notification` table (one row per recipient; a shared `batch` id groups one send);
+- a `Work` table for portfolio items.
+
+The same migration also enables Row Level Security on all 15 public tables. Before this, the Data API (anon key) could read every table, including user and admin password hashes. The app connects as `postgres`, which bypasses RLS, so the site is unaffected; I checked that it still served normally after the change.
+
+**Blocking and suspension**
+- `startUserSession()` is now the single sign-in gate for password, SMS code, Google, password reset and registration.
+- A block with no end date lasts until an admin lifts it. A suspension (1/3/7/30 days, or a chosen date in Tashkent time) ends on its own.
+- `getCurrentUser()` treats a restricted account as signed out, so a block also ends an open session on the next request.
+- The login page explains the block and shows the end date. Only the date is read from the URL, never free text.
+
+**Notifications**
+- The header bell shows the unread count. It refreshes after client-side navigation, at most every 30 s.
+- `/account/notifications` lists messages and marks them read after the response.
+- The admin can message one user or broadcast to all users (or to those active in the last 30 days). A sent message can be withdrawn. Read rates show per send.
+- Links must be internal (`/…`) or `https://`. `javascript:` and other schemes are rejected.
+
+**Admin**
+- Refreshed shell: grouped navigation with active state, a badge for drafts and new orders, theme toggle, token-based colours (dark mode works) and a usable phone layout.
+- New pages:
+  - `/admin/users`: stats, filters, search by name, email, phone or ID, and status tags;
+  - `/admin/users/[id]`: profile, restrict or lift, message, history and delete;
+  - `/admin/notifications`;
+  - `/admin/works`.
+- The work editor has a drag-and-drop gallery. Images go to `/api/admin/upload` one at a time, and the browser first downsizes large files to WebP (long side ≤ 2560 px). This keeps every request under Vercel's 4.5 MB body limit; a 9 MB PNG was uploaded in testing. The bytes are checked server-side, and the pixel size is stored in `Media` so pages can reserve space before an image loads.
+- The editor can also reorder images, choose the cover, credit the fonts used (picked from the catalogue), publish, feature and preview a draft.
+
+**Public**
+- `/portfolio` has a featured lead tile, a grid, kind filters (own / partner) and tag filters. It ends with a call to action asking partners to get in touch.
+- `/portfolio/[slug]` is the case study page:
+  - facts, cover, Markdown body and gallery; portrait images are capped at screen height so they don't run several screens tall;
+  - a disclosure plus the author's link on partner work;
+  - "Ishlatilgan shriftlar" font cards, a next-work link, JSON-LD and Open Graph image.
+- Partner work is always labelled "Hamkor".
+- Other new spots: a home page teaser, an "Amalda" section on each credited font's page, a "Portfolio" link in the header and sitemap entries.
+
+**Verification (local production build + Postgres 16)**
+- Playwright end-to-end: 68/68 checks pass. They cover public pages, filters, image sizes, blocked / suspended / expired sign-ins, ending an open session, sending and reading notifications, broadcast and withdraw, link validation, uploads, the work lifecycle, upload API guards, user deletion and mobile overflow.
+- axe (WCAG 2.1 AA + best practice): 0 violations on every new page, in light and dark.
+- `tsc` and `next build` pass.
+- Screenshots: `screenshots/portfolio/`.

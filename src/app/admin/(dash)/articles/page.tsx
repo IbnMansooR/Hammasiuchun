@@ -15,7 +15,7 @@ export default async function ArticlesList() {
         <Link href="/admin/articles/new" className="btn btn-accent btn-sm">+ Yangi</Link>
       </div>
       <table className="adm-table">
-        <thead><tr><th>Sarlavha</th><th>Turi</th><th>Holat</th><th>Sana</th><th></th></tr></thead>
+        <thead><tr><th>Sarlavha</th><th>Turi</th><th>Holat</th><th>Sana</th><th><span className="sr-only">Amallar</span></th></tr></thead>
         <tbody>
           {posts.map((a) => (
             <tr key={a.id}>

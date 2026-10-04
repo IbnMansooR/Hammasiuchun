@@ -4,43 +4,43 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")  // Supabase pooler (pgbouncer) connection
-  directUrl = env("DIRECT_URL")    // direct connection for migrations
+  url       = env("DATABASE_URL") // Supabase pooler (pgbouncer) connection
+  directUrl = env("DIRECT_URL") // direct connection for migrations
 }
 
 model Family {
-  id           Int      @id @default(autoincrement())
-  slug         String   @unique
+  id           Int     @id @default(autoincrement())
+  slug         String  @unique
   name         String
   folder       String
-  category     String   @default("Display")
+  category     String  @default("Display")
   designer     String?
   manufacturer String?
   designerUrl  String?
   copyright    String?
   license      String?
   licenseUrl   String?
-  licenseClass String   @default("Unknown")
+  licenseClass String  @default("Unknown")
   version      String?
-  glyphs       Int      @default(0)
-  hasLatin     Boolean  @default(true)
-  hasCyrillic  Boolean  @default(false)
-  hasItalic    Boolean  @default(false)
-  styleCount   Int      @default(0)
+  glyphs       Int     @default(0)
+  hasLatin     Boolean @default(true)
+  hasCyrillic  Boolean @default(false)
+  hasItalic    Boolean @default(false)
+  styleCount   Int     @default(0)
 
   // editorial / commerce (admin-editable)
   tagline     String?
   description String? // long editorial "CTA" text
   history     String?
   usage       String?
-  priceCents  Int      @default(100)
-  isFree      Boolean  @default(false)
-  tier        String   @default("demo") // free | demo | paid
-  isPublished Boolean  @default(true)
-  isFeatured  Boolean  @default(false)
-  isNew       Boolean  @default(false)
-  popularity  Int      @default(0)
-  downloads   Int      @default(0) // ZIP + single-cut downloads, counted by the download routes
+  priceCents  Int     @default(100)
+  isFree      Boolean @default(false)
+  tier        String  @default("demo") // free | demo | paid
+  isPublished Boolean @default(true)
+  isFeatured  Boolean @default(false)
+  isNew       Boolean @default(false)
+  popularity  Int     @default(0)
+  downloads   Int     @default(0) // ZIP + single-cut downloads, counted by the download routes
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -167,15 +167,67 @@ model ClickTransaction {
 // are all optional login paths onto the same account — at least one of
 // email/phone/googleId is expected to be set.
 model User {
-  id           Int        @id @default(autoincrement())
-  email        String?    @unique
-  phone        String?    @unique
-  passwordHash String?
-  googleId     String?    @unique
-  name         String?
-  createdAt    DateTime   @default(now())
-  orders       Order[]
-  purchases    Purchase[]
+  id            Int            @id @default(autoincrement())
+  email         String?        @unique
+  phone         String?        @unique
+  passwordHash  String?
+  googleId      String?        @unique
+  name          String?
+  createdAt     DateTime       @default(now())
+  lastLoginAt   DateTime?
+  // Restriction set by an admin: blockedAt + no blockedUntil = blocked until
+  // lifted; blockedAt + blockedUntil = suspended until that moment.
+  blockedAt     DateTime?
+  blockedUntil  DateTime?
+  blockReason   String?
+  orders        Order[]
+  purchases     Purchase[]
+  notifications Notification[]
+
+  @@index([createdAt])
+}
+
+/// A message from the admin to one user. A broadcast writes one row per
+/// recipient, all sharing the same `batch` so the admin can see it as one send.
+model Notification {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  batch     String
+  title     String
+  body      String    @default("")
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@index([batch])
+}
+
+/// Portfolio entry: the owner's own work, or a partner designer's work the site promotes.
+model Work {
+  id          Int       @id @default(autoincrement())
+  slug        String    @unique
+  title       String
+  summary     String?
+  body        String    @default("") // markdown case study
+  kind        String    @default("own") // own | partner
+  authorName  String? // partner designer's name
+  authorUrl   String? // partner's portfolio (Behance, Dribbble, site…)
+  client      String?
+  year        Int?
+  tags        String    @default("") // comma separated
+  coverImage  String?
+  images      String    @default("") // gallery: one URL per line
+  fonts       String    @default("") // comma-separated Feekr font slugs used in the work
+  isPublished Boolean   @default(false)
+  isFeatured  Boolean   @default(false)
+  sortOrder   Int       @default(0)
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([isPublished, sortOrder])
 }
 
 // A confirmed entitlement: this user owns the full (non-demo) license for
