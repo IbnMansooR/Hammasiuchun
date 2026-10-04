@@ -8,6 +8,12 @@
 
 # 🇺🇿 O‘ZBEKCHA (qisqa)
 
+> ## 🔄 2-bosqich (2026-10-04): barcha shriftlar bepul + qolgan kamchiliklar tuzatildi
+> - **Pullik toifa olib tashlandi.** Narx, savat, Payme/Click va xaridlar kutubxonasi yo‘q. Saytdagi har bir shrift bepul, butun oila bitta ZIP faylda yuklanadi (ichida `LITSENZIYA.txt` bor).
+> - **Litsenziya filtri.** Faqat ochiq litsenziyali (OFL, Apache, Public Domain), Freeware (ogohlantirish bilan) yoki admin “Oʻz shriftimiz / Huquq tasdiqlangan” deb belgilagan oilalar saytda ko‘rinadi. Adobe, Monotype, Linotype, Bitstream, “All Rights Reserved” va Unknown oilalar yashirildi; ular bazada qoladi. ⚠️ 81 ta tasodifiy shriftdan faqat 4 tasi ochiq litsenziyali chiqdi, demak katalogning katta qismi yashirinadi. Sizniki yoki ruxsati bor oilalarni admin paneldan qaytaring (**Shriftlar → Yashirin**).
+> - **Tuzatildi:** 34 tadan 27 tasi to‘liq tuzatildi, 4 tasi qisman, 3 tasi endi kerak emas (to‘lov tizimi olib tashlangan). Batafsil 9-bo‘limda.
+> - **Sizdan kerak:** (1) deploy qilish, (2) yashirin shriftlarni ko‘rib chiqish, (3) `npm run meta:refresh` skriptini ishga tushirish, (4) xohlasangiz Resend sozlash (parolni tiklash uchun).
+
 ## 1. Xulosa
 
 **Umumiy holat: 4 / 10.** Sayt ishlaydi, sahifalar ochiladi, katalog va tester ishlaydi, XSS yo‘q. Lekin **pullik shriftlarni bepul yuklab olish mumkin**, katalogda **tijoriy shriftlar litsenziyasiz tarqatilayotgan** bo‘lishi mumkin, saytning o‘z shrifti (Montserrat) **umuman yuklanmayapti**, qidiruv esa **katta-kichik harfga sezgir**.
@@ -406,3 +412,78 @@ Copy that reads as stiff or literal, with suggested rewrites:
 | everywhere | `'` / `ʻ` / `‘` mixed | Use `ʻ` (U+02BB) for oʻ/gʻ and `ʼ` (U+02BC) for the tutuq belgisi, consistently |
 
 Good, natural lines worth keeping: "Brendingizga ovoz beradigan shriftlar.", "Hech narsa topilmadi. Boshqa soʻrovni sinab koʻring.", "Bunday sahifa mavjud emas yoki koʻchirilgan."
+
+
+## 9. Round 2 — every font free + remaining findings (2026-10-04)
+
+**Owner decision:** all fonts are free and the paid category is removed entirely. **Constraint I applied:** families whose licence does not allow free redistribution are *not* given away. A public listing requires `isPublished` **and** a `licenseClass` in {OFL, Apache, Public Domain, Freeware, Own, Licensed}. This is enforced in every public query and in the download, webfont and OG routes, so it takes effect on deploy with **no data migration**. Restricted families (Adobe, Monotype, Linotype, Bitstream, All Rights Reserved, Shareware, Unknown) stay in the DB. An admin can mark a family **Own** (their own design) or **Licensed** (written permission) to publish it.
+
+⚠️ **Impact:** in a sample of 81 live font pages, only **4** carried an open licence (OFL). 40 were "All Rights Reserved", 15 Adobe, 9 Unknown, 4 Monotype, 4 Bitstream, and 5 unparsed. Expect most of the current 2,346 families to be hidden until reviewed. Some "All Rights Reserved"/"Unknown" fonts are genuinely free or the owner's own; review them under **Admin → Shriftlar → Yashirin**.
+
+### 9.1 Status of every finding
+
+Legend: ✅ fixed · 🟡 partial / needs an owner action · ➖ no longer applicable
+
+| ID | Status | What changed |
+|---|---|---|
+| FKR-01 | ✅ | Only published, freely licensed fonts are ever served (checked before the cache). With every listed font free there is nothing paid left to extract. CDN caching is re-enabled for speed (`s-maxage=86400`). |
+| FKR-02 | ✅ | Licence gate (above). Admin licence select with explanation, visibility status, a hidden-list filter and a dashboard counter. |
+| FKR-03 | ✅ | (round 1) Montserrat committed. |
+| FKR-04 | ✅ | (round 1) case-insensitive search. Re-verified with a real DB: "mont" = "Mont" = "MONT". |
+| FKR-05 | 🟡 | Font page shows **Uzbek Latin (ʻ ʼ)** and **Uzbek Cyrillic (Ў Қ Ғ Ҳ)** badges computed from the font's cmap (cached per family). The tester has "Oʻzbekcha" and "Ўзбекча" presets. `hasCyrillic` gets corrected by `npm run meta:refresh`. *Not done:* a catalog-level "Oʻzbekcha" filter, which needs two new DB columns (deferred to avoid a migration). |
+| FKR-06 | 🟡 | (round 1) Next 15.5.27, critical cleared. The 4 remaining high advisories are build-time only and need the Next 16 / Prisma 8 majors. |
+| FKR-07 | ✅ | `vercel.json` → `regions: ["bom1"]` (same region as the Supabase DB per `.env.example`). Home data cached for 5 min, counts for 1 h, both tag-invalidated on admin edits. The random showcase is picked in memory. **Verify after deploy** that the Supabase project really is in ap-south-1; otherwise change the region. |
+| FKR-08 | ✅ | OTP attempt cap (round 1) + per-IP SMS send cap. |
+| FKR-09 | ➖ | Click integration removed. |
+| FKR-10 | ➖ | Payme integration removed. |
+| FKR-11 | 🟡 | `npm run meta:refresh` re-classifies families still on the "Display" default from `post.isFixedPitch`, OS/2 `sFamilyClass`, PANOSE and name keywords. Dry run writes `data/meta-report.csv`; `--apply` writes. It needs the DB and the font files, so the owner must run it. |
+| FKR-12 | ✅ | The catalog skeleton is removed entirely; the toolbar shows a pending state instead. Verified with a real DB: unknown slug → **404**, and font pages **and** the catalog render fully without JS. |
+| FKR-13 | ✅ | (round 1) robots.txt + sitemap. The sitemap now lists only public families. |
+| FKR-14 | ✅ | 1200×630 OG images: a site card, plus a per-font card that sets the family name in its own font. Fonts Satori can't parse (variable/CFF2) fall back to Montserrat. Verified both paths. |
+| FKR-15 | ✅ | Per-request CSP with nonce + `strict-dynamic` (`default-src 'self'`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'`). The admin auth gate still runs for every `/admin` request, including prefetches. 0 CSP violations across all tested pages. |
+| FKR-16 | ✅ | "Parolni unutdingizmi?": stateless 30-min reset token bound to the current password hash, sent via Resend. Hidden until `RESEND_API_KEY` + `MAIL_FROM` are set. Rate-limited, no account enumeration. |
+| FKR-17 | ✅ | (round 1) logo/hamburger, compact header from 320 px. |
+| FKR-18 | ✅ | Tester: honest size range (slider max follows width, 320px shows 320px), alignment, text colour, dark background, presets (Oʻzbekcha / Ўзбекча / Pangram / ABC / 0–9), reset, auto-grow. |
+| FKR-19 | ✅ | Skip link, heading order (footer/blog), labelled forms, contrast; the paid-font modal is gone. **axe: 0 violations** on `/`, `/fonts`, a font page, `/pairs`, `/blog`, `/about`, `/wishlist`, `/login`, `/register`, `/license`, `/support`. |
+| FKR-20 | ✅ | (round 1) + lockout messages. |
+| FKR-21 | ✅ | Per-family licence note + Freeware warning on the page. `LITSENZIYA.txt` (licence class, copyright, licence text/URL) inside every ZIP. The "demo" concept and the WOFF2 claim are removed. |
+| FKR-22 | ➖ | Payment flow removed. |
+| FKR-23 | ✅ | (round 1) Google links by verified email only. |
+| FKR-24 | ✅ | All UI copy uses ʻ (U+02BB) / ʼ (U+02BC). Uzbek specimen lines on cards, style rows and showcases (ʻ when the font has it, ‘ otherwise). Copy rewritten for a free library. Blog article bodies/titles live in the DB: edit "Feekr'ga…" in admin. |
+| FKR-25 | ✅ | Toolbar builds on the last requested URL + the live search value. Verified: clear search → click chip → `/fonts?cat=Serif` (no stale `q`). |
+| FKR-26 | ✅ | Header logo 201×52 PNG, 3.3 KB (was 3877×1001, 54 KB), with width/height. |
+| FKR-27 | ✅ | (round 1) global-error. |
+| FKR-28 | ✅ | 404 pages titled "Sahifa topilmadi" + noindex; wishlist title. |
+| FKR-29 | ✅ | Weight number shown next to each style name. Font files are deliberately left unmodified. |
+| FKR-30 | 🟡 | Counts are real everywhere (footer, home, about, meta); the "2000+" claims are gone. Squashed names get suggestions from `meta:refresh`; apply them with `--apply --names` after reviewing the CSV. |
+| FKR-31 | ✅ | `color-scheme: light`, reduced-motion kill-switch, print stylesheet (round 1). |
+| FKR-32 | ✅ | Per-IP limits: user login 8 fails → 15 min, registration 10/h, password-reset 5/h, SMS 10/h. Guest orders no longer exist. |
+| FKR-33 | ✅ | Cart removed (`/cart` → 308 `/wishlist`); wishlist stores only slug + name. |
+| FKR-34 | ✅ | No DB access during `next build` (0 Prisma errors in the build log); failed DB reads are never cached. |
+
+**Totals:** 27 ✅ · 4 🟡 · 3 ➖.
+
+### 9.2 New issues found and fixed while verifying round 2
+
+- A statically prerendered 404 + nonce CSP blocked all of that page's JS. The root `not-found` is now rendered per request.
+- Per-font OG images crashed mid-stream for variable fonts. They now render to a buffer and fall back to Montserrat.
+- `unstable_cache` stored a DB failure as "0 fonts" for an hour. Failures now throw inside the cache and fall back outside it.
+- `scripts/seed.mjs` would overwrite admin-confirmed licences on re-seed. Own/Licensed classes are now preserved.
+
+### 9.3 How round 2 was verified
+
+`tsc --noEmit` ✅ and `next build` ✅ (0 warnings, 0 Prisma errors). A throwaway **local PostgreSQL 16** held seeded families covering every case: OFL, Freeware, All Rights Reserved, Own, unpublished OFL, and a static plus a variable font. Against `next start`:
+- Status codes: public 200; restricted/unpublished/unknown 404 on page, ZIP, single-cut and webfont routes.
+- ZIP contents include `LITSENZIYA.txt`. The sitemap lists only public families.
+- Playwright (Chromium): tester controls, wishlist, catalog race, 360 px, no-JS, admin licence flip (Locked → Own ⇒ 404 → 200). axe as above. CSP headers checked with 0 console errors.
+- Screenshots: `qa-report/screenshots/after/`. The test DB and files were deleted afterwards.
+
+### 9.4 Owner checklist
+
+1. Deploy: pull this branch into the repo Vercel builds from, then push.
+2. Admin → **Shriftlar → Yashirin**: mark your own fonts **Oʻz shriftimiz** and licensed ones **Tarqatish huquqi tasdiqlangan**.
+3. Locally, with `.env` and the `font/` folder: `npm run meta:refresh` → review `data/meta-report.csv` → `npm run meta:refresh -- --apply` (add `--names` to also rename).
+4. Optional: set `RESEND_API_KEY` and `MAIL_FROM` in Vercel to switch on password reset.
+5. Confirm the Supabase region is ap-south-1 (Mumbai); otherwise change `vercel.json → regions`.
+6. Re-run Lighthouse after deploy; TTFB should drop well below 1 s on cached pages.
+7. Accounts now only hold the profile (no purchases). Decide whether to keep login at all.
