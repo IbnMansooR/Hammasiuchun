@@ -486,4 +486,4 @@ Legend: ✅ fixed · 🟡 partial / needs an owner action · ➖ no longer appli
 4. Optional: set `RESEND_API_KEY` and `MAIL_FROM` in Vercel to switch on password reset.
 5. Confirm the Supabase region is ap-south-1 (Mumbai); otherwise change `vercel.json → regions`.
 6. Re-run Lighthouse after deploy; TTFB should drop well below 1 s on cached pages.
-7. Accounts now only hold the profile (no purchases). Decide whether to keep login at all.
+7. ~~Decide whether to keep login~~ — **decided: login stays** (profile + wishlist link; Google/SMS/password reset switch on via env vars).
