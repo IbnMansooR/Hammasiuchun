@@ -551,3 +551,14 @@ Goal set by the owner: 10/10 on beauty, functionality, minimalism, typography an
 - No horizontal scroll at 390 px.
 - Licence gate re-checked: a restricted family returns 404 for its page, webfont and ZIP, and `/api/search?slugs=` drops it.
 - Performance technique: below-the-fold sections and off-screen cards use `content-visibility: auto`, so their webfonts load only when they are near the viewport. The hero cut of a font page is preloaded.
+
+## 11. Production follow-ups (2026-10-04)
+
+- **Deployed** to `IbnMansooR/feekr` `main` (Vercel project `feekrfont`, region `bom1`; the Supabase project is confirmed to be in ap-south-1).
+- **Build fix:** `.vercelignore` patterns are now anchored. `font` had excluded `src/components/font`, and `public/fonts/*` would have dropped the UI fonts.
+- **CJK previews:** fonts over 1.5 MB are served to specimens as a Latin/Cyrillic subset built with HarfBuzz. Noto Sans SC Bold went from 6.4 MB to 48 KB, and the first conversion is no longer slow enough to time out with a 502.
+- **Broken cmaps:** Sanity and Sanity Wide were rejected by Chrome's font sanitizer ("cmap language id should be zero"). They are now rebuilt with every character kept, and they render.
+- **Download counter:** new column `Family.downloads`, added on production first. The ZIP and single-cut routes increment it. "0 so'm" is gone; the public total appears once it reaches 100, and the admin dashboard shows the exact number.
+- **Metadata refresh** (the equivalent of `npm run meta:refresh --apply`). The source font bucket is private and this session has no service key, so it ran in two parts:
+  - **Public families (35):** files were read through the live webfont route, using the script's logic plus Google Fonts' own category where one exists, with a visual check of the uncertain ones. 14 categories were corrected (e.g. Montserrat, Poppins, Jost, Manrope, Barlow, Inter UI → Sans; Aleo → Serif; DreamerOne → Script). No `hasCyrillic` changes were needed. Report: `meta-refresh-2026-10-04.csv`.
+  - **Hidden "Display" families:** the script's name rules were applied in SQL. That gave 37 changes: 31 Serif (Caslon, Baskerville, Antiqua…), 4 Slab (Egyptian 505, American Typewriter) and 2 Monospace. The file-based checks for hidden families still need the owner's `npm run meta:refresh` run locally, where the files are available.
