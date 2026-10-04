@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { cssFamily, PANGRAM, CATEGORY_LABEL } from "@/lib/fonts";
+import { cssFamily, UZ_SAMPLE, CATEGORY_LABEL } from "@/lib/fonts";
 import type { CardFont } from "@/lib/queries";
 
 // Cyrillic sample for families that carry Cyrillic but no Latin coverage, so the
@@ -15,7 +15,7 @@ export default function FontCard({ f }: { f: CardFont }) {
   };
   const cyrillicOnly = !f.hasLatin && f.hasCyrillic;
   const alpha = cyrillicOnly ? CYR_ALPHA : "AaBbCcDdEe";
-  const pangram = cyrillicOnly ? CYR_PANGRAM : PANGRAM;
+  const pangram = cyrillicOnly ? CYR_PANGRAM : UZ_SAMPLE;
   return (
     <Link href={`/fonts/${f.slug}`} className="fcard">
       <div className="fcard-top">
@@ -29,11 +29,9 @@ export default function FontCard({ f }: { f: CardFont }) {
       <div className="fcard-foot">
         <div className="fcard-badges">
           {f.isNew && <span className="badge badge-new">Yangi</span>}
-          {f.tier === "free" && <span className="badge badge-free">Bepul</span>}
-          {f.tier === "demo" && <span className="badge badge-demo">Demo</span>}
           <span className="badge">{CATEGORY_LABEL[f.category] ?? f.category}</span>
         </div>
-        <span className="fcard-cta">Ko&apos;rish →</span>
+        <span className="fcard-cta">Koʻrish →</span>
       </div>
     </Link>
   );

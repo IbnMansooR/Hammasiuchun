@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { formatNumber } from "@/lib/format";
+import { PUBLIC_FAMILY } from "@/lib/license";
 
 export const metadata = { title: "Biz haqimizda" };
 // Refresh periodically so the counts don't stay frozen at build time.
@@ -9,8 +10,8 @@ async function counts(): Promise<[number, number]> {
   // Never let a build-time DB hiccup fail prerender; revalidate fills real values.
   try {
     return await Promise.all([
-      db.family.count({ where: { isPublished: true } }),
-      db.style.count({ where: { family: { isPublished: true } } }),
+      db.family.count({ where: PUBLIC_FAMILY }),
+      db.style.count({ where: { family: PUBLIC_FAMILY } }),
     ]);
   } catch {
     return [2000, 10000];
@@ -24,23 +25,21 @@ export default async function AboutPage() {
       <div style={{ maxWidth: 820 }}>
         <div className="eyebrow">Biz haqimizda</div>
         <h1 style={{ fontSize: "clamp(34px,6vw,72px)", letterSpacing: "-.03em" }}>
-          Feekr — shrift bu ovoz degan ishonchda.
+          Feekr shrift — brendning ovozi, degan gʻoyaga tayanadi.
         </h1>
         <div className="prose" style={{ marginTop: 24 }}>
           <p>
-            Feekr — dizaynerlar, brendlar va ijodkorlar uchun mustaqil shrift ombori. Bizning
-            maqsadimiz — har bir loyihaga mos, sifatli va xarakterli shriftlarni bir joyda taqdim etish.
+            Feekr — dizaynerlar, brendlar va ijodkorlar uchun mustaqil shriftlar kutubxonasi. Bizning
+            maqsadimiz — har bir loyihaga mos, sifatli va xarakterli shriftlarni bir joyda, bepul taqdim etish.
           </p>
           <p>
-            Katalogimizda {formatNumber(families)} dan ortiq shrift oilasi va{" "}
-            {formatNumber(styles)} uslub mavjud — geometrik grotesklardan tortib
-            ekspressiv display shriftlargacha. Har birini bepul sinab ko&apos;ring.
+            Katalogimizda {formatNumber(families)} ta shrift oilasi va {formatNumber(styles)} ta uslub bor.
+            Hammasi bepul: sinab koʻring va yuklab oling.
           </p>
-          <h3>Litsenziya</h3>
+          <h2>Litsenziya</h2>
           <p>
-            Har bir shrift desktop va web (WOFF2) foydalanish uchun litsenziyalanadi. Demo
-            versiyalar bepul sinash uchun. To&apos;liq oila litsenziyasi loyihangizda cheksiz
-            foydalanish huquqini beradi.
+            Har bir oila oʻz muallifining litsenziyasi bilan tarqatiladi. Litsenziya shrift sahifasida va
+            ZIP ichidagi LITSENZIYA.txt faylida yozilgan. Batafsil: <a href="/license">foydalanish shartlari</a>.
           </p>
         </div>
       </div>

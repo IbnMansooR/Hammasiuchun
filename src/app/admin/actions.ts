@@ -11,7 +11,7 @@ import { parseFontBuffer, slugify, safeFolder, shortHash, styleSlug as mkStyleSl
 import { putUpload, deleteUpload, writeFont, writeWebfont } from "@/lib/storage";
 import { DEFAULT_SETTINGS, saveSiteSettings } from "@/lib/settings";
 import { sniffImageFamily, EXT_FAMILY } from "@/lib/imagesniff";
-import { grantOrderPurchases } from "@/lib/purchases";
+import { LICENSE_CLASSES } from "@/lib/license";
 
 const IMAGE_EXT = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"]);
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -178,11 +178,6 @@ export async function setOrderStatusAction(fd: FormData) {
   const status = str(fd, "status");
   if (!Number.isInteger(id) || id <= 0 || !ORDER_STATUSES.has(status)) return;
   await db.order.update({ where: { id }, data: { status } });
-
-  // Marking a logged-in customer's order "done" (e.g. after confirming a bank
-  // transfer over Telegram) is the manual equivalent of a successful payment
-  // webhook — grant the same re-downloadable ownership either way.
-  if (status === "done") await grantOrderPurchases(id, "manual");
   revalidatePath("/admin/orders");
 }
 
@@ -204,12 +199,10 @@ export async function saveSettingsAction(fd: FormData) {
     url: str(fd, `${d.key}_url`),
     enabled: bool(fd, `${d.key}_on`),
   }));
-  const rate = Number(str(fd, "usdToUzsRate"));
   await saveSiteSettings({
     socials,
     contactEmail: str(fd, "contactEmail") || DEFAULT_SETTINGS.contactEmail,
     contactTelegram: str(fd, "contactTelegram") || DEFAULT_SETTINGS.contactTelegram,
-    usdToUzsRate: Number.isFinite(rate) && rate > 0 ? rate : DEFAULT_SETTINGS.usdToUzsRate,
   });
   revalidatePath("/", "layout"); // footer is in the shared layout
   revalidatePath("/support");
@@ -220,11 +213,9 @@ export async function saveSettingsAction(fd: FormData) {
 export async function saveFamilyAction(fd: FormData) {
   await assertAdmin();
   const slug = str(fd, "slug");
-  const priceRaw = Number(str(fd, "price"));
-  if (!Number.isFinite(priceRaw) || priceRaw < 0 || priceRaw > 100000) {
-    redirect(`/admin/fonts/${slug}?error=price`);
-  }
-  const tier = str(fd, "tier") || "demo";
+  // Every font is free; whether it may be shown depends on its licence class.
+  const licenseClass = str(fd, "licenseClass");
+  if (!(LICENSE_CLASSES as readonly string[]).includes(licenseClass)) redirect(`/admin/fonts/${slug}?error=license`);
   await db.family.update({
     where: { slug },
     data: {
@@ -234,9 +225,10 @@ export async function saveFamilyAction(fd: FormData) {
       history: str(fd, "history") || null,
       usage: str(fd, "usage") || null,
       designer: str(fd, "designer") || null,
-      tier,
-      isFree: tier === "free",
-      priceCents: tier === "free" ? 0 : Math.round(priceRaw * 100),
+      licenseClass,
+      tier: "free",
+      isFree: true,
+      priceCents: 0,
       isPublished: bool(fd, "isPublished"),
       isFeatured: bool(fd, "isFeatured"),
       isNew: bool(fd, "isNew"),
@@ -311,7 +303,7 @@ export async function uploadFontFamilyAction(fd: FormData) {
       slug, ...technical, category,
       designer: meta.designer, manufacturer: meta.manufacturer,
       copyright: meta.copyright, licenseClass: meta.licenseClass,
-      tier: "demo", isFree: false, priceCents: 100, popularity: styles.length,
+      tier: "free", isFree: true, priceCents: 0, popularity: styles.length,
     },
   });
   // Replace styles atomically so a failure can't leave the family with zero cuts.

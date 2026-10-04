@@ -4,13 +4,14 @@ import { db } from "@/lib/db";
 import { fetchCards, cardsFaceCSS } from "@/lib/queries";
 import { CATEGORIES, CATEGORY_LABEL } from "@/lib/fonts";
 import FontCard from "@/components/FontCard";
+import { PUBLIC_FAMILY } from "@/lib/license";
 import CatalogToolbar from "@/components/CatalogToolbar";
 
 export const metadata = { title: "Barcha shriftlar" };
 
 const PAGE_SIZE = 24;
 
-type SP = Promise<{ q?: string; cat?: string; filter?: string; sort?: string; page?: string; cyr?: string }>;
+type SP = Promise<{ q?: string; cat?: string; sort?: string; page?: string; cyr?: string }>;
 
 function orderFor(sort: string): Prisma.FamilyOrderByWithRelationInput[] {
   switch (sort) {
@@ -27,7 +28,6 @@ export default async function FontsPage({ searchParams }: { searchParams: SP }) 
   const q = (sp.q ?? "").trim();
   // Only accept known categories; drop arbitrary/junk cat values from the query.
   const cat = CATEGORIES.includes((sp.cat ?? "") as (typeof CATEGORIES)[number]) ? sp.cat! : "";
-  const free = sp.filter === "free";
   const cyr = sp.cyr === "1";
   const sort = sp.sort ?? "popular";
   const reqPage = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
@@ -35,9 +35,8 @@ export default async function FontsPage({ searchParams }: { searchParams: SP }) 
   const searchQ = q.replace(/[%_]/g, "");
 
   const where: Prisma.FamilyWhereInput = {
-    isPublished: true,
+    ...PUBLIC_FAMILY,
     ...(cat ? { category: cat } : {}),
-    ...(free ? { isFree: true } : {}),
     ...(cyr ? { hasCyrillic: true } : {}),
     // Postgres LIKE is case-sensitive; without this "mont" misses "Montserrat".
     ...(searchQ ? { name: { contains: searchQ, mode: "insensitive" } } : {}),
@@ -53,7 +52,6 @@ export default async function FontsPage({ searchParams }: { searchParams: SP }) 
     const u = new URLSearchParams();
     if (q) u.set("q", q);
     if (cat) u.set("cat", cat);
-    if (free) u.set("filter", "free");
     if (cyr) u.set("cyr", "1");
     if (sort !== "popular") u.set("sort", sort);
     if (p > 1) u.set("page", String(p));

@@ -18,7 +18,6 @@ export default async function Footer() {
             <h4>Shriftlar</h4>
             <Link href="/fonts">Barcha shriftlar</Link>
             <Link href="/pairs">Juftliklar</Link>
-            <Link href="/fonts?filter=free">Bepul shriftlar</Link>
             <Link href="/fonts?cat=Sans">Sans-serif</Link>
             <Link href="/fonts?cat=Display">Display</Link>
             <Link href="/fonts?cat=Serif">Serif</Link>

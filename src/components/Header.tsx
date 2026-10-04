@@ -6,7 +6,6 @@ import { useStore } from "./StoreProvider";
 const NAV = [
   { href: "/fonts", label: "Barcha shriftlar" },
   { href: "/pairs", label: "Juftliklar" },
-  { href: "/fonts?filter=free", label: "Bepul shriftlar" },
   { href: "/blog", label: "Blog" },
   { href: "/about", label: "Biz haqimizda" },
 ];
@@ -35,8 +34,7 @@ type HeaderUser = { name: string | null; email: string | null } | null;
 
 export default function Header({ user = null }: { user?: HeaderUser }) {
   const [open, setOpen] = useState(false);
-  const { cart, wish, ready } = useStore();
-  const cartN = ready ? cart.length : 0;
+  const { wish, ready } = useStore();
   const wishN = ready ? wish.length : 0;
 
   return (
@@ -58,12 +56,6 @@ export default function Header({ user = null }: { user?: HeaderUser }) {
           <CountIcon href="/wishlist" label="Sevimlilar" count={wishN}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z" />
-            </svg>
-          </CountIcon>
-          <CountIcon href="/cart" label="Savatcha" count={cartN}>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
-              <path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6" />
             </svg>
           </CountIcon>
           {user ? (

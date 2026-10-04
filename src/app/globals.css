@@ -298,6 +298,22 @@ select.sel { border: 1px solid var(--line); border-radius: 999px; padding: 7px 1
   .footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
 }
 
+/* ---------- tester tools + helpers ---------- */
+.tester-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 20px; border-bottom: 1px solid var(--line); font-size: 0.8125rem; }
+.tester-align { display: inline-flex; gap: 4px; }
+.tester-color { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-weight: 600; }
+.tester-color input { width: 34px; height: 30px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: none; cursor: pointer; }
+.tester-input { display: block; overflow: hidden; transition: background .15s, color .15s; }
+.search input { -webkit-appearance: none; appearance: none; padding: 6px 0; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.glyph-badges { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; padding: 0; margin: 14px 0 0; font-size: 0.8125rem; }
+.glyph-badges li { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); }
+.glyph-badges li.ok { border-color: var(--accent); color: var(--accent-ink); background: #e7f8f0; }
+.glyph-badges li.part { border-color: #e9c46a; color: #7a4b00; background: #fff7e6; }
+.glyph-badges li.no { color: var(--muted); }
+.skip-link { position: absolute; left: 12px; top: -48px; z-index: 100; background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 0.875rem; }
+.skip-link:focus { top: 10px; }
+
 /* Small phones: logo + 5 header icons must fit in 320px. "Kirish" stays
    reachable from the mobile menu ("Kirish / Ro'yxatdan o'tish"). */
 @media (max-width: 480px) {

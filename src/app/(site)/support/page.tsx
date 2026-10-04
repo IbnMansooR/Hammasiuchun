@@ -11,14 +11,15 @@ export default async function SupportPage() {
         <div className="eyebrow">Yordam</div>
         <h1 style={{ fontSize: "clamp(32px,5vw,60px)" }}>Savolingiz bormi?</h1>
         <div className="prose" style={{ marginTop: 20 }}>
-          <p>Litsenziya, to&apos;lov yoki shriftlar bo&apos;yicha savollar uchun biz bilan bog&apos;laning:</p>
+          <p>Litsenziya yoki shriftlar boʻyicha savollar uchun biz bilan bogʻlaning:</p>
           <ul>
             <li>Email: <a href={`mailto:${contactEmail}`}>{contactEmail}</a></li>
             <li>Telegram: <a href={contactTelegram} target="_blank" rel="noreferrer noopener">{tgHandle}</a></li>
           </ul>
-          <h3>Ko&apos;p beriladigan savollar</h3>
-          <p><strong>Demo shriftlar bepulmi?</strong> Ha, demo oilalarning Regular (va mavjud bo&apos;lsa Kursiv) varianti bepul yuklab olinadi.</p>
-          <p><strong>Litsenziyani qanday olaman?</strong> Shrift sahifasidagi &quot;Savatga qo&apos;shish&quot; (yoki pullik shriftlar uchun &quot;Sotib olish&quot;) tugmasi orqali. To&apos;lov tizimi tez orada ulanadi.</p>
+          <h2>Koʻp beriladigan savollar</h2>
+          <p><strong>Shriftlar haqiqatan bepulmi?</strong> Ha. Har bir oilani shrift sahifasidan bitta ZIP qilib yuklab olasiz.</p>
+          <p><strong>Tijoriy loyihada ishlatsam boʻladimi?</strong> OFL, Apache va Public Domain shriftlari — ha. Freeware shriftlarda muallif shartlarini tekshiring: ular koʻpincha faqat shaxsiy foydalanish uchun bepul. Shartlar shrift sahifasida va ZIP ichidagi LITSENZIYA.txt faylida.</p>
+          <p><strong>Mening shriftim ruxsatsiz joylangan.</strong> Yuqoridagi manzillarga yozing — darhol olib tashlaymiz.</p>
         </div>
       </div>
     </div>

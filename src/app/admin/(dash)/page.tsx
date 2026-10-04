@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { formatDate, formatNumber } from "@/lib/format";
+import { PUBLIC_FAMILY } from "@/lib/license";
 
 export const metadata = { title: "Admin — Boshqaruv" };
 
 export default async function Dashboard() {
-  const [families, styles, articles, media, drafts, recent, newOrders] = await Promise.all([
+  const [families, publicFamilies, styles, articles, media, drafts, recent, newOrders] = await Promise.all([
     db.family.count(),
+    db.family.count({ where: PUBLIC_FAMILY }),
     db.style.count(),
     db.article.count(),
     db.media.count(),
@@ -21,14 +23,22 @@ export default async function Dashboard() {
         <Link href="/admin/articles/new" className="btn btn-accent btn-sm">+ Yangi maqola</Link>
       </div>
       <div className="stat-grid">
-        <div className="stat"><div className="n">{formatNumber(families)}</div><div className="l">Shrift oilasi</div></div>
+        <div className="stat"><div className="n">{formatNumber(publicFamilies)}</div><div className="l">Saytda (jami {formatNumber(families)})</div></div>
         <div className="stat"><div className="n">{formatNumber(styles)}</div><div className="l">Uslub</div></div>
         <div className="stat"><div className="n">{articles}</div><div className="l">Maqola ({drafts} qoralama)</div></div>
         <div className="stat"><div className="n">{media}</div><div className="l">Rasm</div></div>
         <div className="stat"><div className="n">{newOrders}</div><div className="l">Yangi buyurtma</div></div>
       </div>
 
-      <h2 style={{ fontSize: 20, margin: "10px 0 14px" }}>So&apos;nggi maqolalar</h2>
+      {families > publicFamilies && (
+        <p style={{ background: "#fff7e6", color: "#7a4b00", padding: "12px 14px", borderRadius: 10, fontSize: 14, margin: "0 0 22px" }}>
+          {formatNumber(families - publicFamilies)} ta oila saytda koʻrinmaydi — litsenziyasi bepul tarqatishga ruxsat bermaydi yoki tekshirilmagan.{" "}
+          <Link href="/admin/fonts?view=hidden" style={{ textDecoration: "underline" }}>Roʻyxatni koʻrish</Link>. Oʻzingizniki yoki ruxsati bor
+          oilalarni tahrirlash sahifasida “Oʻz shriftimiz” / “Tarqatish huquqi tasdiqlangan” qilib belgilang.
+        </p>
+      )}
+
+      <h2 style={{ fontSize: 20, margin: "10px 0 14px" }}>Soʻnggi maqolalar</h2>
       <table className="adm-table">
         <thead><tr><th>Sarlavha</th><th>Turi</th><th>Holat</th><th>Yangilangan</th></tr></thead>
         <tbody>

@@ -1,10 +1,11 @@
 import { db } from "@/lib/db";
+import { FREEWARE_WARNING, LICENSE_NOTE, isRedistributable } from "@/lib/license";
 import { readFont } from "@/lib/storage";
 import JSZip from "jszip";
 
 export const runtime = "nodejs";
 
-// Download an entire FREE family as one ZIP containing every cut.
+// Download an entire family as one ZIP containing every cut (all fonts are free).
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ slug: string }> },
@@ -17,14 +18,13 @@ export async function GET(
     const fam = await db.family.findUnique({
       where: { slug },
       select: {
-        name: true, folder: true, tier: true,
+        name: true, folder: true, isPublished: true, licenseClass: true, copyright: true, license: true,
+        designer: true, licenseUrl: true,
         styles: { select: { style: true, ext: true, file: true }, orderBy: [{ italic: "asc" }, { weight: "asc" }] },
       },
     });
-    if (!fam) return new Response("Not found", { status: 404 });
-    // Only free families get the whole-family download.
-    if (fam.tier !== "free") {
-      return new Response("Bu shrift litsenziya bilan yuklanadi. Iltimos, savatga qo'shing.", { status: 403 });
+    if (!fam || !fam.isPublished || !isRedistributable(fam.licenseClass)) {
+      return new Response("Not found", { status: 404 });
     }
 
     const base = fam.name.replace(/[^A-Za-z0-9]+/g, "") || slug;
@@ -42,6 +42,18 @@ export async function GET(
       added++;
     }
     if (!added) return new Response("Missing source", { status: 404 });
+
+    // Ship the licence terms with the files so they travel with the font.
+    dir.file("LITSENZIYA.txt", [
+      `${fam.name}`,
+      fam.designer ? `Dizayner: ${fam.designer}` : "",
+      `Litsenziya: ${fam.licenseClass}${LICENSE_NOTE[fam.licenseClass] ? ` — ${LICENSE_NOTE[fam.licenseClass]}` : ""}`,
+      fam.licenseClass === "Freeware" ? FREEWARE_WARNING : "",
+      fam.copyright ? `\n${fam.copyright}` : "",
+      fam.license ? `\n${fam.license}` : "",
+      fam.licenseUrl ? `\n${fam.licenseUrl}` : "",
+      "\nYuklab olingan manba: Feekr (https://feekrfont.uz)",
+    ].filter(Boolean).join("\n"));
 
     const content = await zip.generateAsync({
       type: "nodebuffer",

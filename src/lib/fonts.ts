@@ -11,7 +11,7 @@ export const CATEGORY_LABEL: Record<string, string> = {
   Serif: "Serif",
   Slab: "Slab-serif",
   Display: "Display",
-  Script: "Qo'lyozma",
+  Script: "Qoʻlyozma",
   Monospace: "Monospace",
   Dingbat: "Belgilar",
 };
@@ -20,7 +20,7 @@ export const SORTS: Record<string, string> = {
   popular: "Ommabop",
   az: "A–Z",
   za: "Z–A",
-  styles: "Ko'p uslub",
+  styles: "Uslublar soni",
   new: "Yangi",
 };
 
@@ -82,4 +82,12 @@ export const WEIGHT_LABEL: Record<number, string> = {
 };
 
 export const PANGRAM = "The quick brown fox jumps over the lazy dog";
+
+/** Uzbek specimen line. Uses the official ʻ (U+02BB) when the font has it,
+ * otherwise ‘ (U+2018) — the substitute most fonts (and most Uzbek text) have. */
+export function uzSample(support?: { uzLatin: boolean } | null): string {
+  const a = support?.uzLatin ? "ʻ" : "‘";
+  return `O${a}zbekiston — g${a}oyalar, quyosh va shriftlar yurti`;
+}
+export const UZ_SAMPLE = uzSample(null);
 export const ALPHABET = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz";

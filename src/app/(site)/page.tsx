@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
+import { PUBLIC_FAMILY, REDISTRIBUTABLE } from "@/lib/license";
 import { CardCover } from "@/components/Cover";
 import { fetchCards, cardsFaceCSS, type CardFont } from "@/lib/queries";
-import { cssFamily, PANGRAM, CATEGORIES, CATEGORY_LABEL } from "@/lib/fonts";
+import { cssFamily, UZ_SAMPLE, CATEGORIES, CATEGORY_LABEL } from "@/lib/fonts";
 import { formatDate, formatNumber } from "@/lib/format";
 import FontCard from "@/components/FontCard";
 
@@ -12,16 +14,17 @@ export const dynamic = "force-dynamic";
 export default async function HomePage() {
   const [newest, posts, total, rnd] = await Promise.all([
     fetchCards({
-      where: { isPublished: true },
+      where: PUBLIC_FAMILY,
       orderBy: [{ isNew: "desc" }, { popularity: "desc" }, { name: "asc" }],
       take: 8,
     }),
     db.article.findMany({ where: { isPublished: true }, orderBy: { publishedAt: "desc" }, take: 3 }),
-    db.family.count({ where: { isPublished: true } }),
+    db.family.count({ where: PUBLIC_FAMILY }),
     // 2 random, decent-sized families for the showcase banners
     db.$queryRaw<{ slug: string }[]>`
       SELECT "slug" FROM "Family"
-      WHERE "isPublished" = true AND "hasLatin" = true AND "styleCount" >= 5
+      WHERE "isPublished" = true AND "licenseClass" IN (${Prisma.join([...REDISTRIBUTABLE])})
+        AND "hasLatin" = true AND "styleCount" >= 5
       ORDER BY RANDOM() LIMIT 2`,
   ]);
 
@@ -37,7 +40,7 @@ export default async function HomePage() {
 
   const catCounts = await db.family.groupBy({
     by: ["category"],
-    where: { isPublished: true },
+    where: PUBLIC_FAMILY,
     _count: true,
   });
   const countOf = (c: string) => catCounts.find((x) => x.category === c)?._count ?? 0;
@@ -53,12 +56,12 @@ export default async function HomePage() {
           Brendingizga ovoz beradigan shriftlar.
         </h1>
         <p className="muted" style={{ fontSize: 19, maxWidth: 620, marginTop: 18 }}>
-          {formatNumber(total)}+ shrift oilasi. Har birini bepul sinab ko&apos;ring,
-          keyin loyihangiz uchun litsenziya oling.
+          {formatNumber(total)} ta shrift oilasi — barchasi bepul. Sinab koʻring va bir bosishda
+          yuklab oling.
         </p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 26 }}>
           <Link href="/fonts" className="btn btn-accent">Barcha shriftlar</Link>
-          <Link href="/fonts?filter=free" className="btn">Bepul shriftlar</Link>
+          <Link href="/pairs" className="btn">Shrift juftliklari</Link>
         </div>
       </section>
 
@@ -74,7 +77,7 @@ export default async function HomePage() {
             </div>
             <div className="showcase-specimens" style={{ fontFamily: `"${cssFamily(hero.slug)}", var(--font)`, fontWeight: hero.previewWeight }}>
               <div className="spec spec-alpha">AaBbCcDdEe</div>
-              <div className="spec spec-pangram">{PANGRAM}.</div>
+              <div className="spec spec-pangram">{UZ_SAMPLE}.</div>
             </div>
           </Link>
         </section>
@@ -92,7 +95,7 @@ export default async function HomePage() {
             </div>
             <div className="showcase-specimens" style={{ fontFamily: `"${cssFamily(dark.slug)}", var(--font)`, fontWeight: dark.previewWeight }}>
               <div className="spec spec-alpha">AaBbCcDdEe</div>
-              <div className="spec spec-pangram">{PANGRAM}.</div>
+              <div className="spec spec-pangram">{UZ_SAMPLE}.</div>
             </div>
           </Link>
         </section>

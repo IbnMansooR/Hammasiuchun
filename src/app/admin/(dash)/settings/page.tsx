@@ -1,7 +1,5 @@
 import { getSiteSettings } from "@/lib/settings";
 import { saveSettingsAction } from "../../actions";
-import { paymeEnabled } from "@/lib/payme";
-import { clickEnabled } from "@/lib/click";
 import { googleEnabled } from "@/lib/googleAuth";
 import { smsEnabled } from "@/lib/eskiz";
 import SubmitButton from "@/components/SubmitButton";
@@ -33,28 +31,19 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       )}
 
       <div style={{ border: "1px solid var(--line)", borderRadius: 12, padding: 16, marginBottom: 22, maxWidth: 640 }}>
-        <div style={{ fontWeight: 600, marginBottom: 10, fontSize: 14 }}>To&apos;lov va kirish usullari holati</div>
+        <div style={{ fontWeight: 600, marginBottom: 10, fontSize: 14 }}>Kirish usullari holati</div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          <StatusBadge label="Payme" on={paymeEnabled} />
-          <StatusBadge label="Click" on={clickEnabled} />
           <StatusBadge label="Google login" on={googleEnabled} />
           <StatusBadge label="SMS (Eskiz)" on={smsEnabled} />
         </div>
         <p className="muted" style={{ fontSize: 12.5, marginTop: 10, marginBottom: 0 }}>
-          Bular Vercel loyihasidagi Environment Variables orqali yoqiladi (PAYME_MERCHANT_ID/PAYME_KEY,
-          CLICK_SERVICE_ID/CLICK_MERCHANT_ID/CLICK_SECRET_KEY, GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET,
-          ESKIZ_EMAIL/ESKIZ_PASSWORD). Ro&apos;yxatdan o&apos;tish qadamlari alohida qo&apos;llanmada.
+          Bular Vercel loyihasidagi Environment Variables orqali yoqiladi (GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET,
+          ESKIZ_EMAIL/ESKIZ_PASSWORD).
         </p>
       </div>
 
       <form action={saveSettingsAction} style={{ maxWidth: 640 }}>
-        <h2 style={{ fontSize: 20, margin: "6px 0 14px" }}>Valyuta kursi</h2>
-        <div className="field">
-          <label>1 USD necha so&apos;m (Payme/Click to&apos;lovlari shu kurs bilan hisoblanadi)</label>
-          <input type="number" name="usdToUzsRate" min={1} step={1} defaultValue={s.usdToUzsRate} />
-        </div>
-
-        <h2 style={{ fontSize: 20, margin: "20px 0 14px" }}>Ijtimoiy tarmoqlar</h2>
+        <h2 style={{ fontSize: 20, margin: "6px 0 14px" }}>Ijtimoiy tarmoqlar</h2>
         {s.socials.map((soc) => (
           <div key={soc.key} style={{ border: "1px solid var(--line)", borderRadius: 12, padding: 16, marginBottom: 12 }}>
             <label className="check" style={{ marginBottom: 10, fontWeight: 600 }}>

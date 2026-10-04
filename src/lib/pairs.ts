@@ -1,4 +1,5 @@
 import { db } from "./db";
+import { PUBLIC_FAMILY } from "./license";
 import { CATEGORY_LABEL } from "./fonts";
 
 export type PairSide = { slug: string; name: string; style: string; weight: number; italic: boolean };
@@ -65,7 +66,7 @@ export async function getPairings(): Promise<Pairing[]> {
   let pool: Fam[] = [];
   try {
     pool = await db.family.findMany({
-      where: { isPublished: true, hasLatin: true, styleCount: { gte: 2 } },
+      where: { ...PUBLIC_FAMILY, hasLatin: true, styleCount: { gte: 2 } },
       select: { slug: true, name: true, category: true, styles: { select: { style: true, weight: true, italic: true } } },
       orderBy: [{ popularity: "desc" }, { name: "asc" }],
       take: 500,

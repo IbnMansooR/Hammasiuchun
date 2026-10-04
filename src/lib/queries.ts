@@ -11,8 +11,6 @@ export type CardFont = {
   hasLatin: boolean;
   hasCyrillic: boolean;
   isNew: boolean;
-  isFree: boolean;
-  tier: string;
   tagline: string | null;
   /** Empty string when the family has no styles (no @font-face is emitted). */
   previewStyleName: string;
@@ -40,8 +38,6 @@ export function toCard(f: FamilyWithStyles): CardFont {
     hasLatin: f.hasLatin,
     hasCyrillic: f.hasCyrillic,
     isNew: f.isNew,
-    isFree: f.isFree,
-    tier: f.tier,
     tagline: f.tagline,
     previewStyleName: pv?.style ?? "",
     previewWeight: pv?.weight ?? 400,
