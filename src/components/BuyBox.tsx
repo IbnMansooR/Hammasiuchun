@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatPrice } from "@/lib/format";
 import { useStore } from "./StoreProvider";
 
@@ -12,7 +12,18 @@ export default function BuyBox({
 }) {
   const { addToCart, inCart, toggleWish, inWish, ready } = useStore();
   const [soon, setSoon] = useState(false);
+  const closeRef = useRef<HTMLButtonElement>(null);
   const item = { slug, name, priceCents, isFree, tier };
+
+  // Dialog basics: focus moves into it, Esc closes, focus returns to the opener.
+  useEffect(() => {
+    if (!soon) return;
+    const opener = document.activeElement as HTMLElement | null;
+    closeRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSoon(false); };
+    window.addEventListener("keydown", onKey);
+    return () => { window.removeEventListener("keydown", onKey); opener?.focus(); };
+  }, [soon]);
   const added = ready && inCart(slug);
   const wished = ready && inWish(slug);
 
@@ -73,6 +84,7 @@ export default function BuyBox({
         <div
           role="dialog"
           aria-modal="true"
+          aria-labelledby="soon-title"
           onClick={() => setSoon(false)}
           style={{
             position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,.5)",
@@ -84,14 +96,14 @@ export default function BuyBox({
             style={{ background: "#fff", borderRadius: 18, padding: "32px 28px", maxWidth: 420, width: "100%", textAlign: "center", boxShadow: "0 30px 80px -20px rgba(0,0,0,.4)" }}
           >
             <div style={{ fontSize: 44, marginBottom: 6 }}>🚀</div>
-            <h2 style={{ fontSize: 24, marginBottom: 10 }}>Tez kunda!</h2>
+            <h2 id="soon-title" style={{ fontSize: 24, marginBottom: 10 }}>Tez kunda!</h2>
             <p className="muted" style={{ fontSize: 15, marginBottom: 22 }}>
               Pullik shriftlarni sotib olish imkoniyati tez kunda ishga tushadi. Hozircha{" "}
               <strong>{name}</strong> shriftini sevimlilarga qoʻshib qoʻying yoki biz bilan bogʻlaning.
             </p>
             <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
               <Link href="/support" className="btn btn-accent">Bogʻlanish</Link>
-              <button className="btn" onClick={() => setSoon(false)}>Yopish</button>
+              <button ref={closeRef} className="btn" onClick={() => setSoon(false)}>Yopish</button>
             </div>
           </div>
         </div>

@@ -1,18 +1,17 @@
 /* ============ Feekr design system ============ */
 
-/* Self-hosted UI/display type (Montserrat, OFL) */
-@font-face { font-family: "Feekr"; src: url("/fonts/montserrat/Light.woff2") format("woff2"); font-weight: 300; font-style: normal; font-display: swap; }
-@font-face { font-family: "Feekr"; src: url("/fonts/montserrat/Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
-@font-face { font-family: "Feekr"; src: url("/fonts/montserrat/Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
-@font-face { font-family: "Feekr"; src: url("/fonts/montserrat/SemiBold.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
-@font-face { font-family: "Feekr"; src: url("/fonts/montserrat/Bold.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
-@font-face { font-family: "Feekr"; src: url("/fonts/montserrat/ExtraBold.woff2") format("woff2"); font-weight: 800; font-style: normal; font-display: swap; }
-@font-face { font-family: "Feekr"; src: url("/fonts/montserrat/Black.woff2") format("woff2"); font-weight: 900; font-style: normal; font-display: swap; }
+/* Self-hosted UI/display type (Montserrat variable, OFL — see public/fonts/montserrat/OFL.txt).
+   One variable file per script subset; the browser downloads only the subsets a page uses.
+   Latin includes Uzbek ʻ ʼ (U+02BB/02BC); cyrillic-ext covers Қ Ғ Ҳ. */
+@font-face { font-family: "Feekr"; src: url("/fonts/montserrat/montserrat-latin.woff2") format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: "Feekr"; src: url("/fonts/montserrat/montserrat-latin-ext.woff2") format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: "Feekr"; src: url("/fonts/montserrat/montserrat-cyrillic.woff2") format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116; }
+@font-face { font-family: "Feekr"; src: url("/fonts/montserrat/montserrat-cyrillic-ext.woff2") format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; unicode-range: U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F; }
 
 :root {
   --bg: #ffffff;
   --fg: #0b0b0c;
-  --muted: #71717a;
+  --muted: #64646b; /* ≥4.5:1 on --soft/--soft-2 too (#71717a was 4.31:1 on #f2f2f0) */
   --line: #e8e8ea;
   --soft: #f2f2f0;
   --soft-2: #ebebe8;
@@ -83,8 +82,9 @@ p { margin: 0 0 1em; }
 .tester-input:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .search:focus-within { border-color: var(--fg); }
 .hdr-in { display: flex; align-items: center; gap: 28px; height: 64px; }
-.hdr .logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.1875rem; letter-spacing: -.03em; }
-.hdr .logo img { height: 26px; width: auto; }
+.hdr .logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.1875rem; letter-spacing: -.03em; flex-shrink: 0; }
+/* max-width:none — the global img{max-width:100%} let the logo collapse to 0px on narrow phones. */
+.hdr .logo img { height: 26px; width: auto; max-width: none; }
 .hdr nav { display: flex; gap: 22px; margin-left: 8px; }
 .hdr nav a { font-size: 0.875rem; font-weight: 500; color: var(--fg); opacity: .85; }
 .hdr nav a:hover { opacity: 1; color: var(--accent); }
@@ -92,7 +92,7 @@ p { margin: 0 0 1em; }
 .hdr .actions { display: flex; align-items: center; gap: 14px; }
 .hdr .iconbtn { display: inline-grid; place-items: center; width: 38px; height: 38px; border-radius: 999px; border: 1px solid var(--line); }
 .hdr .iconbtn:hover { border-color: var(--fg); }
-.menu-toggle { display: none; }
+.hdr .menu-toggle { display: none; } /* .hdr-scoped so it beats .hdr .iconbtn on desktop */
 
 /* ---------- hero showcase card (light by default, inverts to dark on hover) ---------- */
 .showcase { background: var(--soft); color: var(--fg); border-radius: 24px; padding: 26px 30px 0; margin: 18px 0; overflow: hidden; transition: background .4s ease, color .4s ease; }
@@ -261,7 +261,7 @@ select.sel { border: 1px solid var(--line); border-radius: 999px; padding: 7px 1
 .adm-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; gap: 16px; }
 .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
 .field label { font-size: 0.8125rem; font-weight: 600; color: #3f3f46; }
-.field input[type=text], .field input[type=number], .field input[type=password], .field textarea, .field select {
+.field input[type=text], .field input[type=email], .field input[type=tel], .field input[type=number], .field input[type=password], .field textarea, .field select {
   border: 1px solid var(--line); border-radius: 10px; padding: 11px 13px; font-size: 0.9063rem; font-family: inherit; width: 100%; background: #fff;
 }
 .field textarea { resize: vertical; min-height: 90px; }
@@ -285,7 +285,7 @@ select.sel { border: 1px solid var(--line); border-radius: 999px; padding: 7px 1
 @media (max-width: 900px) {
   :root { --pad: 20px; }
   .hdr nav { display: none; }
-  .menu-toggle { display: inline-grid; }
+  .hdr .menu-toggle { display: inline-grid; }
   /* minmax(0, 1fr), not bare 1fr, throughout: keeps each track's minimum size
      at 0 so an unbreakable child (a nowrap pangram, a spaceless sample string
      like "AaBbCcDdEe") can't force the track — and the whole page — wider
@@ -296,4 +296,29 @@ select.sel { border: 1px solid var(--line); border-radius: 999px; padding: 7px 1
   .detail-grid, .cart-grid { grid-template-columns: minmax(0, 1fr); }
   .buybox { position: static; }
   .footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+}
+
+/* Small phones: logo + 5 header icons must fit in 320px. "Kirish" stays
+   reachable from the mobile menu ("Kirish / Ro'yxatdan o'tish"). */
+@media (max-width: 480px) {
+  .hdr-in { gap: 12px; }
+  .hdr .actions { gap: 6px; }
+  .hdr .iconbtn { width: 34px; height: 34px; }
+  .hdr .actions > .btn-sm { display: none; }
+}
+/* 320px phones: drop the search shortcut (catalog is in the menu) so a logged-in header fits. */
+@media (max-width: 374px) {
+  .hdr .hdr-search { display: none; }
+}
+
+/* ---------- user preferences ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}
+
+/* Print: keep the specimen, drop site chrome and controls. */
+@media print {
+  .hdr, .footer, .buybox, .tester-bar, .menu-toggle, .pager, .toolbar { display: none !important; }
+  .tester { border: none; }
+  body { background: #fff; }
 }

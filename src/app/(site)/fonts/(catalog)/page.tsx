@@ -39,7 +39,8 @@ export default async function FontsPage({ searchParams }: { searchParams: SP }) 
     ...(cat ? { category: cat } : {}),
     ...(free ? { isFree: true } : {}),
     ...(cyr ? { hasCyrillic: true } : {}),
-    ...(searchQ ? { name: { contains: searchQ } } : {}),
+    // Postgres LIKE is case-sensitive; without this "mont" misses "Montserrat".
+    ...(searchQ ? { name: { contains: searchQ, mode: "insensitive" } } : {}),
   };
 
   const total = await db.family.count({ where });

@@ -12,7 +12,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     select: { title: true, excerpt: true, isPublished: true },
   });
   // Don't leak draft titles/excerpts via 404 metadata.
-  return p && p.isPublished ? { title: p.title, description: p.excerpt ?? undefined } : {};
+  return p && p.isPublished
+    ? { title: p.title, description: p.excerpt ?? undefined, alternates: { canonical: `/blog/${slug}` } }
+    : {};
 }
 
 const TYPE_LABEL: Record<string, string> = { blog: "Blog", news: "Yangilik", article: "Maqola" };

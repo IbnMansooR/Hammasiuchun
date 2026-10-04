@@ -43,14 +43,14 @@ export default function Header({ user = null }: { user?: HeaderUser }) {
     <header className="hdr">
       <div className="container hdr-in">
         <Link href="/" className="logo" onClick={() => setOpen(false)}>
-          <img src="/assets/logo-horizontal.png" alt="Feekr" />
+          <img src="/assets/logo-horizontal.png" alt="Feekr" width={101} height={26} />
         </Link>
         <nav>
           {NAV.map((n) => <Link key={n.href} href={n.href}>{n.label}</Link>)}
         </nav>
         <div className="spacer" />
         <div className="actions">
-          <Link href="/fonts" className="iconbtn" aria-label="Qidiruv">
+          <Link href="/fonts" className="iconbtn hdr-search" aria-label="Qidiruv">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" />
             </svg>

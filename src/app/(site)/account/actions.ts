@@ -50,6 +50,7 @@ export async function userLogoutAction() {
 /* ---------------- phone + SMS code login ---------------- */
 const OTP_TTL_MS = 5 * 60 * 1000;
 const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
+const OTP_MAX_FAILS = 5;
 
 export async function sendPhoneOtpAction(rawPhone: string): Promise<{ ok: boolean; error?: string }> {
   if (!smsEnabled) return { ok: false, error: "SMS orqali kirish hozircha sozlanmagan." };
@@ -63,6 +64,7 @@ export async function sendPhoneOtpAction(rawPhone: string): Promise<{ ok: boolea
 
   const code = crypto.randomInt(100000, 999999).toString();
   await db.phoneOtp.create({ data: { phone, code, expiresAt: new Date(Date.now() + OTP_TTL_MS) } });
+  await db.loginAttempt.delete({ where: { key: `otp:${phone}` } }).catch(() => {}); // fresh code, fresh attempts
   const sent = await sendSms(phone, `Feekr tasdiqlash kodi: ${code}`);
   if (!sent) return { ok: false, error: "SMS yuborilmadi. Birozdan so'ng qayta urinib ko'ring." };
   return { ok: true };
@@ -76,9 +78,25 @@ export async function verifyPhoneOtpAction(rawPhone: string, code: string): Prom
     where: { phone, code: code.trim(), consumed: false, expiresAt: { gt: new Date() } },
     orderBy: { createdAt: "desc" },
   });
-  if (!otp) return { ok: false, error: "Kod noto'g'ri yoki muddati o'tgan." };
+  if (!otp) {
+    // A 6-digit code is brute-forceable without a cap: after OTP_MAX_FAILS wrong
+    // guesses, burn every outstanding code for this phone so a new one is needed.
+    const key = `otp:${phone}`;
+    const a = await db.loginAttempt.upsert({
+      where: { key },
+      update: { count: { increment: 1 } },
+      create: { key, count: 1 },
+    });
+    if (a.count >= OTP_MAX_FAILS) {
+      await db.phoneOtp.updateMany({ where: { phone, consumed: false }, data: { consumed: true } });
+      await db.loginAttempt.delete({ where: { key } }).catch(() => {});
+      return { ok: false, error: "Juda ko'p noto'g'ri urinish. Yangi kod so'rang." };
+    }
+    return { ok: false, error: "Kod noto'g'ri yoki muddati o'tgan." };
+  }
 
   await db.phoneOtp.update({ where: { id: otp.id }, data: { consumed: true } });
+  await db.loginAttempt.delete({ where: { key: `otp:${phone}` } }).catch(() => {});
   let user = await db.user.findUnique({ where: { phone } });
   if (!user) user = await db.user.create({ data: { phone } });
 

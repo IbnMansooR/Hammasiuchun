@@ -67,6 +67,12 @@ export async function POST(req: Request) {
     if (tx.status === "confirmed") {
       return reply({ ...base, merchant_confirm_id: tx.preparedId ?? "", error: ClickError.ALREADY_PAID, error_note: "Already confirmed" });
     }
+    // Click reports a failed/aborted payment by sending Complete with error < 0
+    // (e.g. -5017 insufficient funds). That must cancel, never grant ownership.
+    if (Number(form.get("error") ?? 0) < 0) {
+      await db.clickTransaction.update({ where: { id: f.click_trans_id }, data: { status: "cancelled" } });
+      return reply({ ...base, merchant_confirm_id: tx.preparedId ?? "", error: ClickError.TRANSACTION_CANCELLED, error_note: "Transaction cancelled" });
+    }
 
     await db.clickTransaction.update({ where: { id: f.click_trans_id }, data: { status: "confirmed" } });
     await grantOrderPurchases(orderId, "click");

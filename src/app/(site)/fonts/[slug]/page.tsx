@@ -9,7 +9,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const f = await db.family.findUnique({ where: { slug }, select: { name: true, tagline: true, isPublished: true } });
   // Don't leak unpublished/draft family names via 404 metadata.
-  return f && f.isPublished ? { title: f.name, description: f.tagline ?? `${f.name} — Feekr shrift oilasi` } : {};
+  return f && f.isPublished
+    ? { title: f.name, description: f.tagline ?? `${f.name} — Feekr shrift oilasi`, alternates: { canonical: `/fonts/${slug}` } }
+    : {};
 }
 
 function autoAbout(f: {

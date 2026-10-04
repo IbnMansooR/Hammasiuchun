@@ -32,9 +32,11 @@ export default function PhoneLoginForm() {
   return (
     <div>
       <div className="field">
-        <label>Telefon raqami</label>
+        <label htmlFor="otp-phone">Telefon raqami</label>
         <input
+          id="otp-phone"
           type="tel"
+          autoComplete="tel"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           placeholder="998901234567"
@@ -43,8 +45,8 @@ export default function PhoneLoginForm() {
       </div>
       {step === "code" && (
         <div className="field">
-          <label>SMS orqali kelgan kod</label>
-          <input type="text" inputMode="numeric" value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456" />
+          <label htmlFor="otp-code">SMS orqali kelgan kod</label>
+          <input id="otp-code" type="text" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456" />
         </div>
       )}
       {error && <p style={{ color: "#b91c1c", fontSize: 13, marginTop: -6, marginBottom: 10 }}>{error}</p>}

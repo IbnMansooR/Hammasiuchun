@@ -1,5 +1,7 @@
 // Payme (Paycom) Merchant API — checkout redirect + JSON-RPC webhook helpers.
 // Protocol reference: developer.help.paycom.uz. Amounts are always tiyin (1 so'm = 100 tiyin).
+import crypto from "node:crypto";
+
 export const paymeEnabled = !!(process.env.PAYME_MERCHANT_ID && process.env.PAYME_KEY);
 const CHECKOUT_HOST = process.env.PAYME_TEST === "1" ? "checkout.test.paycom.uz" : "checkout.paycom.uz";
 
@@ -34,14 +36,25 @@ export function rpcResult(id: unknown, result: unknown) {
   return { jsonrpc: "2.0", id, result };
 }
 
-/** Validate the Basic Auth header Payme sends on every webhook call. */
+function safeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a, "utf8");
+  const bb = Buffer.from(b, "utf8");
+  return ab.length === bb.length && crypto.timingSafeEqual(ab, bb);
+}
+
+/** Validate the Basic Auth header Payme sends on every webhook call.
+ * Per the Merchant API the credentials are "Paycom:<cassa key>" — the login is
+ * the literal "Paycom", not the merchant id. */
 export function checkPaymeAuth(authHeader: string | null): boolean {
   if (!authHeader?.startsWith("Basic ")) return false;
+  const expectedKey = process.env.PAYME_TEST === "1" ? process.env.PAYME_TEST_KEY : process.env.PAYME_KEY;
+  // Fail closed: an empty/unset key must never match an empty/missing one.
+  if (!expectedKey) return false;
   try {
     const decoded = Buffer.from(authHeader.slice(6), "base64").toString("utf8");
-    const [login, key] = decoded.split(":");
-    const expectedKey = process.env.PAYME_TEST === "1" ? process.env.PAYME_TEST_KEY : process.env.PAYME_KEY;
-    return login === process.env.PAYME_MERCHANT_ID && key === expectedKey;
+    const sep = decoded.indexOf(":");
+    if (sep < 0) return false;
+    return safeEqual(decoded.slice(0, sep), "Paycom") && safeEqual(decoded.slice(sep + 1), expectedKey);
   } catch {
     return false;
   }

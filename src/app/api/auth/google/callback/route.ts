@@ -24,7 +24,9 @@ export async function GET(req: NextRequest) {
   // account so someone who registered with email doesn't end up with two
   // separate accounts if they later use "Continue with Google".
   let user = await db.user.findUnique({ where: { googleId: profile.googleId } });
-  if (!user && profile.email) {
+  // Only trust the email for linking when Google says it is verified —
+  // otherwise anyone could claim an existing user's address.
+  if (!user && profile.email && profile.emailVerified) {
     const byEmail = await db.user.findUnique({ where: { email: profile.email } });
     user = byEmail
       ? await db.user.update({ where: { id: byEmail.id }, data: { googleId: profile.googleId } })
@@ -32,7 +34,9 @@ export async function GET(req: NextRequest) {
   }
   if (!user) {
     user = await db.user.create({
-      data: { googleId: profile.googleId, email: profile.email, name: profile.name },
+      // An unverified address is not stored (it could also collide with the
+      // unique email of an existing account).
+      data: { googleId: profile.googleId, email: profile.emailVerified ? profile.email : null, name: profile.name },
     });
   }
 

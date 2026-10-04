@@ -13,7 +13,10 @@ function ok(buf: Buffer) {
   return new Response(new Uint8Array(buf), {
     headers: {
       "Content-Type": "font/woff2",
-      "Cache-Control": "public, max-age=31536000, immutable",
+      // "private": browser-cache only. With "public" the Vercel CDN stored the
+      // font and served it to anyone, skipping the Sec-Fetch-Site gate below.
+      "Cache-Control": "private, max-age=31536000, immutable",
+      Vary: "Sec-Fetch-Site",
     },
   });
 }

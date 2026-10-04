@@ -11,7 +11,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--soft)", padding: 20 }}>
       <form action={loginAction}
         style={{ background: "#fff", border: "1px solid var(--line)", borderRadius: 18, padding: 34, width: "100%", maxWidth: 360 }}>
-        <div style={{ fontWeight: 800, fontSize: 24, marginBottom: 4 }}>Feekr Admin</div>
+        <h1 style={{ fontWeight: 800, fontSize: 24, marginBottom: 4, letterSpacing: "normal", lineHeight: 1.5 }}>Feekr Admin</h1>
         <p className="muted" style={{ fontSize: 14, marginBottom: 22 }}>Boshqaruv paneliga kiring</p>
         {error && (
           <div style={{ background: "#fdecec", color: "#b91c1c", padding: "10px 12px", borderRadius: 10, fontSize: 13.5, marginBottom: 16 }}>
@@ -21,12 +21,12 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           </div>
         )}
         <div className="field">
-          <label>Foydalanuvchi</label>
-          <input type="text" name="username" required />
+          <label htmlFor="admin-username">Foydalanuvchi</label>
+          <input id="admin-username" type="text" name="username" autoComplete="username" required />
         </div>
         <div className="field">
-          <label>Parol</label>
-          <input type="password" name="password" required />
+          <label htmlFor="admin-password">Parol</label>
+          <input id="admin-password" type="password" name="password" autoComplete="current-password" required />
         </div>
         <button className="btn btn-accent" style={{ width: "100%", justifyContent: "center", marginTop: 6 }}>
           Kirish

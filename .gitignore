@@ -15,7 +15,9 @@ next-env.d.ts
 # font source library (huge; hardlinked originals) & generated data
 /font/
 /data/
-/public/fonts/
+/public/fonts/*
+# …except the site's own UI font (OFL), which must ship with every deploy.
+!/public/fonts/montserrat/
 /public/uploads/
 .upload-progress.json
 

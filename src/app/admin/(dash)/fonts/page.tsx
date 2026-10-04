@@ -11,7 +11,7 @@ export default async function AdminFonts({ searchParams }: { searchParams: Promi
   const q = (sp.q ?? "").trim();
   const searchQ = q.replace(/[%_]/g, "");
   const reqPage = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
-  const where: Prisma.FamilyWhereInput = searchQ ? { name: { contains: searchQ } } : {};
+  const where: Prisma.FamilyWhereInput = searchQ ? { name: { contains: searchQ, mode: "insensitive" } } : {};
   const total = await db.family.count({ where });
   const pages = Math.max(1, Math.ceil(total / PER));
   const page = Math.min(reqPage, pages);
