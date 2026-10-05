@@ -28,7 +28,7 @@ export default async function ArticlesList() {
                   <Link href={`/admin/articles/${a.id}`} className="chip">Tahrirlash</Link>
                   <form action={deleteArticleAction}>
                     <input type="hidden" name="id" value={a.id} />
-                    <ConfirmButton className="chip" style={{ color: "#b91c1c" }} message="Maqola oʻchirilsinmi? Bu amalni qaytarib boʻlmaydi.">
+                    <ConfirmButton className="chip chip-danger" message="Maqola oʻchirilsinmi? Bu amalni qaytarib boʻlmaydi.">
                       Oʻchirish
                     </ConfirmButton>
                   </form>

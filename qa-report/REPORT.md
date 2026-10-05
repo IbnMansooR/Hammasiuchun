@@ -610,3 +610,28 @@ The same migration also enables Row Level Security on all 15 public tables. Befo
 - Screenshots: `screenshots/portfolio/`.
 
 **Rename (owner's request):** the section is called **"Dizaynerlar"** in the header, on the home page and in the admin, and it lives at `/dizaynerlar`. The old `/portfolio` and `/portfolio/<slug>` addresses redirect there permanently (308, query string kept).
+
+
+## 13. Statistics (2026-10-05)
+
+**Question:** how many people visit, which parts are viewed most, where do they come from and do they stay, and how many register.
+
+**Starting point.** Vercel Web Analytics was never enabled, so there is no history. The numbers start on the day this ships. The canonical/sitemap domain problem found in round 12 turned out to be already fixed in Vercel (`feekrfont.uz` everywhere, `feekrfont.vercel.app` redirects with 301), so no code change was needed.
+
+**What was built** (first-party, cookie-less, stored in our own database):
+- `Hit` table, created on production first with Row Level Security on. One row per page view or event.
+- The visitor is `HMAC(IP, browser)` keyed by a secret that changes every Tashkent day. No raw IP is stored and nobody can be followed from one day to the next. Because of this, "visitors" over a range is a sum of daily unique visitors, and the stats page says so.
+- The browser reports page views and engaged time (`sendBeacon`; time counts only while the tab is visible). Download and wishlist clicks are reported as events. Sign-ups are recorded on the server only, for email, phone and Google.
+- Source of a visit: `utm_source`, then the referrer host, then the in-app browser (Instagram, Facebook, TikTok, Telegram), otherwise "direct". The label lives in a 7-day `fk_src` cookie (it identifies nobody) so a later sign-up is credited to the source of the visit. Instagram often hides the referrer, so put `?utm_source=instagram` on the bio link.
+- `/api/track` ignores bots, the admin's own browsing, and visitors with Do-Not-Track or Global Privacy Control. It rejects foreign origins, unknown events, admin/API paths, oversized bodies and negative times; it strips query strings from paths and soft-limits each visitor to 90 events a minute. It answers 204 and writes after the response. Rows older than 400 days are pruned occasionally.
+- `/admin/stats`: Today / 7 / 30 / 90 days, eight headline numbers, a daily (or hourly) chart with a table fallback, the funnel (visit → font page → wishlist → download → sign-up), sources with their sign-up conversion, top pages, top fonts, devices, countries, referring sites, and "on the site now".
+- `/maxfiylik` (privacy) page and a footer link that state exactly this.
+
+**Also fixed while testing**
+- The admin followed the OS theme only on the sign-in page; after sign-in it forced light. It now follows the saved choice, like the site.
+- Replaced every hard-coded colour in the admin with theme tokens, so dark mode is complete. Danger buttons now meet contrast, and three file/select inputs got labels.
+
+**Verification** (local production build, Postgres 16):
+- 38 analytics checks pass, including source detection, cookie, bots, DNT, admin, signup attribution and the numbers on the stats page.
+- The earlier 68 end-to-end checks still pass.
+- axe: 0 violations on `/maxfiylik` and on all 14 admin pages in real dark and light mode, and the stats page has no horizontal scroll on a phone.

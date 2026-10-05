@@ -28,18 +28,18 @@ export default async function EditFont({
       </div>
 
       {(saved || uploaded) && (
-        <div style={{ background: "#e7f8f0", color: "#065f46", padding: "10px 14px", borderRadius: 10, fontSize: 14, marginBottom: 18 }}>
+        <div className="adm-notice adm-notice-ok" role="status">
           {uploaded ? "Shrift muvaffaqiyatli yuklandi." : "Oʻzgarishlar saqlandi."}
         </div>
       )}
 
       {error === "license" && (
-        <div style={{ background: "#fdecec", color: "#b91c1c", padding: "10px 14px", borderRadius: 10, fontSize: 14, marginBottom: 18 }}>
+        <div className="adm-notice adm-notice-error" role="alert">
           Litsenziya turini roʻyxatdan tanlang.
         </div>
       )}
 
-      <div style={{ padding: "12px 14px", borderRadius: 10, fontSize: 14, marginBottom: 18, background: isPublicFamily(f) ? "#e7f8f0" : "#fff7e6", color: isPublicFamily(f) ? "#065f46" : "#7a4b00" }}>
+      <div className={`adm-notice ${isPublicFamily(f) ? "adm-notice-ok" : "adm-notice-warn"}`} role="status">
         {isPublicFamily(f)
           ? "Saytda koʻrinadi va bepul yuklab olinadi."
           : !isRedistributable(f.licenseClass)

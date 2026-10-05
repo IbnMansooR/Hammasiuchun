@@ -36,7 +36,7 @@ export default async function OrdersPage() {
                   <td style={{ textAlign: "right" }}>
                     <form action={deleteOrderAction}>
                       <input type="hidden" name="id" value={o.id} />
-                      <ConfirmButton className="chip" style={{ color: "#b91c1c" }} message="Buyurtma oʻchirilsinmi? Bu amalni qaytarib boʻlmaydi.">
+                      <ConfirmButton className="chip chip-danger" message="Buyurtma oʻchirilsinmi? Bu amalni qaytarib boʻlmaydi.">
                         Oʻchirish
                       </ConfirmButton>
                     </form>

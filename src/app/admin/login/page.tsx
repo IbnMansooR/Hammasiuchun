@@ -14,7 +14,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <h1 style={{ fontWeight: 800, fontSize: 24, marginBottom: 4, letterSpacing: "normal", lineHeight: 1.5 }}>Feekr Admin</h1>
         <p className="muted" style={{ fontSize: 14, marginBottom: 22 }}>Boshqaruv paneliga kiring</p>
         {error && (
-          <div style={{ background: "#fdecec", color: "#b91c1c", padding: "10px 12px", borderRadius: 10, fontSize: 13.5, marginBottom: 16 }}>
+          <div className="adm-notice adm-notice-error" role="alert">
             {error === "locked"
               ? "Juda koʻp urinish. Iltimos, 15 daqiqadan soʻng qayta urining."
               : "Login yoki parol notoʻgʻri."}

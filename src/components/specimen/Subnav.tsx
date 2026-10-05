@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { IconDownload } from "../Icons";
+import { trackEvent } from "@/lib/trackClient";
 
 const LINKS = [
   { id: "sinash", label: "Sinash" },
@@ -48,7 +49,7 @@ export default function Subnav({ name, slug, styleCount, has }: { name: string; 
             <a key={l.id} href={`#${l.id}`} aria-current={active === l.id ? "true" : undefined}>{l.label}</a>
           ))}
         </nav>
-        <a className="btn btn-accent btn-sm subnav-cta" href={`/api/download-family/${slug}`} tabIndex={stuck ? 0 : -1} aria-hidden={!stuck}>
+        <a className="btn btn-accent btn-sm subnav-cta" href={`/api/download-family/${slug}`} onClick={() => trackEvent("download", slug)} tabIndex={stuck ? 0 : -1} aria-hidden={!stuck}>
           <IconDownload className="ico" /> <span className="t">Yuklab olish ({styleCount})</span>
         </a>
       </div>

@@ -269,3 +269,24 @@ model LoginAttempt {
   lockedUntil DateTime?
   updatedAt   DateTime  @updatedAt
 }
+
+// First-party, cookie-less analytics. One row per page view or event.
+// `visitor` is a daily-rotating hash (see src/lib/analytics.ts): it never links
+// one person across days and the raw IP is never stored.
+model Hit {
+  id      Int      @id @default(autoincrement())
+  at      DateTime @default(now())
+  name    String // view | leave | download | wish | signup | prompt_* | ad_*
+  path    String
+  visitor String
+  source  String   @default("direct") // instagram | telegram | google | referral | direct | utm value …
+  device  String   @default("desktop") // mobile | tablet | desktop
+  country String?
+  ms      Int? // engaged time on the page, for "leave"
+  ref     String? // referrer host
+  meta    String? // font slug, prompt id, ad id, sign-up method …
+
+  @@index([at])
+  @@index([name, at])
+  @@index([path, at])
+}

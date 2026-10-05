@@ -34,8 +34,8 @@ export const viewport: Viewport = {
   ],
 };
 
-// Applies a saved light/dark choice before first paint (no flash). Admin stays light.
-const THEME_SCRIPT = `try{var d=document.documentElement;if(location.pathname.indexOf('/admin')===0){d.dataset.theme='light'}else{var t=localStorage.getItem('feekr_theme');if(t==='dark'||t==='light')d.dataset.theme=t}}catch(e){}`;
+// Applies a saved light/dark choice before first paint (no flash). The admin follows the same choice.
+const THEME_SCRIPT = `try{var t=localStorage.getItem('feekr_theme');if(t==='dark'||t==='light')document.documentElement.dataset.theme=t}catch(e){}`;
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const nonce = (await headers()).get("x-nonce") ?? undefined;

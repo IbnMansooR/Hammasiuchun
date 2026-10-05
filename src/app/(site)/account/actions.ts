@@ -11,6 +11,7 @@ import { mailEnabled, sendMail } from "@/lib/mailer";
 import { signResetToken, verifyResetToken } from "@/lib/resetToken";
 import { SITE_URL } from "@/lib/site";
 import { formatDate } from "@/lib/format";
+import { recordServerHit } from "@/lib/analytics";
 
 function str(fd: FormData, k: string): string {
   return String(fd.get(k) ?? "").trim();
@@ -36,6 +37,7 @@ export async function registerAction(fd: FormData) {
   const user = await db.user.create({
     data: { email, passwordHash, name: name || null },
   });
+  await recordServerHit("signup", "email", "/register");
   await startUserSession(user.id);
   redirect("/account");
 }
@@ -122,7 +124,10 @@ export async function verifyPhoneOtpAction(rawPhone: string, code: string): Prom
   await db.phoneOtp.update({ where: { id: otp.id }, data: { consumed: true } });
   await db.loginAttempt.delete({ where: { key: `otp:${phone}` } }).catch(() => {});
   let user = await db.user.findUnique({ where: { phone } });
-  if (!user) user = await db.user.create({ data: { phone } });
+  if (!user) {
+    user = await db.user.create({ data: { phone } });
+    await recordServerHit("signup", "phone", "/login");
+  }
 
   const blocked = await startUserSession(user.id);
   if (blocked) {

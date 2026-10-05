@@ -20,13 +20,13 @@ export default async function MediaPage({ searchParams }: { searchParams: Promis
     <>
       <h1>Rasmlar</h1>
       {error && (
-        <div style={{ background: "#fdecec", color: "#b91c1c", padding: "10px 14px", borderRadius: 10, fontSize: 14, marginBottom: 18, maxWidth: 640 }}>
+        <div className="adm-notice adm-notice-error" role="alert" style={{ maxWidth: 640 }}>
           {UPLOAD_ERRORS[error] ?? "Yuklashda xatolik yuz berdi."}
         </div>
       )}
       <form action={uploadMediaAction}
         style={{ border: "1px dashed var(--line)", borderRadius: 14, padding: 22, marginBottom: 26, display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
-        <input type="file" name="files" multiple accept="image/jpeg,image/png,image/gif,image/webp,image/avif" required />
+        <input type="file" name="files" multiple accept="image/jpeg,image/png,image/gif,image/webp,image/avif" required aria-label="Rasm fayllari" />
         <SubmitButton className="btn btn-accent btn-sm" pendingLabel="Yuklanmoqda…">Yuklash</SubmitButton>
         <span className="muted" style={{ fontSize: 13 }}>Bir nechta rasm tanlash mumkin. Maqolalarda URL sifatida ishlating.</span>
       </form>
@@ -45,8 +45,7 @@ export default async function MediaPage({ searchParams }: { searchParams: Promis
                   <form action={deleteMediaAction}>
                     <input type="hidden" name="id" value={m.id} />
                     <ConfirmButton
-                      className="chip"
-                      style={{ fontSize: 11, padding: "3px 8px", color: "#b91c1c" }}
+                      className="chip chip-danger" style={{ fontSize: 11, padding: "3px 8px" }}
                       ariaLabel="Rasmni oʻchirish"
                       message="Rasm oʻchirilsinmi? Unga bogʻlangan maqolalarda rasm koʻrinmay qoladi."
                     >

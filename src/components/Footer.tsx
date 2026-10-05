@@ -38,6 +38,7 @@ export default async function Footer() {
             <Link href="/blog">Jurnal</Link>
             <Link href="/license">Litsenziya</Link>
             <Link href="/support">Yordam</Link>
+            <Link href="/maxfiylik">Maxfiylik</Link>
           </div>
           {visible.length > 0 && (
             <div className="col">

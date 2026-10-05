@@ -1,5 +1,6 @@
 "use client";
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
+import { trackEvent } from "@/lib/trackClient";
 
 export type StoreItem = { slug: string; name: string };
 
@@ -42,6 +43,8 @@ const WISH = "feekr_wish";
 export default function StoreProvider({ children }: { children: React.ReactNode }) {
   const [wish, setWish] = useState<StoreItem[]>([]);
   const [ready, setReady] = useState(false);
+  const wishRef = useRef<StoreItem[]>([]);
+  wishRef.current = wish;
 
   useEffect(() => {
     setWish(load(WISH));
@@ -57,8 +60,11 @@ export default function StoreProvider({ children }: { children: React.ReactNode 
   useEffect(() => { if (ready) save(WISH, wish); }, [wish, ready]);
 
   const toggleWish = useCallback(
-    (i: StoreItem) =>
-      setWish((w) => (w.some((x) => x.slug === i.slug) ? w.filter((x) => x.slug !== i.slug) : [...w, { slug: i.slug, name: i.name }])),
+    (i: StoreItem) => {
+      // Count only additions (a removal is not interest).
+      if (!wishRef.current.some((x) => x.slug === i.slug)) trackEvent("wish", i.slug);
+      setWish((w) => (w.some((x) => x.slug === i.slug) ? w.filter((x) => x.slug !== i.slug) : [...w, { slug: i.slug, name: i.name }]));
+    },
     [],
   );
   const removeWish = useCallback((slug: string) => setWish((w) => w.filter((x) => x.slug !== slug)), []);

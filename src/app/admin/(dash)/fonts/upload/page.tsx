@@ -20,7 +20,7 @@ export default async function UploadFont({ searchParams }: { searchParams: Promi
         WOFF2 ga oʻgiradi va katalogga qoʻshadi. Qoidaga koʻra oilada kamida 3 ta uslub boʻlgani maʼqul.
       </p>
       {error && (
-        <div style={{ background: "#fdecec", color: "#b91c1c", padding: "10px 14px", borderRadius: 10, fontSize: 14, marginBottom: 18, maxWidth: 640 }}>
+        <div className="adm-notice adm-notice-error" role="alert" style={{ maxWidth: 640 }}>
           {ERRORS[error] ?? "Xatolik yuz berdi."}
         </div>
       )}
@@ -32,14 +32,14 @@ export default async function UploadFont({ searchParams }: { searchParams: Promi
           </div>
           <div className="field">
             <label>Toifa</label>
-            <select name="category" defaultValue="Sans">
+            <select name="category" defaultValue="Sans" aria-label="Toifa">
               {CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>)}
             </select>
           </div>
         </div>
         <div className="field">
           <label>Font fayllari (TTF / OTF / WOFF2, bir nechta)</label>
-          <input type="file" name="files" multiple accept=".ttf,.otf,.woff2" required />
+          <input type="file" name="files" multiple accept=".ttf,.otf,.woff2" required aria-label="Shrift fayllari (.ttf, .otf, .woff2)" />
         </div>
         <SubmitButton pendingLabel="Yuklanmoqda…">Yuklash va qoʻshish</SubmitButton>
       </form>

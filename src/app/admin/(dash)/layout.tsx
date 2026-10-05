@@ -20,7 +20,7 @@ export default async function DashLayout({ children }: { children: React.ReactNo
   ]);
 
   const groups: NavGroup[] = [
-    { label: "Umumiy", items: [{ href: "/admin", label: "Boshqaruv" }] },
+    { label: "Umumiy", items: [{ href: "/admin", label: "Boshqaruv" }, { href: "/admin/stats", label: "Statistika" }] },
     {
       label: "Kontent",
       items: [

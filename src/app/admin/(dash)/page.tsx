@@ -35,7 +35,7 @@ export default async function Dashboard() {
       </div>
 
       {families > publicFamilies && (
-        <p style={{ background: "#fff7e6", color: "#7a4b00", padding: "12px 14px", borderRadius: 10, fontSize: 14, margin: "0 0 22px" }}>
+        <p className="adm-notice adm-notice-warn" role="status">
           {formatNumber(families - publicFamilies)} ta oila saytda koʻrinmaydi — litsenziyasi bepul tarqatishga ruxsat bermaydi yoki tekshirilmagan.{" "}
           <Link href="/admin/fonts?view=hidden" style={{ textDecoration: "underline" }}>Roʻyxatni koʻrish</Link>. Oʻzingizniki yoki ruxsati bor
           oilalarni tahrirlash sahifasida “Oʻz shriftimiz” / “Tarqatish huquqi tasdiqlangan” qilib belgilang.

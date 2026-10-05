@@ -25,7 +25,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         Footer ijtimoiy havolalari va aloqa maʼlumotlari. Belgini olib tashlasangiz — havola saytda koʻrinmaydi.
       </p>
       {saved && (
-        <div style={{ background: "#e7f8f0", color: "#065f46", padding: "10px 14px", borderRadius: 10, fontSize: 14, marginBottom: 18, maxWidth: 640 }}>
+        <div className="adm-notice adm-notice-ok" role="status" style={{ maxWidth: 640 }}>
           Sozlamalar saqlandi.
         </div>
       )}

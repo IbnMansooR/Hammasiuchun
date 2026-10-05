@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { exchangeGoogleCode, googleEnabled } from "@/lib/googleAuth";
 import { startUserSession, blockedLoginUrl } from "@/lib/userAuth";
+import { recordServerHit } from "@/lib/analytics";
 
 export const runtime = "nodejs";
 
@@ -38,6 +39,7 @@ export async function GET(req: NextRequest) {
       // unique email of an existing account).
       data: { googleId: profile.googleId, email: profile.emailVerified ? profile.email : null, name: profile.name },
     });
+    await recordServerHit("signup", "google", "/login");
   }
 
   const blocked = await startUserSession(user.id);
