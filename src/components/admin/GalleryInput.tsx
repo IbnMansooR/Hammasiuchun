@@ -1,7 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 
-// Uploads straight to /api/admin/upload, one image per request. Large photos are
+// Uploads straight to an upload endpoint (admin by default, /api/me/upload for members), one image per request. Large photos are
 // downsized in the browser first (long side ≤ 2560 px, WebP) so each request
 // stays well under the 4.5 MB serverless body limit.
 const MAX_SIDE = 2560;
@@ -24,9 +24,23 @@ async function prepare(file: File): Promise<File> {
   return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".webp", { type: "image/webp" });
 }
 
-export default function GalleryInput({ cover: initialCover, images: initialImages }: { cover: string | null; images: string[] }) {
+export default function GalleryInput({
+  cover: initialCover, images: initialImages,
+  endpoint = "/api/admin/upload", max = 60, allowUrl = true, pickCover = true,
+}: {
+  cover: string | null; images: string[];
+  endpoint?: string;
+  /** Most images the form accepts. */
+  max?: number;
+  /** Let the admin paste an external https image link. */
+  allowUrl?: boolean;
+  /** Let the user choose which image is the cover; otherwise the first image is. */
+  pickCover?: boolean;
+}) {
   const [images, setImages] = useState<string[]>(initialImages);
-  const [cover, setCover] = useState<string>(initialCover ?? "");
+  const [coverPick, setCover] = useState<string>(initialCover ?? "");
+  // Without a choice the first image leads; with one, the pick stays until that image is removed.
+  const cover = pickCover ? coverPick : images[0] ?? "";
   const [busy, setBusy] = useState<string>("");
   const [error, setError] = useState<string>("");
   const [manual, setManual] = useState("");
@@ -36,13 +50,16 @@ export default function GalleryInput({ cover: initialCover, images: initialImage
     if (!files?.length) return;
     setError("");
     const added: string[] = [];
-    const list = Array.from(files);
+    const room = Math.max(0, max - images.length);
+    const list = Array.from(files).slice(0, room);
+    if (files.length > room) setError(room ? `Ko‘pi bilan ${max} ta rasm. Ortiqchasi qo‘shilmadi.` : `Ko‘pi bilan ${max} ta rasm qo‘shish mumkin.`);
+    if (!list.length) return;
     for (let i = 0; i < list.length; i++) {
       setBusy(`Yuklanmoqda ${i + 1} / ${list.length}…`);
       try {
         const fd = new FormData();
         fd.append("file", await prepare(list[i]));
-        const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+        const res = await fetch(endpoint, { method: "POST", body: fd });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.url) throw new Error(data.error || "Yuklashda xatolik.");
         added.push(data.url);
@@ -66,11 +83,12 @@ export default function GalleryInput({ cover: initialCover, images: initialImage
     });
   const remove = (url: string) => {
     setImages((prev) => prev.filter((u) => u !== url));
-    if (cover === url) setCover("");
+    if (coverPick === url) setCover("");
   };
   const addManual = () => {
     const u = manual.trim();
     if (!/^https:\/\/\S+$/.test(u) && !u.startsWith("/uploads/")) { setError("Havola https:// bilan boshlanishi kerak."); return; }
+    if (images.length >= max) { setError(`Ko‘pi bilan ${max} ta rasm qo‘shish mumkin.`); return; }
     setImages((prev) => (prev.includes(u) ? prev : [...prev, u]));
     setCover((c) => c || u);
     setManual("");
@@ -91,7 +109,7 @@ export default function GalleryInput({ cover: initialCover, images: initialImage
         <p><b>Rasmlarni shu yerga tashlang</b> yoki</p>
         <button type="button" className="btn btn-sm" onClick={() => input.current?.click()} disabled={!!busy}>Fayl tanlash</button>
         <input ref={input} type="file" accept={ACCEPT} multiple hidden onChange={(e) => upload(e.target.files)} />
-        <p className="muted">JPG, PNG, WebP, GIF, AVIF. Katta rasmlar avtomatik kichraytiriladi.</p>
+        <p className="muted">JPG, PNG, WebP, GIF, AVIF{max < 60 ? `, ko‘pi bilan ${max} ta` : ""}. Katta rasmlar avtomatik kichraytiriladi.</p>
         {busy && <p role="status" className="drop-busy">{busy}</p>}
       </div>
       {error && <p role="alert" className="adm-notice adm-notice-error" style={{ marginTop: 10 }}>{error}</p>}
@@ -105,7 +123,7 @@ export default function GalleryInput({ cover: initialCover, images: initialImage
               <div className="thumbs-bar">
                 <button type="button" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Chapga">←</button>
                 <button type="button" onClick={() => move(i, 1)} disabled={i === images.length - 1} aria-label="Oʻngga">→</button>
-                {u !== cover && <button type="button" onClick={() => setCover(u)}>Muqova</button>}
+                {pickCover && u !== cover && <button type="button" onClick={() => setCover(u)}>Muqova</button>}
                 <button type="button" onClick={() => remove(u)} aria-label="Olib tashlash" className="danger">✕</button>
               </div>
             </li>
@@ -113,6 +131,7 @@ export default function GalleryInput({ cover: initialCover, images: initialImage
         </ol>
       )}
 
+      {allowUrl && (
       <div className="gallery-url">
         <input
           type="url"
@@ -124,6 +143,7 @@ export default function GalleryInput({ cover: initialCover, images: initialImage
         />
         <button type="button" className="btn btn-sm" onClick={addManual}>Qoʻshish</button>
       </div>
+      )}
     </div>
   );
 }

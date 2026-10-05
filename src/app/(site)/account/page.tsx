@@ -4,7 +4,7 @@ import { getCurrentUser, unreadNotifications } from "@/lib/userAuth";
 import { db } from "@/lib/db";
 import SubmitButton from "@/components/SubmitButton";
 import { setNotifyNewsAction, userLogoutAction } from "./actions";
-import { IconArrow, IconBell, IconHeart } from "@/components/Icons";
+import { IconArrow, IconBell, IconHeart, IconImage } from "@/components/Icons";
 
 export const metadata = { title: "Mening kabinetim", robots: { index: false } };
 
@@ -34,6 +34,10 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         <Link className="contact-card" href="/account/notifications" prefetch={false}>
           <span className="label"><IconBell style={{ width: 16, height: 16, display: "inline", verticalAlign: "-3px" }} /> Bildirishnomalar</span>
           <b>{unread ? `${unread} ta yangi xabar` : "Barcha xabarlar"}</b>
+        </Link>
+        <Link className="contact-card" href="/account/ishlarim">
+          <span className="label"><IconImage style={{ width: 16, height: 16, display: "inline", verticalAlign: "-3px" }} /> Dizaynerlar</span>
+          <b>Mening ishlarim</b>
         </Link>
         <Link className="contact-card" href="/wishlist">
           <span className="label"><IconHeart style={{ width: 16, height: 16, display: "inline", verticalAlign: "-3px" }} /> Sevimlilar</span>

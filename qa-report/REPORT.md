@@ -651,3 +651,21 @@ The same migration also enables Row Level Security on all 15 public tables. Befo
 **Verification** (local production build, Postgres 16, a fake bot token used only for the test): 69 checks pass (prompts and their frequency rules, sign-in merge, two-device sync both ways, API guards, sign-out cleanup, opt-out and broadcast, Telegram acceptance and every rejection case, axe in light and dark, phone layout). Earlier suites still pass (68 + 38), and axe is at 0 violations on every public and admin page in light and dark.
 
 **Not verifiable here:** the real Telegram widget (it needs the owner's bot). The signature check, the callback, the CSP and the script injection are tested; the button itself appears once the bot is configured.
+
+
+## 15. Members send work; labelled ad banners (2026-10-05)
+
+**Members send work.** A signed-in member opens `/dizaynerlar/yuborish`, uploads up to eight images, names the fonts used and sends it. Signed-out visitors see what they would get and a register button.
+- The work is stored as `pending` and is invisible everywhere (public page 404, not in the list, the sitemap or the font page) until the admin approves it. The invariant is: published only when approved.
+- Images go through `/api/me/upload`, which shares one validator with the admin uploader (the bytes decide the type, 4 MB limit, SVG refused). A member may upload 24 images a day, may have five works waiting at once and may send five a day. Blocked members are refused.
+- A work can use only images that member uploaded: another member's image or an external link is rejected (so nothing is hot-linked and nothing is borrowed). The portfolio link must be http(s) (a `javascript:` link is rejected).
+- When the form reports a problem it keeps everything that was typed and uploaded. The first version sent errors by redirect, which wiped the form; the browser test caught it and the form now reports problems in place.
+- Admin: a "Koʻrib chiqish kutilmoqda" queue at the top of `/admin/works` (cover, author, link to the user, summary), with approve, or reject with a reason; the sidebar badge counts waiting works. Either decision sends the member a bell message (the news opt-out does not apply to these). Saving a pending work with "published" ticked also approves it; saving unchanged never changes its kind.
+- Public: "Aʼzo ishi" label and flag, an "Aʼzolar" filter, and the author link and any links in the text are `nofollow ugc`, because they are user content. `/account/ishlarim` shows each work's status and the reason for a rejection.
+
+**Ad banners.** `Ad` table (production first, RLS on) and `/admin/ads`: advertiser, landing page (https only), a banner image (about 4:1), a slot (home page or the Dizaynerlar page), optional start and end (Tashkent time), a switch and a priority.
+- A banner is always labelled "Reklama", its link is `rel="sponsored noopener noreferrer"`, and it reserves its space from the image size (no layout shift). With nothing live, the slot renders nothing. At most one banner per slot.
+- A view is counted once, after at least half the banner has been on screen for one second; a click is counted when followed. The admin's own visits are not counted. `/admin/ads` shows 30-day views, clicks and CTR per banner, so the numbers can be shown to an advertiser.
+- Switching a banner off removes it at once (the cache is tagged). Not-yet-started and expired banners do not show.
+
+**Verification** (local production build, Postgres 16): 99 checks pass for this stage: submission, pending invisibility, approve and reject with notifications, limits and abuse cases, upload guards, ad creation and validation, scheduling, impressions and clicks, and axe in light and dark on the new pages plus phone layout. The earlier suites (68 + 38 + 69) still pass. Locally, uploaded images are not shown by `next start` because files added to `public/` after the build are not served; on production they are served from the public Supabase `uploads` bucket.

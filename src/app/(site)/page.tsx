@@ -10,6 +10,7 @@ import { CATEGORIES, CATEGORY_LABEL, styleFamily, webfontUrl } from "@/lib/fonts
 import { formatDate, formatNumber } from "@/lib/format";
 import FontCard from "@/components/FontCard";
 import WorkCard from "@/components/WorkCard";
+import AdSlot from "@/components/AdSlot";
 import { getPublishedWorks } from "@/lib/works";
 import Facts from "@/components/Facts";
 import { PreviewText } from "@/components/PreviewProvider";
@@ -237,6 +238,8 @@ export default async function HomePage() {
           </div>
         </section>
       )}
+
+      <AdSlot placement="home" />
 
       {/* Dizaynerlar */}
       {works.length > 0 && (

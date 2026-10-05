@@ -14,9 +14,9 @@ export const dynamic = "force-dynamic";
 export default async function DashLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
   if (!session) redirect("/admin/login");
-  const [newOrders, drafts] = await Promise.all([
+  const [newOrders, pendingWorks] = await Promise.all([
     db.order.count({ where: { status: "new" } }),
-    db.work.count({ where: { isPublished: false } }),
+    db.work.count({ where: { status: "pending" } }),
   ]);
 
   const groups: NavGroup[] = [
@@ -26,7 +26,8 @@ export default async function DashLayout({ children }: { children: React.ReactNo
       items: [
         { href: "/admin/fonts", label: "Shriftlar" },
         { href: "/admin/fonts/upload", label: "Shrift yuklash" },
-        { href: "/admin/works", label: "Dizaynerlar", badge: drafts },
+        { href: "/admin/works", label: "Dizaynerlar", badge: pendingWorks },
+        { href: "/admin/ads", label: "Reklama" },
         { href: "/admin/articles", label: "Maqolalar" },
         { href: "/admin/media", label: "Rasmlar" },
       ],

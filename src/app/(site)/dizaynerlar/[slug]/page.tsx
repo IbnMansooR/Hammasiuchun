@@ -51,9 +51,13 @@ export default async function WorkPage({ params }: { params: Promise<{ slug: str
   const i = published.findIndex((x) => x.slug === w.slug);
   const next = published.length > 1 ? published[(i + 1) % published.length] : undefined;
   const partner = w.kind === "partner";
+  const member = w.kind === "member";
+  const external = partner || member; // not Feekr's own work: a named outside author
+  // Links a member wrote are user content: tell search engines not to vouch for them.
+  const linkRel = member ? "nofollow ugc noreferrer noopener" : "noreferrer noopener";
   const facts: { k: string; v: React.ReactNode }[] = [
-    partner && w.authorName ? { k: "Muallif", v: w.authorUrl ? <a className="link" href={w.authorUrl} target="_blank" rel="noreferrer noopener">{w.authorName}</a> : w.authorName } : null,
-    !partner && w.authorName ? { k: "Muallif", v: w.authorName } : null,
+    external && w.authorName ? { k: "Muallif", v: w.authorUrl ? <a className="link" href={w.authorUrl} target="_blank" rel={linkRel}>{w.authorName}</a> : w.authorName } : null,
+    !external && w.authorName ? { k: "Muallif", v: w.authorName } : null,
     w.client ? { k: "Mijoz", v: w.client } : null,
     w.year ? { k: "Yil", v: String(w.year) } : null,
     tags.length ? { k: "Yoʻnalish", v: tags.join(", ") } : null,
@@ -66,7 +70,7 @@ export default async function WorkPage({ params }: { params: Promise<{ slug: str
     description: w.summary ?? undefined,
     image: w.coverImage ? abs(w.coverImage) : undefined,
     dateCreated: w.year ? String(w.year) : undefined,
-    creator: w.authorName ? { "@type": partner ? "Person" : "Organization", name: w.authorName, url: w.authorUrl ?? undefined } : { "@type": "Organization", name: "Feekr" },
+    creator: w.authorName ? { "@type": external ? "Person" : "Organization", name: w.authorName, url: w.authorUrl ?? undefined } : { "@type": "Organization", name: "Feekr" },
     url: `${SITE_URL}/dizaynerlar/${w.slug}`,
   };
 
@@ -85,7 +89,7 @@ export default async function WorkPage({ params }: { params: Promise<{ slug: str
 
       <header className="work-head">
         <div>
-          {partner && <span className="tag tag-warn">Hamkor ishi</span>}
+          {external && <span className="tag tag-warn">{partner ? "Hamkor ishi" : "Aʼzo ishi"}</span>}
           <h1>{w.title}</h1>
           {w.summary && <p className="lead">{w.summary}</p>}
         </div>
@@ -102,7 +106,7 @@ export default async function WorkPage({ params }: { params: Promise<{ slug: str
         </figure>
       )}
 
-      {w.body && <div className="prose work-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(w.body) }} />}
+      {w.body && <div className="prose work-body" dangerouslySetInnerHTML={{ __html: member ? renderMarkdown(w.body).replace(/rel="noreferrer noopener"/g, 'rel="nofollow ugc noreferrer noopener"') : renderMarkdown(w.body) }} />}
 
       {gallery.length > 0 && (
         <div className="work-gallery">
@@ -120,13 +124,14 @@ export default async function WorkPage({ params }: { params: Promise<{ slug: str
         </div>
       )}
 
-      {partner && (
+      {external && (
         <aside className="work-partner">
           <p>
-            Bu ish {w.authorName ? <b>{w.authorName}</b> : "hamkor dizayner"} tomonidan yaratilgan va Feekr’ning “Dizaynerlar” boʻlimida hamkorlik asosida koʻrsatilmoqda.
+            Bu ish {w.authorName ? <b>{w.authorName}</b> : partner ? "hamkor dizayner" : "Feekr aʼzosi"} tomonidan yaratilgan
+            {partner ? " va Feekr’ning “Dizaynerlar” boʻlimida hamkorlik asosida koʻrsatilmoqda." : ", Feekr jamoasi koʻrib chiqib, “Dizaynerlar” boʻlimida chop etdi."}
           </p>
           {w.authorUrl && (
-            <a className="btn" href={w.authorUrl} target="_blank" rel="noreferrer noopener">
+            <a className="btn" href={w.authorUrl} target="_blank" rel={linkRel}>
               Muallif portfoliosi <IconArrowUR className="ico" />
             </a>
           )}

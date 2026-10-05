@@ -1,11 +1,14 @@
 // "Dizaynerlar" section (Work model) helpers shared by the public pages and the admin.
 import { unstable_cache } from "next/cache";
 import { db, isBuildPhase } from "./db";
+import { slugify } from "./fontmeta";
 
 export const WORKS_TAG = "works";
 
-export type WorkKind = "own" | "partner";
-export const KIND_LABEL: Record<string, string> = { own: "Feekr ishi", partner: "Hamkor ishi" };
+export type WorkKind = "own" | "partner" | "member";
+export const KIND_LABEL: Record<string, string> = { own: "Feekr ishi", partner: "Hamkor ishi", member: "Aʼzo ishi" };
+/** The short flag on a card for work that is not Feekr's own. */
+export const KIND_FLAG: Record<string, string> = { partner: "Hamkor", member: "Aʼzo" };
 
 export type WorkCard = {
   slug: string; title: string; summary: string | null; kind: string;
@@ -28,7 +31,7 @@ const ORDER = [{ isFeatured: "desc" as const }, { sortOrder: "asc" as const }, {
 const cachedWorks = unstable_cache(
   async (): Promise<WorkCard[]> => {
     const rows = await db.work.findMany({
-      where: { isPublished: true },
+      where: { isPublished: true, status: "approved" },
       orderBy: ORDER,
       select: {
         slug: true, title: true, summary: true, kind: true, authorName: true, client: true,
@@ -49,4 +52,23 @@ export async function getPublishedWorks(): Promise<WorkCard[]> {
 /** Published works that credit a given font family. */
 export async function worksUsingFont(slug: string): Promise<WorkCard[]> {
   return (await getPublishedWorks()).filter((w) => w.fonts.includes(slug));
+}
+
+/** http(s) link or null. A bare "behance.net/x" gets https://. */
+export function normalizeUrl(raw: string): string | null {
+  const t = raw.trim();
+  if (!t) return null;
+  try {
+    const u = new URL(/^[a-z]+:\/\//i.test(t) ? t : `https://${t}`);
+    return u.protocol === "https:" || u.protocol === "http:" ? u.toString().slice(0, 500) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** A URL slug for a work that nobody else has. */
+export async function uniqueWorkSlug(title: string): Promise<string> {
+  const base = slugify(title) || "ish";
+  const taken = await db.work.findUnique({ where: { slug: base }, select: { id: true } });
+  return taken ? `${base}-${Date.now().toString(36)}` : base;
 }

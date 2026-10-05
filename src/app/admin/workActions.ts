@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/adminGuard";
 import { slugify, shortHash } from "@/lib/fontmeta";
 import { WORKS_TAG, splitLines, splitTags, isSafeImageUrl } from "@/lib/works";
+import crypto from "node:crypto";
 
 function str(fd: FormData, k: string): string {
   return String(fd.get(k) ?? "").trim();
@@ -29,6 +30,12 @@ function revalidateWorks(slugs: string[], fonts: string[]) {
   revalidatePath("/admin/works");
 }
 
+/** A personal message from the admin to the person who sent the work. It ignores the news opt-out. */
+async function tellSubmitter(userId: number | null, title: string, body: string, link?: string) {
+  if (!userId || !(await db.user.findUnique({ where: { id: userId }, select: { id: true } }))) return;
+  await db.notification.create({ data: { userId, batch: crypto.randomUUID(), title, body, link: link ?? null } });
+}
+
 export async function saveWorkAction(fd: FormData) {
   await requireAdmin();
   const id = Number(fd.get("id")) || 0;
@@ -36,7 +43,10 @@ export async function saveWorkAction(fd: FormData) {
   const title = str(fd, "title").slice(0, 200);
   if (!title) redirect(`${back}?error=title`);
 
-  const kind = str(fd, "kind") === "partner" ? "partner" : "own";
+  const existing = id ? await db.work.findUnique({ where: { id } }) : null;
+  if (id && !existing) redirect("/admin/works");
+  // A member's work stays a member's work; the radio buttons only choose between the admin's own kinds.
+  const kind = existing?.kind === "member" ? "member" : str(fd, "kind") === "partner" ? "partner" : "own";
   const authorName = str(fd, "authorName").slice(0, 120) || null;
   if (kind === "partner" && !authorName) redirect(`${back}?error=author`);
 
@@ -65,19 +75,23 @@ export async function saveWorkAction(fd: FormData) {
     isFeatured: fd.get("isFeatured") === "on",
     sortOrder: Math.max(-9999, Math.min(9999, Math.trunc(Number(str(fd, "sortOrder")) || 0))),
     publishedAt: published ? new Date() : null,
+    // Published means approved. Otherwise a pending or rejected member work keeps its state.
+    status: published ? "approved" : existing?.status ?? "approved",
+    rejectReason: published ? null : existing?.rejectReason ?? null,
   };
 
   let oldFonts: string[] = [];
   let oldSlug = "";
-  if (id) {
-    const existing = await db.work.findUnique({ where: { id } });
-    if (!existing) redirect("/admin/works");
+  if (id && existing) {
     oldFonts = splitTags(existing.fonts);
     oldSlug = existing.slug;
     data.publishedAt = published ? (existing.publishedAt ?? new Date()) : existing.publishedAt;
     const clash = await db.work.findUnique({ where: { slug: data.slug } });
     if (clash && clash.id !== id) data.slug = `${data.slug}-${shortHash(String(id))}`;
     await db.work.update({ where: { id }, data });
+    if (existing.kind === "member" && existing.status !== "approved" && published) {
+      await tellSubmitter(existing.submittedById, "Ishingiz chop etildi", `“${data.title}” “Dizaynerlar” boʻlimida koʻrinadi.`, `/dizaynerlar/${data.slug}`);
+    }
   } else {
     if (await db.work.findUnique({ where: { slug: data.slug } })) data.slug = `${data.slug}-${Date.now().toString(36)}`;
     await db.work.create({ data });
@@ -111,4 +125,37 @@ export async function toggleWorkAction(fd: FormData) {
     data: field === "isPublished" ? { isPublished: on, publishedAt: on ? (w.publishedAt ?? new Date()) : w.publishedAt } : { isFeatured: on },
   });
   revalidateWorks([w.slug], splitTags(w.fonts));
+}
+
+export async function approveWorkAction(fd: FormData) {
+  await requireAdmin();
+  const id = Number(fd.get("id"));
+  if (!Number.isInteger(id) || id <= 0) return;
+  const w = await db.work.findUnique({ where: { id } });
+  if (!w || (w.status === "approved" && w.isPublished)) return;
+  await db.work.update({
+    where: { id },
+    data: { status: "approved", isPublished: true, rejectReason: null, publishedAt: w.publishedAt ?? new Date() },
+  });
+  await tellSubmitter(w.submittedById, "Ishingiz chop etildi", `“${w.title}” “Dizaynerlar” boʻlimida koʻrinadi.`, `/dizaynerlar/${w.slug}`);
+  revalidateWorks([w.slug], splitTags(w.fonts));
+  redirect("/admin/works?ok=approved");
+}
+
+export async function rejectWorkAction(fd: FormData) {
+  await requireAdmin();
+  const id = Number(fd.get("id"));
+  if (!Number.isInteger(id) || id <= 0) return;
+  const reason = str(fd, "reason").slice(0, 300);
+  const w = await db.work.findUnique({ where: { id } });
+  if (!w) return;
+  await db.work.update({ where: { id }, data: { status: "rejected", isPublished: false, rejectReason: reason || null } });
+  await tellSubmitter(
+    w.submittedById,
+    "Ishingiz qabul qilinmadi",
+    reason ? `“${w.title}”: ${reason}` : `“${w.title}” hozircha chop etilmadi. Savollar boʻlsa, yordam boʻlimiga yozing.`,
+    "/account/ishlarim",
+  );
+  revalidateWorks([w.slug], splitTags(w.fonts));
+  redirect("/admin/works?ok=rejected");
 }

@@ -7,7 +7,7 @@ import { googleEnabled } from "@/lib/googleAuth";
 import { smsEnabled } from "@/lib/eskiz";
 import { telegramEnabled, telegramBot } from "@/lib/telegramAuth";
 import TelegramLogin from "@/components/TelegramLogin";
-import { IconBell, IconHeart } from "@/components/Icons";
+import { IconBell, IconHeart, IconImage } from "@/components/Icons";
 
 export const metadata = { title: "Roʻyxatdan oʻtish" };
 
@@ -31,6 +31,7 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
         <ul className="perks">
           <li><IconHeart aria-hidden="true" /><span>Sevimlilaringiz telefonda ham, kompyuterda ham turadi</span></li>
           <li><IconBell aria-hidden="true" /><span>Yangi shriftlar chiqqanda qoʻngʻiroqchada xabar</span></li>
+          <li><IconImage aria-hidden="true" /><span>“Dizaynerlar” boʻlimiga oʻz ishingizni yuborish</span></li>
         </ul>
         {error && (
           <div className="alert alert-error" role="alert">

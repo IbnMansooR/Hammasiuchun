@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { getPublishedWorks } from "@/lib/works";
 import WorkCard from "@/components/WorkCard";
+import AdSlot from "@/components/AdSlot";
 import { IconArrow } from "@/components/Icons";
 
 export const metadata: Metadata = {
@@ -14,11 +15,12 @@ const KINDS = [
   { key: "", label: "Hammasi" },
   { key: "own", label: "Feekr ishlari" },
   { key: "partner", label: "Hamkorlar" },
+  { key: "member", label: "Aʼzolar" },
 ] as const;
 
 export default async function DesignersPage({ searchParams }: { searchParams: Promise<{ kind?: string; tag?: string }> }) {
   const sp = await searchParams;
-  const kind = sp.kind === "own" || sp.kind === "partner" ? sp.kind : "";
+  const kind = sp.kind === "own" || sp.kind === "partner" || sp.kind === "member" ? sp.kind : "";
   const tag = (sp.tag ?? "").trim();
   const all = await getPublishedWorks();
 
@@ -83,12 +85,17 @@ export default async function DesignersPage({ searchParams }: { searchParams: Pr
         </>
       )}
 
+      <AdSlot placement="dizaynerlar" />
+
       <section className="pf-cta">
         <div>
           <h2>Ishingiz shu yerda boʻlsinmi?</h2>
-          <p>Dizayner yoki studiya boʻlsangiz, portfoliongizni Feekr auditoriyasiga koʻrsatamiz. Hamkor ishlari doim “Hamkor” deb belgilanadi.</p>
+          <p>Feekr aʼzosi boʻlsangiz, ishingizni yuboring: koʻrib chiqamiz va chop etamiz. Studiya yoki brend boʻlsangiz, hamkorlik yoki reklama uchun yozing. Hamkor va aʼzolar ishlari doim belgilanadi.</p>
         </div>
-        <Link href="/support" className="btn btn-primary btn-lg">Bogʻlanish <IconArrow className="ico" /></Link>
+        <div className="pf-cta-actions">
+          <Link href="/dizaynerlar/yuborish" className="btn btn-primary btn-lg">Ishimni yuboraman <IconArrow className="ico" /></Link>
+          <Link href="/support" className="btn btn-lg">Hamkorlik va reklama</Link>
+        </div>
       </section>
     </div>
   );

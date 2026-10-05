@@ -18,6 +18,12 @@ export default async function WorkForm({ work }: { work?: Work }) {
 
       <div className="work-form-main">
         <section className="adm-card adm-pad">
+          {w?.kind === "member" ? (
+            <p className="adm-notice adm-notice-warn" role="note">
+              <b>Aʼzo ishi.</b> Foydalanuvchi #{w.submittedById ?? "?"} yuborgan. Chop etish belgisini qoʻysangiz, u tasdiqlanadi va unga xabar boradi.
+              <input type="hidden" name="kind" value="member" />
+            </p>
+          ) : (
           <fieldset className="adm-kind">
             <legend className="adm-legend">Ish turi</legend>
             <label className="adm-kind-opt">
@@ -29,6 +35,7 @@ export default async function WorkForm({ work }: { work?: Work }) {
               <span><b>Hamkor ishi</b><small>Boshqa dizaynerni reklama qilish — saytda “Hamkor” deb belgilanadi</small></span>
             </label>
           </fieldset>
+          )}
 
           <div className="field">
             <label htmlFor="w-title">Nomi</label>

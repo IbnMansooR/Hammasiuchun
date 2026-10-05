@@ -679,6 +679,30 @@ select.sel { width: auto; height: 34px; padding: 0 32px 0 14px; border-radius: 9
 .wish-note p { margin: 0; max-width: 62ch; font-size: 14.5px; line-height: 1.45; color: var(--fg-2); }
 .wish-note b { color: var(--fg); }
 
+/* ---------- member submissions, my works, ad banner ---------- */
+.label-like { font-size: 13px; font-weight: 500; color: var(--fg-2); }
+.submit-form { max-width: 720px; margin-bottom: 96px; }
+.submit-form .field { margin-bottom: 22px; }
+.submit-gate { max-width: 640px; margin: 8px 0 96px; padding: 28px 30px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--subtle); }
+.submit-gate h2 { font-family: var(--font-display); font-weight: 500; font-size: 28px; letter-spacing: -.02em; margin-bottom: 14px; }
+.submit-gate .perks { list-style: disc; display: block; padding-left: 20px; margin-bottom: 22px; }
+.submit-gate .perks li { display: list-item; margin-bottom: 8px; }
+.submit-gate-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.pf-cta-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.my-works { list-style: none; margin: 0 0 80px; padding: 0; display: grid; gap: 12px; max-width: 760px; }
+.my-works li { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 18px; padding: 12px; border: 1px solid var(--line); border-radius: var(--r); }
+.my-works-cover { display: grid; place-items: center; aspect-ratio: 4 / 3; border-radius: var(--r-sm); overflow: hidden; background: var(--subtle); color: var(--muted); }
+.my-works-cover img { width: 100%; height: 100%; object-fit: cover; }
+.my-works-body { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
+.my-works-body b { font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+.my-works-reason { margin: 2px 0 0; font-size: 14px; color: var(--fg-2); }
+.ad-slot { margin-block: 56px; }
+.ad { position: relative; border-radius: var(--r); overflow: hidden; background: var(--subtle); border: 1px solid var(--line); }
+.ad a { display: block; }
+.ad img { display: block; width: 100%; height: auto; aspect-ratio: 4 / 1; object-fit: cover; }
+.ad-tag { position: absolute; top: 8px; right: 8px; height: 22px; padding: 0 9px; border-radius: 999px; background: var(--glass); color: var(--fg); font-size: 11px; font-weight: 600; letter-spacing: .02em; line-height: 22px; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+@media (max-width: 640px) { .ad-slot { margin-block: 40px; } .ad img { aspect-ratio: 5 / 2; } .my-works li { grid-template-columns: 96px minmax(0, 1fr); gap: 14px; } }
+
 /* ---------- soft "save to an account" offer ---------- */
 .sp { position: fixed; right: 20px; bottom: 20px; z-index: 40; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: start; width: min(380px, calc(100vw - 24px)); padding: 16px 12px 16px 16px;
   background: var(--surface); border: 1px solid var(--line-2); border-radius: var(--r); box-shadow: var(--shadow-pop); animation: sp-in .3s var(--ease); }
@@ -893,6 +917,19 @@ section.adm-card + section.adm-card, .stat-grid + section.adm-card { margin-top:
 .media-item img { width: 100%; aspect-ratio: 1; object-fit: cover; background: var(--subtle); }
 .media-item .mrow { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; font-size: 12px; }
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 22px; }
+/* member queue + ads */
+.adm-pending { margin-bottom: 28px; }
+.adm-pending .adm-works > li { border-color: color-mix(in srgb, var(--warn-fg) 30%, var(--line)); }
+.chip-ok { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.chip-ok:hover { background: var(--accent-strong); border-color: var(--accent-strong); }
+.adm-reject { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.adm-reject input { height: 32px; width: 220px; max-width: 100%; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); font-size: 13px; }
+.adm-ad-cell { display: flex; align-items: center; gap: 12px; min-width: 220px; }
+.adm-ad-cell img { width: 112px; aspect-ratio: 4 / 1; object-fit: cover; border-radius: 6px; background: var(--subtle); flex: none; }
+.adm-ad-cell strong { font-weight: 600; }
+.adm-ad-form { max-width: 760px; display: grid; gap: 16px; }
+.adm-act-wrap { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; min-width: 150px; white-space: normal; }
+.adm-act-wrap form { display: inline-block; }
 /* dizaynerlar manager */
 .adm-works { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
 .adm-works > li { display: grid; grid-template-columns: 176px minmax(0, 1fr); gap: 20px; padding: 12px; }

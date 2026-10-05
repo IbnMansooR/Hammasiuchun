@@ -91,15 +91,18 @@ model Article {
 }
 
 model Media {
-  id        Int      @id @default(autoincrement())
-  filename  String
-  url       String
-  mime      String?
-  width     Int?
-  height    Int?
-  size      Int      @default(0)
-  alt       String?
-  createdAt DateTime @default(now())
+  id         Int      @id @default(autoincrement())
+  filename   String
+  url        String
+  mime       String?
+  width      Int?
+  height     Int?
+  size       Int      @default(0)
+  alt        String?
+  uploadedBy Int? // set for images uploaded by a signed-in member (not the admin)
+  createdAt  DateTime @default(now())
+
+  @@index([uploadedBy])
 }
 
 model Admin {
@@ -211,28 +214,34 @@ model Notification {
 
 /// Portfolio entry: the owner's own work, or a partner designer's work the site promotes.
 model Work {
-  id          Int       @id @default(autoincrement())
-  slug        String    @unique
-  title       String
-  summary     String?
-  body        String    @default("") // markdown case study
-  kind        String    @default("own") // own | partner
-  authorName  String? // partner designer's name
-  authorUrl   String? // partner's portfolio (Behance, Dribbble, site…)
-  client      String?
-  year        Int?
-  tags        String    @default("") // comma separated
-  coverImage  String?
-  images      String    @default("") // gallery: one URL per line
-  fonts       String    @default("") // comma-separated Feekr font slugs used in the work
-  isPublished Boolean   @default(false)
-  isFeatured  Boolean   @default(false)
-  sortOrder   Int       @default(0)
-  publishedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id            Int       @id @default(autoincrement())
+  slug          String    @unique
+  title         String
+  summary       String?
+  body          String    @default("") // markdown case study
+  kind          String    @default("own") // own | partner | member
+  authorName    String? // partner / member designer's name
+  authorUrl     String? // partner's portfolio (Behance, Dribbble, site…)
+  client        String?
+  year          Int?
+  tags          String    @default("") // comma separated
+  coverImage    String?
+  images        String    @default("") // gallery: one URL per line
+  fonts         String    @default("") // comma-separated Feekr font slugs used in the work
+  isPublished   Boolean   @default(false)
+  isFeatured    Boolean   @default(false)
+  sortOrder     Int       @default(0)
+  publishedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  // Member submissions wait for the admin: pending → approved (published) | rejected.
+  // Invariant: isPublished is true only when status is "approved".
+  status        String    @default("approved")
+  submittedById Int?
+  rejectReason  String?
 
   @@index([isPublished, sortOrder])
+  @@index([status, createdAt])
 }
 
 // A confirmed entitlement: this user owns the full (non-demo) license for
@@ -306,4 +315,22 @@ model Wish {
 
   @@id([userId, slug])
   @@index([userId, createdAt])
+}
+
+// A labelled ("Reklama") banner. Views and clicks are counted in Hit (ad_view / ad_click, meta = id).
+model Ad {
+  id         Int       @id @default(autoincrement())
+  title      String // internal name and the image's alt text
+  advertiser String?
+  image      String // uploaded banner, ~4:1 (e.g. 1200×300)
+  href       String // https landing page
+  placement  String // home | dizaynerlar
+  startsAt   DateTime?
+  endsAt     DateTime?
+  isActive   Boolean   @default(true)
+  sortOrder  Int       @default(0)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([placement, isActive])
 }
