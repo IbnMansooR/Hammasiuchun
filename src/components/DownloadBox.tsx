@@ -3,6 +3,7 @@ import { useStore } from "./StoreProvider";
 import { FREEWARE_WARNING, LICENSE_NOTE } from "@/lib/license";
 import { IconDownload, IconHeart } from "./Icons";
 import { trackEvent } from "@/lib/trackClient";
+import { offerSave } from "@/lib/savePrompt";
 
 export default function DownloadBox({
   slug, name, styleCount, licenseClass,
@@ -16,7 +17,7 @@ export default function DownloadBox({
     <div className="dl-card">
       <div className="free"><b>Bepul</b><span>{styleCount} uslub · ZIP</span></div>
       <p>Toʻliq oila bitta faylda: barcha uslublar va litsenziya matni.</p>
-      <a id="hero-cta" className="btn btn-accent btn-lg btn-block" href={`/api/download-family/${slug}`} onClick={() => trackEvent("download", slug)}>
+      <a id="hero-cta" className="btn btn-accent btn-lg btn-block" href={`/api/download-family/${slug}`} onClick={() => { trackEvent("download", slug); offerSave("download", {}, 1500); }}>
         <IconDownload className="ico" /> Yuklab olish
       </a>
       <button type="button" className={`btn btn-block${wished ? " btn-on" : ""}`} aria-pressed={wished} onClick={() => toggleWish({ slug, name })}>

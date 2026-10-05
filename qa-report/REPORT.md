@@ -635,3 +635,19 @@ The same migration also enables Row Level Security on all 15 public tables. Befo
 - 38 analytics checks pass, including source detection, cookie, bots, DNT, admin, signup attribution and the numbers on the stats page.
 - The earlier 68 end-to-end checks still pass.
 - axe: 0 violations on `/maxfiylik` and on all 14 admin pages in real dark and light mode, and the stats page has no horizontal scroll on a phone.
+
+
+## 14. Reasons to register (2026-10-05)
+
+**Principle.** Registration stays optional and downloads stay free (the licence gate is unchanged). People are invited to register by giving them something real, at the moment it is worth something, in one click, and never with fake scarcity, invented counters, shaming buttons or a blocking pop-up.
+
+**Built**
+- **Wishlist on the account.** New `Wish` table (production first, RLS on) and `/api/me/wish`. The first time someone signs in, the list saved in the browser is merged into the account; after that the account is the truth, so a font removed on one device stays removed on the others (a first version resurrected it; found by the two-device test and fixed). Only changes the account has not received yet are merged. Signing out clears the browser's copy, so the next person on a shared computer starts clean. Unknown or hidden fonts are dropped server-side, with a 500 limit.
+- **News opt-in.** `User.notifyNews` (on by default), a switch on the account page, and the admin's broadcast goes only to people who have not opted out. Personal messages are always delivered. After uploading a font the admin gets a pre-filled "send a message" link (nothing is sent automatically).
+- **Soft offers** (signed-out visitors only): after the second ♡ ("2 fonts are saved; save them to an account") and after a download ("Yangi shriftlar chiqqanda xabar olasizmi?"). At most once a day; closing or "no thanks" silences it for 14 days. It never covers the page, never takes focus, does not appear on sign-in, registration or account pages, closes with Escape, and on a phone is a small card at the bottom. Show / click / dismiss are recorded, so `/admin/stats` can show which offer works. The wishlist page also carries a permanent, honest note that the list lives only in this browser.
+- **Telegram sign-in** (Telegram's Login Widget). The callback verifies Telegram's signature (HMAC-SHA256 keyed by the bot token) before it touches the database, and rejects repeated keys, a changed field, a stale or future `auth_date` (15-minute window), a hash made with another token and a non-numeric id. Blocked accounts are refused like on every other sign-in path. It is hidden until `TELEGRAM_BOT_TOKEN` and `TELEGRAM_BOT_USERNAME` are set. CSP gained only `frame-src https://oauth.telegram.org`.
+- **Registration page** leads with the two real benefits, offers Google (and Telegram) in one click, and the form is down to email and password.
+
+**Verification** (local production build, Postgres 16, a fake bot token used only for the test): 69 checks pass (prompts and their frequency rules, sign-in merge, two-device sync both ways, API guards, sign-out cleanup, opt-out and broadcast, Telegram acceptance and every rejection case, axe in light and dark, phone layout). Earlier suites still pass (68 + 38), and axe is at 0 violations on every public and admin page in light and dark.
+
+**Not verifiable here:** the real Telegram widget (it needs the owner's bot). The signature check, the callback, the CSP and the script injection are tested; the button itself appears once the bot is configured.

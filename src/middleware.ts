@@ -14,6 +14,8 @@ function contentSecurityPolicy(nonce: string): string {
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
     "connect-src 'self'",
+    // Telegram's login widget renders its button in an iframe.
+    "frame-src https://oauth.telegram.org",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

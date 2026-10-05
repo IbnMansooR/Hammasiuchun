@@ -167,22 +167,27 @@ model ClickTransaction {
 // are all optional login paths onto the same account — at least one of
 // email/phone/googleId is expected to be set.
 model User {
-  id            Int            @id @default(autoincrement())
-  email         String?        @unique
-  phone         String?        @unique
-  passwordHash  String?
-  googleId      String?        @unique
-  name          String?
-  createdAt     DateTime       @default(now())
-  lastLoginAt   DateTime?
+  id               Int            @id @default(autoincrement())
+  email            String?        @unique
+  phone            String?        @unique
+  passwordHash     String?
+  googleId         String?        @unique
+  name             String?
+  createdAt        DateTime       @default(now())
+  lastLoginAt      DateTime?
   // Restriction set by an admin: blockedAt + no blockedUntil = blocked until
   // lifted; blockedAt + blockedUntil = suspended until that moment.
-  blockedAt     DateTime?
-  blockedUntil  DateTime?
-  blockReason   String?
-  orders        Order[]
-  purchases     Purchase[]
-  notifications Notification[]
+  blockedAt        DateTime?
+  blockedUntil     DateTime?
+  blockReason      String?
+  // In-site bell messages about new fonts (broadcasts). Personal messages from the admin are always delivered.
+  notifyNews       Boolean        @default(true)
+  telegramId       String?        @unique
+  telegramUsername String?
+  orders           Order[]
+  purchases        Purchase[]
+  notifications    Notification[]
+  wishes           Wish[]
 
   @@index([createdAt])
 }
@@ -289,4 +294,16 @@ model Hit {
   @@index([at])
   @@index([name, at])
   @@index([path, at])
+}
+
+// A signed-in user's saved ("♡") families. Signed-out visitors keep theirs in
+// the browser; signing in merges the two.
+model Wish {
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slug      String
+  createdAt DateTime @default(now())
+
+  @@id([userId, slug])
+  @@index([userId, createdAt])
 }

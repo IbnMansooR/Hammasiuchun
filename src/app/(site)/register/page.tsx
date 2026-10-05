@@ -5,6 +5,9 @@ import { registerAction } from "../account/actions";
 import SubmitButton from "@/components/SubmitButton";
 import { googleEnabled } from "@/lib/googleAuth";
 import { smsEnabled } from "@/lib/eskiz";
+import { telegramEnabled, telegramBot } from "@/lib/telegramAuth";
+import TelegramLogin from "@/components/TelegramLogin";
+import { IconBell, IconHeart } from "@/components/Icons";
 
 export const metadata = { title: "Roʻyxatdan oʻtish" };
 
@@ -18,26 +21,32 @@ const ERRORS: Record<string, string> = {
 export default async function RegisterPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   if (await getCurrentUser()) redirect("/account");
   const { error } = await searchParams;
-  // Only advertise the sign-in methods that are actually configured.
-  const altLogin = [googleEnabled && "Google", smsEnabled && "telefon raqami"].filter(Boolean).join(" yoki ");
+  const bot = telegramEnabled ? telegramBot : null;
 
   return (
     <div className="container auth">
       <div className="auth-card">
         <h1>Roʻyxatdan oʻtish</h1>
-        <p className="sub">
-          Hisob ochish ixtiyoriy — shriftlarni usiz ham yuklab olasiz. Hisob bilan kabinetingiz har doim qoʻl ostida boʻladi.
-        </p>
+        <p className="sub">Bir daqiqa. Hisob bilan:</p>
+        <ul className="perks">
+          <li><IconHeart aria-hidden="true" /><span>Sevimlilaringiz telefonda ham, kompyuterda ham turadi</span></li>
+          <li><IconBell aria-hidden="true" /><span>Yangi shriftlar chiqqanda qoʻngʻiroqchada xabar</span></li>
+        </ul>
         {error && (
           <div className="alert alert-error" role="alert">
             {ERRORS[error] ?? "Xatolik yuz berdi."}
           </div>
         )}
+        {(googleEnabled || bot) && (
+          <>
+            <div className="oneclick">
+              {googleEnabled && <a href="/api/auth/google" className="btn btn-lg btn-block">Google orqali davom etish</a>}
+              {bot && <TelegramLogin bot={bot} />}
+            </div>
+            <div className="divider">yoki email bilan</div>
+          </>
+        )}
         <form action={registerAction}>
-          <div className="field">
-            <label htmlFor="reg-name">Ism (ixtiyoriy)</label>
-            <input id="reg-name" type="text" name="name" autoComplete="name" />
-          </div>
           <div className="field">
             <label htmlFor="reg-email">Email</label>
             <input id="reg-email" type="email" name="email" autoComplete="email" required />
@@ -50,13 +59,14 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
         </form>
         <p className="auth-foot">
           Hisobingiz bormi? <Link href="/login">Kirish</Link>
-          {altLogin && (
+          {smsEnabled && (
             <>
               <br />
-              {altLogin} orqali ham <Link href="/login">shu yerdan</Link> kirishingiz mumkin.
+              Telefon raqami orqali ham <Link href="/login">shu yerdan</Link> kirishingiz mumkin.
             </>
           )}
         </p>
+        <p className="auth-fine">Shriftlarni yuklab olish hisobsiz ham bepul.</p>
       </div>
     </div>
   );

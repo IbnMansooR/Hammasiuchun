@@ -1,13 +1,16 @@
 "use client";
 import { useState } from "react";
 import PhoneLoginForm from "./PhoneLoginForm";
+import TelegramLogin from "./TelegramLogin";
 
 export default function AuthTabs({
-  emailForm, googleEnabled, smsEnabled,
+  emailForm, googleEnabled, smsEnabled, telegramBot = null,
 }: {
   emailForm: React.ReactNode;
   googleEnabled: boolean;
   smsEnabled: boolean;
+  /** Bot username when "Log in with Telegram" is configured. */
+  telegramBot?: string | null;
 }) {
   const [tab, setTab] = useState<"email" | "phone">("email");
 
@@ -22,12 +25,17 @@ export default function AuthTabs({
 
       {tab === "email" ? emailForm : <PhoneLoginForm />}
 
-      {googleEnabled && (
+      {(googleEnabled || telegramBot) && (
         <>
           <div className="divider">yoki</div>
-          <a href="/api/auth/google" className="btn btn-lg btn-block">
-            Google orqali davom etish
-          </a>
+          <div className="oneclick">
+            {googleEnabled && (
+              <a href="/api/auth/google" className="btn btn-lg btn-block">
+                Google orqali davom etish
+              </a>
+            )}
+            {telegramBot && <TelegramLogin bot={telegramBot} />}
+          </div>
         </>
       )}
     </div>

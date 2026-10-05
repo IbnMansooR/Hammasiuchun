@@ -13,11 +13,14 @@ const ERR: Record<string, string> = {
   empty: "Tanlangan auditoriyada hech kim yoʻq.",
 };
 
-export default async function NotificationsAdmin({ searchParams }: { searchParams: Promise<{ ok?: string; n?: string; error?: string }> }) {
+export default async function NotificationsAdmin({ searchParams }: { searchParams: Promise<{ ok?: string; n?: string; error?: string; title?: string; link?: string }> }) {
   const sp = await searchParams;
+  // A link from "new font uploaded" pre-fills the form; the admin still reviews and sends it.
+  const preTitle = (sp.title ?? "").slice(0, 140);
+  const preLink = /^\/[^/\s]/.test(sp.link ?? "") ? (sp.link ?? "").slice(0, 200) : "";
   const [all, active, batches] = await Promise.all([
-    db.user.count(),
-    db.user.count({ where: { lastLoginAt: { gte: new Date(Date.now() - 30 * DAY) } } }),
+    db.user.count({ where: { notifyNews: true } }),
+    db.user.count({ where: { notifyNews: true, lastLoginAt: { gte: new Date(Date.now() - 30 * DAY) } } }),
     // One row per sent message: recipients and how many have opened it.
     db.$queryRaw<{ batch: string; title: string; body: string; link: string | null; sent: Date; recipients: number; read: number }[]>`
       SELECT "batch", MIN("title") AS title, MIN("body") AS body, MIN("link") AS link, MIN("createdAt") AS sent,
@@ -41,12 +44,12 @@ export default async function NotificationsAdmin({ searchParams }: { searchParam
         <form action={sendNotificationAction} className="adm-compose">
           <fieldset className="adm-periods">
             <legend className="adm-legend">Kimga</legend>
-            <label className="adm-radio"><input type="radio" name="audience" value="all" defaultChecked /><span>Barcha foydalanuvchilar · {formatNumber(all)}</span></label>
+            <label className="adm-radio"><input type="radio" name="audience" value="all" defaultChecked /><span>Xabar olishga rozi barcha foydalanuvchilar · {formatNumber(all)}</span></label>
             <label className="adm-radio"><input type="radio" name="audience" value="active" /><span>Soʻnggi 30 kunda kirganlar · {formatNumber(active)}</span></label>
           </fieldset>
           <div className="field">
             <label htmlFor="b-title">Sarlavha</label>
-            <input id="b-title" type="text" name="title" maxLength={140} required placeholder="masalan: 12 ta yangi kirill shrift" />
+            <input id="b-title" type="text" name="title" maxLength={140} required defaultValue={preTitle} placeholder="masalan: 12 ta yangi kirill shrift" />
           </div>
           <div className="field">
             <label htmlFor="b-body">Matn</label>
@@ -54,7 +57,7 @@ export default async function NotificationsAdmin({ searchParams }: { searchParam
           </div>
           <div className="field">
             <label htmlFor="b-link">Havola (ixtiyoriy)</label>
-            <input id="b-link" type="text" name="link" placeholder="/dizaynerlar yoki https://…" />
+            <input id="b-link" type="text" name="link" defaultValue={preLink} placeholder="/dizaynerlar yoki https://…" />
           </div>
           <ConfirmButton className="btn btn-accent btn-sm" message="Xabar tanlangan barcha foydalanuvchilarga yuborilsinmi?">Yuborish</ConfirmButton>
         </form>

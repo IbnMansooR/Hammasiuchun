@@ -30,6 +30,9 @@ export default async function EditFont({
       {(saved || uploaded) && (
         <div className="adm-notice adm-notice-ok" role="status">
           {uploaded ? "Shrift muvaffaqiyatli yuklandi." : "Oʻzgarishlar saqlandi."}
+          {uploaded && isPublicFamily(f) && (
+            <>{" "}<Link href={`/admin/notifications?title=${encodeURIComponent(`Yangi shrift: ${f.name}`)}&link=${encodeURIComponent(`/fonts/${slug}`)}`} className="link">Foydalanuvchilarga xabar yuborish →</Link></>
+          )}
         </div>
       )}
 

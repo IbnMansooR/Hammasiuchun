@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/userAuth";
 import { userLoginAction } from "../account/actions";
 import { googleEnabled } from "@/lib/googleAuth";
 import { smsEnabled } from "@/lib/eskiz";
+import { telegramEnabled, telegramBot } from "@/lib/telegramAuth";
 import { mailEnabled } from "@/lib/mailer";
 import SubmitButton from "@/components/SubmitButton";
 import AuthTabs from "@/components/AuthTabs";
@@ -53,12 +54,17 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             Savollar boʻlsa, <Link href="/support" className="link">biz bilan bogʻlaning</Link>.
           </div>
         )}
+        {error === "telegram" && (
+          <div className="alert alert-error" role="alert">
+            Telegram orqali kirishda xatolik yuz berdi. Qaytadan urinib koʻring.
+          </div>
+        )}
         {error === "google" && (
           <div className="alert alert-error" role="alert">
             Google orqali kirishda xatolik yuz berdi. Qaytadan urinib koʻring.
           </div>
         )}
-        <AuthTabs emailForm={emailForm} googleEnabled={googleEnabled} smsEnabled={smsEnabled} />
+        <AuthTabs emailForm={emailForm} googleEnabled={googleEnabled} smsEnabled={smsEnabled} telegramBot={telegramEnabled ? telegramBot : null} />
         {mailEnabled && (
           <p className="auth-foot" style={{ marginTop: 14 }}>
             <Link href="/forgot">Parolni unutdingizmi?</Link>

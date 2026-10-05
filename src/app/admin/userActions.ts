@@ -108,7 +108,8 @@ export async function sendNotificationAction(fd: FormData) {
     ids = [id];
   } else if (audience === "all" || audience === "active") {
     const rows = await db.user.findMany({
-      where: audience === "active" ? { lastLoginAt: { gte: new Date(Date.now() - 30 * DAY) } } : {},
+      // Broadcasts go only to people who have not opted out of news.
+      where: audience === "active" ? { notifyNews: true, lastLoginAt: { gte: new Date(Date.now() - 30 * DAY) } } : { notifyNews: true },
       select: { id: true },
     });
     ids = rows.map((r) => r.id);

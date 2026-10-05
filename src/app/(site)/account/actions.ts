@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
-import { startUserSession, destroyUserSession, verifyUserPassword, isValidEmail, blockedLoginUrl } from "@/lib/userAuth";
+import { startUserSession, destroyUserSession, verifyUserPassword, isValidEmail, blockedLoginUrl, getCurrentUser } from "@/lib/userAuth";
 import { sendSms, normalizePhone, smsEnabled } from "@/lib/eskiz";
 import { clientIp, isLocked, hit, clear } from "@/lib/rateLimit";
 import { mailEnabled, sendMail } from "@/lib/mailer";
@@ -180,3 +180,12 @@ export async function resetPasswordAction(fd: FormData) {
   redirect("/account");
 }
 
+
+/* ---------------- preferences ---------------- */
+export async function setNotifyNewsAction(fd: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  await db.user.update({ where: { id: user.id }, data: { notifyNews: fd.get("news") === "on" } });
+  revalidatePath("/account");
+  redirect("/account?saved=news");
+}

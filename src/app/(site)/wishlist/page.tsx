@@ -5,11 +5,12 @@ import { useStore } from "@/components/StoreProvider";
 import FontCard from "@/components/FontCard";
 import { cardsFaceCSS, type CardFont } from "@/lib/cards";
 import { IconArrow, IconHeart } from "@/components/Icons";
+import { trackEvent } from "@/lib/trackClient";
 
 /** Saved families as real specimen cards. The list lives in this browser
  * (localStorage); card data is fetched for the saved slugs. */
 export default function WishlistPage() {
-  const { wish, ready } = useStore();
+  const { wish, ready, signedIn } = useStore();
   const [cards, setCards] = useState<CardFont[] | null>(null);
   const key = wish.map((w) => w.slug).join(",");
 
@@ -34,9 +35,16 @@ export default function WishlistPage() {
         <div className="eyebrow">Sevimlilar</div>
         <h1>Saqlangan shriftlar</h1>
         <p className="lead">
-          {loading ? "Yuklanmoqda…" : wish.length ? `${wish.length} ta oila. Roʻyxat shu brauzerda saqlanadi.` : "Yoqqan shriftni ♡ bilan belgilang — u shu yerda turadi."}
+          {loading ? "Yuklanmoqda…" : wish.length ? `${wish.length} ta oila. ${signedIn ? "Hisobingizda saqlanadi, istalgan qurilmada koʻrasiz." : "Roʻyxat shu brauzerda saqlanadi."}` : "Yoqqan shriftni ♡ bilan belgilang — u shu yerda turadi."}
         </p>
       </header>
+
+      {!loading && !signedIn && wish.length > 0 && (
+        <aside className="wish-note">
+          <p><b>Bu roʻyxat faqat shu brauzerda.</b> Brauzer tozalansa yoki boshqa qurilmaga oʻtsangiz, yoʻqoladi. Hisobga saqlang, u hamma joyda turadi.</p>
+          <Link href="/register" className="btn btn-primary btn-sm" onClick={() => trackEvent("prompt_click", "wishlist")}>Hisobga saqlash</Link>
+        </aside>
+      )}
 
       {!loading && wish.length === 0 ? (
         <div className="empty" style={{ paddingTop: 24 }}>
