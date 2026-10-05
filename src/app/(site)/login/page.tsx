@@ -4,47 +4,74 @@ import { getCurrentUser } from "@/lib/userAuth";
 import { userLoginAction } from "../account/actions";
 import { googleEnabled } from "@/lib/googleAuth";
 import { smsEnabled } from "@/lib/eskiz";
+import { telegramEnabled, telegramBot } from "@/lib/telegramAuth";
+import { mailEnabled } from "@/lib/mailer";
 import SubmitButton from "@/components/SubmitButton";
 import AuthTabs from "@/components/AuthTabs";
+import { formatDateTime } from "@/lib/format";
 
 export const metadata = { title: "Kirish" };
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; until?: string }> }) {
   if (await getCurrentUser()) redirect("/account");
-  const { error } = await searchParams;
+  const { error, until } = await searchParams;
+  // Only the date is taken from the URL (never free text), so the message can't be spoofed.
+  const untilAt = until ? new Date(until) : null;
+  const untilText = untilAt && untilAt > new Date() ? formatDateTime(untilAt) : "";
 
   const emailForm = (
     <form action={userLoginAction}>
       <div className="field">
-        <label>Email</label>
-        <input type="email" name="email" required />
+        <label htmlFor="login-email">Email</label>
+        <input id="login-email" type="email" name="email" autoComplete="email" required />
       </div>
       <div className="field">
-        <label>Parol</label>
-        <input type="password" name="password" required />
+        <label htmlFor="login-password">Parol</label>
+        <input id="login-password" type="password" name="password" autoComplete="current-password" required />
       </div>
-      <SubmitButton style={{ width: "100%", justifyContent: "center", marginTop: 6 }}>Kirish</SubmitButton>
+      <SubmitButton pendingLabel="Kirilmoqda…" className="btn btn-primary btn-lg btn-block" style={{ marginTop: 8 }}>Kirish</SubmitButton>
     </form>
   );
 
   return (
-    <div className="container section" style={{ paddingTop: 40, display: "grid", placeItems: "center" }}>
-      <div style={{ background: "var(--surface, #fff)", border: "1px solid var(--line)", borderRadius: 18, padding: 34, width: "100%", maxWidth: 400 }}>
-        <div style={{ fontWeight: 800, fontSize: 24, marginBottom: 4 }}>Kirish</div>
-        <p className="muted" style={{ fontSize: 14, marginBottom: 22 }}>Hisobingizga kiring.</p>
+    <div className="container auth">
+      <div className="auth-card">
+        <h1>Kirish</h1>
+        <p className="sub">Hisobingizga kiring.</p>
         {error === "1" && (
-          <div style={{ background: "#fdecec", color: "#b91c1c", padding: "10px 12px", borderRadius: 10, fontSize: 13.5, marginBottom: 16 }}>
-            Email yoki parol noto&apos;g&apos;ri.
+          <div className="alert alert-error" role="alert">
+            Email yoki parol notoʻgʻri.
+          </div>
+        )}
+        {error === "locked" && (
+          <div className="alert alert-error" role="alert">
+            Juda koʻp notoʻgʻri urinish. Iltimos, 15 daqiqadan soʻng qayta urining.
+          </div>
+        )}
+        {error === "blocked" && (
+          <div className="alert alert-error" role="alert">
+            {untilText ? <>Hisobingiz <b>{untilText}</b> gacha vaqtincha cheklangan.</> : <>Hisobingiz bloklangan.</>}{" "}
+            Savollar boʻlsa, <Link href="/support" className="link">biz bilan bogʻlaning</Link>.
+          </div>
+        )}
+        {error === "telegram" && (
+          <div className="alert alert-error" role="alert">
+            Telegram orqali kirishda xatolik yuz berdi. Qaytadan urinib koʻring.
           </div>
         )}
         {error === "google" && (
-          <div style={{ background: "#fdecec", color: "#b91c1c", padding: "10px 12px", borderRadius: 10, fontSize: 13.5, marginBottom: 16 }}>
-            Google orqali kirishda xatolik yuz berdi. Qaytadan urinib ko&apos;ring.
+          <div className="alert alert-error" role="alert">
+            Google orqali kirishda xatolik yuz berdi. Qaytadan urinib koʻring.
           </div>
         )}
-        <AuthTabs emailForm={emailForm} googleEnabled={googleEnabled} smsEnabled={smsEnabled} />
-        <p className="muted" style={{ fontSize: 13.5, marginTop: 18, textAlign: "center" }}>
-          Hisobingiz yo&apos;qmi? <Link href="/register">Ro&apos;yxatdan o&apos;tish</Link>
+        <AuthTabs emailForm={emailForm} googleEnabled={googleEnabled} smsEnabled={smsEnabled} telegramBot={telegramEnabled ? telegramBot : null} />
+        {mailEnabled && (
+          <p className="auth-foot" style={{ marginTop: 14 }}>
+            <Link href="/forgot">Parolni unutdingizmi?</Link>
+          </p>
+        )}
+        <p className="auth-foot">
+          Hisobingiz yoʻqmi? <Link href="/register">Roʻyxatdan oʻtish</Link>
         </p>
       </div>
     </div>

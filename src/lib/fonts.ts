@@ -11,7 +11,7 @@ export const CATEGORY_LABEL: Record<string, string> = {
   Serif: "Serif",
   Slab: "Slab-serif",
   Display: "Display",
-  Script: "Qo'lyozma",
+  Script: "Qoʻlyozma",
   Monospace: "Monospace",
   Dingbat: "Belgilar",
 };
@@ -20,7 +20,7 @@ export const SORTS: Record<string, string> = {
   popular: "Ommabop",
   az: "A–Z",
   za: "Z–A",
-  styles: "Ko'p uslub",
+  styles: "Uslublar soni",
   new: "Yangi",
 };
 
@@ -82,4 +82,28 @@ export const WEIGHT_LABEL: Record<number, string> = {
 };
 
 export const PANGRAM = "The quick brown fox jumps over the lazy dog";
+
+/** Uzbek specimen line. Uses the official ʻ (U+02BB) when the font has it,
+ * otherwise ‘ (U+2018) — the substitute most fonts (and most Uzbek text) have. */
+export function uzSample(support?: { uzLatin: boolean } | null): string {
+  const a = support?.uzLatin ? "ʻ" : "‘";
+  return `O${a}zbekiston — g${a}oyalar, quyosh va shriftlar yurti`;
+}
+export const UZ_SAMPLE = uzSample(null);
 export const ALPHABET = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz";
+
+/** Short default specimen for a card, matched to the category's voice. Uses ‘
+ * (U+2018) for oʻ/gʻ: nearly every font has it, far fewer have U+02BB. */
+const CARD_SAMPLE: Record<string, string> = {
+  Sans: "Shrift — brendning ovozi",
+  Serif: "So‘z va shakl uyg‘unligi",
+  Slab: "Kuchli, ishonchli, aniq",
+  Display: "Ovozingizni toping",
+  Script: "Shirin so‘zlar",
+  Monospace: "const shrift = 'bepul';",
+  Dingbat: "ABCDEFGHIJ abcdefghij",
+};
+export function cardSample(category: string, cyrillicOnly = false): string {
+  if (cyrillicOnly) return "Шрифт — бренд овози";
+  return CARD_SAMPLE[category] ?? CARD_SAMPLE.Sans;
+}

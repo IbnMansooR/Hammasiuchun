@@ -3,14 +3,15 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { cssFamily, fontFaceCSS, previewStyle, CATEGORIES, CATEGORY_LABEL } from "@/lib/fonts";
 import { saveFamilyAction } from "../../../actions";
+import { LICENSE_CLASSES, LICENSE_LABEL, isPublicFamily, isRedistributable } from "@/lib/license";
 
 export const metadata = { title: "Admin — Shriftni tahrirlash" };
 
 export default async function EditFont({
   params, searchParams,
-}: { params: Promise<{ slug: string }>; searchParams: Promise<{ saved?: string; uploaded?: string }> }) {
+}: { params: Promise<{ slug: string }>; searchParams: Promise<{ saved?: string; uploaded?: string; error?: string }> }) {
   const { slug } = await params;
-  const { saved, uploaded } = await searchParams;
+  const { saved, uploaded, error } = await searchParams;
   const f = await db.family.findUnique({ where: { slug }, include: { styles: { orderBy: [{ italic: "asc" }, { weight: "asc" }] } } });
   if (!f) notFound();
 
@@ -23,14 +24,32 @@ export default async function EditFont({
       <style dangerouslySetInnerHTML={{ __html: faceCSS }} />
       <div className="adm-head">
         <h1 style={{ margin: 0 }}>{f.name}</h1>
-        <a href={`/fonts/${slug}`} target="_blank" className="btn btn-sm">↗ Saytda ko&apos;rish</a>
+        <a href={`/fonts/${slug}`} target="_blank" className="btn btn-sm">↗ Saytda koʻrish</a>
       </div>
 
       {(saved || uploaded) && (
-        <div style={{ background: "#e7f8f0", color: "#065f46", padding: "10px 14px", borderRadius: 10, fontSize: 14, marginBottom: 18 }}>
-          {uploaded ? "Shrift muvaffaqiyatli yuklandi." : "O'zgarishlar saqlandi."}
+        <div className="adm-notice adm-notice-ok" role="status">
+          {uploaded ? "Shrift muvaffaqiyatli yuklandi." : "Oʻzgarishlar saqlandi."}
+          {uploaded && isPublicFamily(f) && (
+            <>{" "}<Link href={`/admin/notifications?title=${encodeURIComponent(`Yangi shrift: ${f.name}`)}&link=${encodeURIComponent(`/fonts/${slug}`)}`} className="link">Foydalanuvchilarga xabar yuborish →</Link></>
+          )}
         </div>
       )}
+
+      {error === "license" && (
+        <div className="adm-notice adm-notice-error" role="alert">
+          Litsenziya turini roʻyxatdan tanlang.
+        </div>
+      )}
+
+      <div className={`adm-notice ${isPublicFamily(f) ? "adm-notice-ok" : "adm-notice-warn"}`} role="status">
+        {isPublicFamily(f)
+          ? "Saytda koʻrinadi va bepul yuklab olinadi."
+          : !isRedistributable(f.licenseClass)
+            ? `Saytda koʻrinmaydi: "${f.licenseClass}" litsenziyasi bepul tarqatishga ruxsat bermaydi. Agar bu sizning shriftingiz boʻlsa yoki muallifdan yozma ruxsat olgan boʻlsangiz, litsenziyani "Oʻz shriftimiz" yoki "Tarqatish huquqi tasdiqlangan" qilib saqlang.`
+            : "Saytda koʻrinmaydi: \"Chop etilgan\" belgisi oʻchirilgan."}
+        {f.copyright && <div style={{ fontSize: 12.5, marginTop: 6, opacity: 0.85 }}>Fayldagi yozuv: {f.copyright}</div>}
+      </div>
 
       <div style={{ border: "1px solid var(--line)", borderRadius: 14, padding: "24px 20px", marginBottom: 24, overflow: "hidden" }}>
         <div style={{ fontFamily: `"${cssFamily(slug)}", var(--font)`, fontWeight: pv?.weight ?? 400, fontSize: 54, lineHeight: 1.1, whiteSpace: "nowrap" }}>
@@ -51,36 +70,34 @@ export default async function EditFont({
             </select>
           </div>
           <div className="field">
-            <label>Narx (USD, litsenziya)</label>
-            <input type="number" name="price" min={0} step="0.01" defaultValue={(f.priceCents / 100).toFixed(2)} />
+            <label htmlFor="licenseClass">Litsenziya</label>
+            <select id="licenseClass" name="licenseClass" defaultValue={f.licenseClass}>
+              {LICENSE_CLASSES.map((c) => <option key={c} value={c}>{LICENSE_LABEL[c] ?? c}</option>)}
+            </select>
           </div>
         </div>
-        <div className="field">
-          <label>Narx turi (tier)</label>
-          <select name="tier" defaultValue={f.tier}>
-            <option value="free">Bepul — butun oila tekin</option>
-            <option value="demo">Demo — Regular bepul, qolgani pullik</option>
-            <option value="paid">To&apos;liq pullik — demo yo&apos;q</option>
-          </select>
-        </div>
+        <p className="muted" style={{ fontSize: 12.5, marginTop: -6, marginBottom: 16 }}>
+          Barcha shriftlar bepul. Faqat ochiq litsenziyali, freeware yoki tarqatish huquqi tasdiqlangan oilalar saytda koʻrinadi.
+          Huquqni tasdiqlash — sizning masʼuliyatingiz.
+        </p>
         <div className="field">
           <label>Dizayner</label>
           <input type="text" name="designer" defaultValue={f.designer ?? ""} />
         </div>
         <div className="field">
           <label>Slogan (tagline)</label>
-          <input type="text" name="tagline" defaultValue={f.tagline ?? ""} placeholder="Qisqa ta'rif" />
+          <input type="text" name="tagline" defaultValue={f.tagline ?? ""} placeholder="Qisqa taʼrif" />
         </div>
         <div className="field">
           <label>Tavsif (asosiy matn / CTA)</label>
-          <textarea name="description" rows={4} defaultValue={f.description ?? ""} placeholder="Bo'sh qoldirsangiz metadata asosida avtomatik matn ko'rsatiladi." />
+          <textarea name="description" rows={4} defaultValue={f.description ?? ""} placeholder="Boʻsh qoldirsangiz metadata asosida avtomatik matn koʻrsatiladi." />
         </div>
         <div className="field">
           <label>Tarixi</label>
           <textarea name="history" rows={3} defaultValue={f.history ?? ""} />
         </div>
         <div className="field">
-          <label>Qo&apos;llanilishi</label>
+          <label>Qoʻllanilishi</label>
           <textarea name="usage" rows={3} defaultValue={f.usage ?? ""} />
         </div>
         <div style={{ display: "flex", gap: 22, flexWrap: "wrap", margin: "8px 0 22px" }}>

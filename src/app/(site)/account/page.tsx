@@ -1,52 +1,64 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getCurrentUser, unreadNotifications } from "@/lib/userAuth";
 import { db } from "@/lib/db";
-import { getCurrentUser } from "@/lib/userAuth";
-import { formatPrice, formatDate } from "@/lib/format";
-import { userLogoutAction } from "./actions";
+import SubmitButton from "@/components/SubmitButton";
+import { setNotifyNewsAction, userLogoutAction } from "./actions";
+import { IconArrow, IconBell, IconHeart, IconImage } from "@/components/Icons";
 
-export const metadata = { title: "Mening kabinetim" };
+export const metadata = { title: "Mening kabinetim", robots: { index: false } };
 
-export default async function AccountPage() {
+export default async function AccountPage({ searchParams }: { searchParams: Promise<{ saved?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-
-  const purchases = await db.purchase.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" } });
+  const [unread, prefs, { saved }] = await Promise.all([
+    unreadNotifications(user.id),
+    db.user.findUnique({ where: { id: user.id }, select: { notifyNews: true } }),
+    searchParams,
+  ]);
 
   return (
-    <div className="container section" style={{ paddingTop: 34 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16, marginBottom: 24 }}>
+    <div className="container">
+      <header className="page-head narrow" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 24, flexWrap: "wrap", maxWidth: "none" }}>
         <div>
-          <h1 style={{ fontSize: "clamp(28px,4vw,44px)", marginBottom: 6 }}>Mening kabinetim</h1>
-          <p className="muted">{user.name ? `${user.name} · ` : ""}{user.email ?? user.phone}</p>
+          <div className="eyebrow">Kabinet</div>
+          <h1>Salom{user.name ? `, ${user.name}` : ""}.</h1>
+          <p className="lead">{user.email ?? user.phone}</p>
         </div>
         <form action={userLogoutAction}>
           <button className="btn">Chiqish</button>
         </form>
-      </div>
+      </header>
 
-      <h2 style={{ fontSize: 20, marginBottom: 14 }}>Mening xaridlarim</h2>
-      {purchases.length === 0 ? (
-        <div>
-          <p className="muted" style={{ fontSize: 15.5 }}>
-            Hali hech narsa sotib olmagansiz. Xarid qilgan shriftlaringiz doim shu yerda qoladi —
-            kompyuteringizdan o&apos;chib ketsa ham qayta yuklab olishingiz mumkin.
-          </p>
-          <Link href="/fonts" className="btn btn-accent" style={{ marginTop: 16 }}>Shriftlarni ko&apos;rish</Link>
-        </div>
-      ) : (
-        <div>
-          {purchases.map((p) => (
-            <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "16px 0", borderBottom: "1px solid var(--line)" }}>
-              <div>
-                <Link href={`/fonts/${p.familySlug}`} style={{ fontSize: 18, fontWeight: 700 }}>{p.familyName}</Link>
-                <div className="muted" style={{ fontSize: 13 }}>{formatPrice(p.priceCents, false)} · {formatDate(p.createdAt)}</div>
-              </div>
-              <a className="btn btn-sm btn-accent" href={`/api/library/${p.familySlug}`}>Yuklab olish</a>
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="contact-grid">
+        <Link className="contact-card" href="/account/notifications" prefetch={false}>
+          <span className="label"><IconBell style={{ width: 16, height: 16, display: "inline", verticalAlign: "-3px" }} /> Bildirishnomalar</span>
+          <b>{unread ? `${unread} ta yangi xabar` : "Barcha xabarlar"}</b>
+        </Link>
+        <Link className="contact-card" href="/account/ishlarim">
+          <span className="label"><IconImage style={{ width: 16, height: 16, display: "inline", verticalAlign: "-3px" }} /> Dizaynerlar</span>
+          <b>Mening ishlarim</b>
+        </Link>
+        <Link className="contact-card" href="/wishlist">
+          <span className="label"><IconHeart style={{ width: 16, height: 16, display: "inline", verticalAlign: "-3px" }} /> Sevimlilar</span>
+          <b>Saqlangan shriftlar</b>
+        </Link>
+        <Link className="contact-card" href="/fonts">
+          <span className="label">Katalog</span>
+          <b>Yangi shrift topish <IconArrow style={{ width: 26, height: 26, display: "inline", verticalAlign: "-4px" }} /></b>
+        </Link>
+      </div>
+      <form action={setNotifyNewsAction} className="pref">
+        <label className="check">
+          <input type="checkbox" name="news" defaultChecked={prefs?.notifyNews ?? true} />
+          <span>Yangi shriftlar va yangiliklar haqida qoʻngʻiroqchada xabar olish</span>
+        </label>
+        <SubmitButton className="btn btn-sm" pendingLabel="Saqlanmoqda…">Saqlash</SubmitButton>
+        {saved === "news" && <span className="pref-ok" role="status">Saqlandi ✓</span>}
+      </form>
+      <p className="muted" style={{ maxWidth: "60ch" }}>
+        Feekr’dagi barcha shriftlar bepul — istalgan oilani shrift sahifasidan ZIP qilib yuklab olishingiz mumkin.
+      </p>
     </div>
   );
 }

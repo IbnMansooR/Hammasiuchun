@@ -8,15 +8,14 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
   }, [error]);
 
   return (
-    <div className="container section" style={{ paddingTop: 60, textAlign: "center" }}>
-      <div className="eyebrow" style={{ justifyContent: "center" }}>Xatolik</div>
-      <h1 style={{ fontSize: "clamp(30px,5vw,56px)", marginBottom: 14 }}>Nimadir notoʻgʻri ketdi</h1>
-      <p className="muted" style={{ fontSize: 17, maxWidth: 460, margin: "0 auto 26px" }}>
-        Sahifani yuklashda kutilmagan xatolik yuz berdi. Qaytadan urinib koʻring.
-      </p>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center" }}>
-        <button className="btn btn-accent" onClick={() => reset()}>Qaytadan urinish</button>
-        <Link href="/" className="btn">Bosh sahifa</Link>
+    <div className="container">
+      <div className="empty" style={{ paddingBlock: "96px 40px" }}>
+        <h1 className="display" style={{ fontSize: "clamp(40px, 6vw, 80px)", marginBottom: 16 }}>Nimadir notoʻgʻri ketdi</h1>
+        <p>Sahifani yuklashda kutilmagan xatolik yuz berdi. Qaytadan urinib koʻring.</p>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
+          <button className="btn btn-accent btn-lg" onClick={() => reset()}>Qaytadan urinish</button>
+          <Link href="/" className="btn btn-lg">Bosh sahifa</Link>
+        </div>
       </div>
     </div>
   );

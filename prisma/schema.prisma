@@ -4,42 +4,43 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")  // Supabase pooler (pgbouncer) connection
-  directUrl = env("DIRECT_URL")    // direct connection for migrations
+  url       = env("DATABASE_URL") // Supabase pooler (pgbouncer) connection
+  directUrl = env("DIRECT_URL") // direct connection for migrations
 }
 
 model Family {
-  id           Int      @id @default(autoincrement())
-  slug         String   @unique
+  id           Int     @id @default(autoincrement())
+  slug         String  @unique
   name         String
   folder       String
-  category     String   @default("Display")
+  category     String  @default("Display")
   designer     String?
   manufacturer String?
   designerUrl  String?
   copyright    String?
   license      String?
   licenseUrl   String?
-  licenseClass String   @default("Unknown")
+  licenseClass String  @default("Unknown")
   version      String?
-  glyphs       Int      @default(0)
-  hasLatin     Boolean  @default(true)
-  hasCyrillic  Boolean  @default(false)
-  hasItalic    Boolean  @default(false)
-  styleCount   Int      @default(0)
+  glyphs       Int     @default(0)
+  hasLatin     Boolean @default(true)
+  hasCyrillic  Boolean @default(false)
+  hasItalic    Boolean @default(false)
+  styleCount   Int     @default(0)
 
   // editorial / commerce (admin-editable)
   tagline     String?
   description String? // long editorial "CTA" text
   history     String?
   usage       String?
-  priceCents  Int      @default(100)
-  isFree      Boolean  @default(false)
-  tier        String   @default("demo") // free | demo | paid
-  isPublished Boolean  @default(true)
-  isFeatured  Boolean  @default(false)
-  isNew       Boolean  @default(false)
-  popularity  Int      @default(0)
+  priceCents  Int     @default(100)
+  isFree      Boolean @default(false)
+  tier        String  @default("demo") // free | demo | paid
+  isPublished Boolean @default(true)
+  isFeatured  Boolean @default(false)
+  isNew       Boolean @default(false)
+  popularity  Int     @default(0)
+  downloads   Int     @default(0) // ZIP + single-cut downloads, counted by the download routes
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -90,15 +91,18 @@ model Article {
 }
 
 model Media {
-  id        Int      @id @default(autoincrement())
-  filename  String
-  url       String
-  mime      String?
-  width     Int?
-  height    Int?
-  size      Int      @default(0)
-  alt       String?
-  createdAt DateTime @default(now())
+  id         Int      @id @default(autoincrement())
+  filename   String
+  url        String
+  mime       String?
+  width      Int?
+  height     Int?
+  size       Int      @default(0)
+  alt        String?
+  uploadedBy Int? // set for images uploaded by a signed-in member (not the admin)
+  createdAt  DateTime @default(now())
+
+  @@index([uploadedBy])
 }
 
 model Admin {
@@ -166,15 +170,78 @@ model ClickTransaction {
 // are all optional login paths onto the same account — at least one of
 // email/phone/googleId is expected to be set.
 model User {
-  id           Int        @id @default(autoincrement())
-  email        String?    @unique
-  phone        String?    @unique
-  passwordHash String?
-  googleId     String?    @unique
-  name         String?
-  createdAt    DateTime   @default(now())
-  orders       Order[]
-  purchases    Purchase[]
+  id               Int            @id @default(autoincrement())
+  email            String?        @unique
+  phone            String?        @unique
+  passwordHash     String?
+  googleId         String?        @unique
+  name             String?
+  createdAt        DateTime       @default(now())
+  lastLoginAt      DateTime?
+  // Restriction set by an admin: blockedAt + no blockedUntil = blocked until
+  // lifted; blockedAt + blockedUntil = suspended until that moment.
+  blockedAt        DateTime?
+  blockedUntil     DateTime?
+  blockReason      String?
+  // In-site bell messages about new fonts (broadcasts). Personal messages from the admin are always delivered.
+  notifyNews       Boolean        @default(true)
+  telegramId       String?        @unique
+  telegramUsername String?
+  orders           Order[]
+  purchases        Purchase[]
+  notifications    Notification[]
+  wishes           Wish[]
+
+  @@index([createdAt])
+}
+
+/// A message from the admin to one user. A broadcast writes one row per
+/// recipient, all sharing the same `batch` so the admin can see it as one send.
+model Notification {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  batch     String
+  title     String
+  body      String    @default("")
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@index([batch])
+}
+
+/// Portfolio entry: the owner's own work, or a partner designer's work the site promotes.
+model Work {
+  id            Int       @id @default(autoincrement())
+  slug          String    @unique
+  title         String
+  summary       String?
+  body          String    @default("") // markdown case study
+  kind          String    @default("own") // own | partner | member
+  authorName    String? // partner / member designer's name
+  authorUrl     String? // partner's portfolio (Behance, Dribbble, site…)
+  client        String?
+  year          Int?
+  tags          String    @default("") // comma separated
+  coverImage    String?
+  images        String    @default("") // gallery: one URL per line
+  fonts         String    @default("") // comma-separated Feekr font slugs used in the work
+  isPublished   Boolean   @default(false)
+  isFeatured    Boolean   @default(false)
+  sortOrder     Int       @default(0)
+  publishedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  // Member submissions wait for the admin: pending → approved (published) | rejected.
+  // Invariant: isPublished is true only when status is "approved".
+  status        String    @default("approved")
+  submittedById Int?
+  rejectReason  String?
+
+  @@index([isPublished, sortOrder])
+  @@index([status, createdAt])
 }
 
 // A confirmed entitlement: this user owns the full (non-demo) license for
@@ -215,4 +282,55 @@ model LoginAttempt {
   count       Int       @default(0)
   lockedUntil DateTime?
   updatedAt   DateTime  @updatedAt
+}
+
+// First-party, cookie-less analytics. One row per page view or event.
+// `visitor` is a daily-rotating hash (see src/lib/analytics.ts): it never links
+// one person across days and the raw IP is never stored.
+model Hit {
+  id      Int      @id @default(autoincrement())
+  at      DateTime @default(now())
+  name    String // view | leave | download | wish | signup | prompt_* | ad_*
+  path    String
+  visitor String
+  source  String   @default("direct") // instagram | telegram | google | referral | direct | utm value …
+  device  String   @default("desktop") // mobile | tablet | desktop
+  country String?
+  ms      Int? // engaged time on the page, for "leave"
+  ref     String? // referrer host
+  meta    String? // font slug, prompt id, ad id, sign-up method …
+
+  @@index([at])
+  @@index([name, at])
+  @@index([path, at])
+}
+
+// A signed-in user's saved ("♡") families. Signed-out visitors keep theirs in
+// the browser; signing in merges the two.
+model Wish {
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slug      String
+  createdAt DateTime @default(now())
+
+  @@id([userId, slug])
+  @@index([userId, createdAt])
+}
+
+// A labelled ("Reklama") banner. Views and clicks are counted in Hit (ad_view / ad_click, meta = id).
+model Ad {
+  id         Int       @id @default(autoincrement())
+  title      String // internal name and the image's alt text
+  advertiser String?
+  image      String // uploaded banner, ~4:1 (e.g. 1200×300)
+  href       String // https landing page
+  placement  String // home | dizaynerlar
+  startsAt   DateTime?
+  endsAt     DateTime?
+  isActive   Boolean   @default(true)
+  sortOrder  Int       @default(0)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([placement, isActive])
 }

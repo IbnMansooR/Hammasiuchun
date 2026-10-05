@@ -1,109 +1,130 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useStore } from "./StoreProvider";
+import { Logo } from "./Logo";
+import ThemeToggle from "./ThemeToggle";
+import SearchDialog from "./SearchDialog";
+import { IconArrow, IconBell, IconClose, IconHeart, IconMenu, IconSearch, IconUser } from "./Icons";
 
 const NAV = [
-  { href: "/fonts", label: "Barcha shriftlar" },
+  { href: "/fonts", label: "Shriftlar" },
   { href: "/pairs", label: "Juftliklar" },
-  { href: "/fonts?filter=free", label: "Bepul shriftlar" },
-  { href: "/blog", label: "Blog" },
+  { href: "/dizaynerlar", label: "Dizaynerlar" },
+  { href: "/blog", label: "Jurnal" },
   { href: "/about", label: "Biz haqimizda" },
 ];
 
-function CountIcon({ href, label, count, children }: { href: string; label: string; count: number; children: React.ReactNode }) {
-  return (
-    <Link
-      href={href}
-      className="iconbtn"
-      aria-label={count > 0 ? `${label} (${count})` : label}
-      style={{ position: "relative" }}
-    >
-      {children}
-      {count > 0 && (
-        <span aria-hidden="true" style={{
-          position: "absolute", top: -5, right: -5, minWidth: 17, height: 17, padding: "0 4px",
-          background: "var(--accent)", color: "#fff", borderRadius: 999, fontSize: 10.5, fontWeight: 700,
-          display: "grid", placeItems: "center", lineHeight: 1,
-        }}>{count}</span>
-      )}
-    </Link>
-  );
-}
-
 type HeaderUser = { name: string | null; email: string | null } | null;
 
-export default function Header({ user = null }: { user?: HeaderUser }) {
-  const [open, setOpen] = useState(false);
-  const { cart, wish, ready } = useStore();
-  const cartN = ready ? cart.length : 0;
+const INBOX = "/account/notifications";
+
+export default function Header({ user = null, unread: initialUnread = 0 }: { user?: HeaderUser; unread?: number }) {
+  const pathname = usePathname() ?? "/";
+  const [menu, setMenu] = useState(false);
+  const [search, setSearch] = useState(false);
+  const { wish, ready } = useStore();
   const wishN = ready ? wish.length : 0;
+  const openSearch = useCallback(() => { setMenu(false); setSearch(true); }, []);
+  const closeSearch = useCallback(() => setSearch(false), []);
+
+  // The layout's count is only rendered on full loads; refresh it (at most every
+  // 30 s) after client-side navigations so the bell doesn't go stale.
+  const signedIn = !!user;
+  const [unread, setUnread] = useState(initialUnread);
+  const lastCheck = useRef(0);
+  useEffect(() => { setUnread(initialUnread); lastCheck.current = Date.now(); }, [initialUnread]);
+  useEffect(() => {
+    if (!signedIn) return;
+    if (pathname.startsWith(INBOX)) { setUnread(0); return; }
+    if (Date.now() - lastCheck.current < 30_000) return;
+    lastCheck.current = Date.now();
+    let live = true;
+    fetch("/api/me/unread", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (live && d && typeof d.unread === "number") setUnread(d.unread); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [pathname, signedIn]);
+
+  // Close the sheet on navigation; lock page scroll while it is open.
+  useEffect(() => { setMenu(false); }, [pathname]);
+  useEffect(() => {
+    document.documentElement.style.overflow = menu ? "hidden" : "";
+    if (!menu) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setMenu(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menu]);
+
+  const current = (href: string) => (pathname === href || pathname.startsWith(href + "/") ? "page" : undefined);
 
   return (
     <header className="hdr">
       <div className="container hdr-in">
-        <Link href="/" className="logo" onClick={() => setOpen(false)}>
-          <img src="/assets/logo-horizontal.png" alt="Feekr" />
+        <Link href="/" className="logo" aria-label="Feekr — bosh sahifa">
+          <Logo />
         </Link>
-        <nav>
-          {NAV.map((n) => <Link key={n.href} href={n.href}>{n.label}</Link>)}
+        <nav className="hdr-nav" aria-label="Asosiy">
+          {NAV.map((n) => <Link key={n.href} href={n.href} aria-current={current(n.href)}>{n.label}</Link>)}
         </nav>
-        <div className="spacer" />
-        <div className="actions">
-          <Link href="/fonts" className="iconbtn" aria-label="Qidiruv">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" />
-            </svg>
+        <div className="hdr-spacer" />
+        <div className="hdr-actions">
+          <button type="button" className="hdr-search" onClick={openSearch} aria-label="Shrift qidirish" aria-keyshortcuts="Control+K Meta+K /">
+            <IconSearch />
+            <span>Shrift qidirish…</span>
+            <kbd className="kbd" aria-hidden="true">/</kbd>
+          </button>
+          <ThemeToggle />
+          <Link href="/wishlist" className="icon-btn" aria-label={wishN ? `Sevimlilar (${wishN})` : "Sevimlilar"} aria-current={current("/wishlist")}>
+            <IconHeart />
+            {wishN > 0 && <span className="count" aria-hidden="true">{wishN}</span>}
           </Link>
-          <CountIcon href="/wishlist" label="Sevimlilar" count={wishN}>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z" />
-            </svg>
-          </CountIcon>
-          <CountIcon href="/cart" label="Savatcha" count={cartN}>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
-              <path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6" />
-            </svg>
-          </CountIcon>
-          {user ? (
-            <Link href="/account" className="iconbtn" aria-label="Mening kabinetim">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
-              </svg>
+          {user && (
+            <Link href={INBOX} prefetch={false} className="icon-btn" aria-label={unread ? `Bildirishnomalar (${unread} ta yangi)` : "Bildirishnomalar"} aria-current={current(INBOX)}>
+              <IconBell />
+              {unread > 0 && <span className="count" aria-hidden="true">{unread > 99 ? "99+" : unread}</span>}
             </Link>
+          )}
+          {user ? (
+            <Link href="/account" className="icon-btn hide-m" aria-label="Mening kabinetim"><IconUser /></Link>
           ) : (
-            <Link href="/login" className="btn btn-sm" style={{ marginLeft: 2 }}>Kirish</Link>
+            <Link href="/login" className="btn btn-sm hide-m">Kirish</Link>
           )}
           <button
-            className="iconbtn menu-toggle"
-            aria-label="Menyu"
-            aria-expanded={open}
+            type="button"
+            className="icon-btn menu-toggle"
+            aria-label={menu ? "Menyuni yopish" : "Menyu"}
+            aria-expanded={menu}
             aria-controls="mobile-nav"
-            onClick={() => setOpen((v) => !v)}
+            onClick={() => setMenu((v) => !v)}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              {open ? <path d="M6 6l12 12M18 6L6 18" /> : <><path d="M3 6h18" /><path d="M3 12h18" /><path d="M3 18h18" /></>}
-            </svg>
+            {menu ? <IconClose /> : <IconMenu />}
           </button>
         </div>
       </div>
-      {open && (
-        <div className="container" style={{ paddingBottom: 16 }}>
-          <nav id="mobile-nav" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+
+      {menu && (
+        <div className="mnav" id="mobile-nav">
+          <nav className="mnav-links" aria-label="Mobil menyu">
             {NAV.map((n) => (
-              <Link key={n.href} href={n.href} onClick={() => setOpen(false)}
-                style={{ padding: "10px 0", fontSize: 16, borderBottom: "1px solid var(--line)" }}>
-                {n.label}
+              <Link key={n.href} href={n.href} aria-current={current(n.href)} onClick={() => setMenu(false)}>
+                {n.label} <IconArrow />
               </Link>
             ))}
-            <Link href={user ? "/account" : "/login"} onClick={() => setOpen(false)}
-              style={{ padding: "10px 0", fontSize: 16, borderBottom: "1px solid var(--line)" }}>
-              {user ? "Mening kabinetim" : "Kirish / Ro'yxatdan o'tish"}
-            </Link>
           </nav>
+          <div className="mnav-foot">
+            <button type="button" className="btn" onClick={openSearch}><IconSearch className="ico" /> Qidirish</button>
+            <Link href={user ? "/account" : "/login"} className="btn" onClick={() => setMenu(false)}>
+              <IconUser className="ico" /> {user ? "Mening kabinetim" : "Kirish"}
+            </Link>
+            {!user && <Link href="/register" className="btn btn-primary" onClick={() => setMenu(false)}>Roʻyxatdan oʻtish</Link>}
+          </div>
         </div>
       )}
+
+      <SearchDialog open={search} onOpen={openSearch} onClose={closeSearch} />
     </header>
   );
 }

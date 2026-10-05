@@ -1,44 +1,64 @@
 "use client";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useStore } from "@/components/StoreProvider";
-import { formatPrice } from "@/lib/format";
+import FontCard from "@/components/FontCard";
+import { cardsFaceCSS, type CardFont } from "@/lib/cards";
+import { IconArrow, IconHeart } from "@/components/Icons";
+import { trackEvent } from "@/lib/trackClient";
 
+/** Saved families as real specimen cards. The list lives in this browser
+ * (localStorage); card data is fetched for the saved slugs. */
 export default function WishlistPage() {
-  const { wish, removeWish, addToCart, inCart, ready } = useStore();
-  if (!ready) return <div className="container section" style={{ paddingTop: 40 }} />;
+  const { wish, ready, signedIn } = useStore();
+  const [cards, setCards] = useState<CardFont[] | null>(null);
+  const key = wish.map((w) => w.slug).join(",");
+
+  useEffect(() => {
+    if (!ready) return;
+    if (!key) { setCards([]); return; }
+    const ctl = new AbortController();
+    fetch(`/api/search?slugs=${encodeURIComponent(key)}`, { signal: ctl.signal })
+      .then((r) => r.json())
+      .then((d: { items: CardFont[] }) => setCards(d.items ?? []))
+      .catch(() => { /* aborted / offline — keep the previous list */ });
+    return () => ctl.abort();
+  }, [key, ready]);
+
+  // Keep removed cards out instantly, without waiting for a refetch.
+  const shown = (cards ?? []).filter((c) => wish.some((w) => w.slug === c.slug));
+  const loading = !ready || cards === null;
 
   return (
-    <div className="container section" style={{ paddingTop: 34 }}>
-      <h1 style={{ fontSize: "clamp(30px,4.5vw,52px)", marginBottom: 24 }}>Sevimlilar</h1>
+    <div className="container">
+      <header className="page-head narrow">
+        <div className="eyebrow">Sevimlilar</div>
+        <h1>Saqlangan shriftlar</h1>
+        <p className="lead">
+          {loading ? "Yuklanmoqda…" : wish.length ? `${wish.length} ta oila. ${signedIn ? "Hisobingizda saqlanadi, istalgan qurilmada koʻrasiz." : "Roʻyxat shu brauzerda saqlanadi."}` : "Yoqqan shriftni ♡ bilan belgilang — u shu yerda turadi."}
+        </p>
+      </header>
 
-      {wish.length === 0 ? (
-        <div>
-          <p className="muted" style={{ fontSize: 17 }}>Sevimlilar ro&apos;yxati bo&apos;sh. Shrift sahifasida ♡ tugmasini bosing.</p>
-          <Link href="/fonts" className="btn btn-accent" style={{ marginTop: 16 }}>Shriftlarni ko&apos;rish</Link>
+      {!loading && !signedIn && wish.length > 0 && (
+        <aside className="wish-note">
+          <p><b>Bu roʻyxat faqat shu brauzerda.</b> Brauzer tozalansa yoki boshqa qurilmaga oʻtsangiz, yoʻqoladi. Hisobga saqlang, u hamma joyda turadi.</p>
+          <Link href="/register" className="btn btn-primary btn-sm" onClick={() => trackEvent("prompt_click", "wishlist")}>Hisobga saqlash</Link>
+        </aside>
+      )}
+
+      {!loading && wish.length === 0 ? (
+        <div className="empty" style={{ paddingTop: 24 }}>
+          <div className="display" style={{ display: "grid", placeItems: "center" }}><IconHeart style={{ width: 56, height: 56, color: "var(--line-2)" }} /></div>
+          <p>Hali hech narsa saqlanmagan. Katalogni koʻrib chiqing va yoqqanlarini belgilang.</p>
+          <Link href="/fonts" className="btn btn-primary">Shriftlarni koʻrish <IconArrow className="ico" /></Link>
         </div>
       ) : (
-        <div>
-          {wish.map((i) => (
-            <div key={i.slug} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "18px 0", borderBottom: "1px solid var(--line)" }}>
-              <div>
-                <Link href={`/fonts/${i.slug}`} style={{ fontSize: 19, fontWeight: 700 }}>{i.name}</Link>
-                <div className="muted" style={{ fontSize: 13 }}>{formatPrice(i.priceCents, i.isFree)}</div>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                {i.isFree ? (
-                  <a className="btn btn-sm btn-accent" href={`/api/download-family/${i.slug}`}>Yuklab olish</a>
-                ) : i.tier === "paid" ? (
-                  <Link className="btn btn-sm" href={`/fonts/${i.slug}`}>Tez kunda</Link>
-                ) : inCart(i.slug) ? (
-                  <Link className="btn btn-sm" href="/cart">Savatda ✓</Link>
-                ) : (
-                  <button className="btn btn-sm btn-accent" onClick={() => addToCart(i)}>Savatga</button>
-                )}
-                <button className="chip" style={{ color: "#b91c1c" }} onClick={() => removeWish(i.slug)}>O&apos;chirish</button>
-              </div>
-            </div>
-          ))}
-        </div>
+        <>
+          <style dangerouslySetInnerHTML={{ __html: cardsFaceCSS(shown) }} />
+          <div className="fgrid" aria-busy={loading}>
+            {shown.map((f) => <FontCard key={f.slug} f={f} headingLevel={2} />)}
+          </div>
+        </>
       )}
     </div>
   );

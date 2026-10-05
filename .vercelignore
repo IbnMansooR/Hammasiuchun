@@ -1,4 +1,6 @@
 # Never ship these to Vercel — they live in Supabase now, or are local-only.
+# Patterns are anchored with a leading "/" so they only match at the repo root
+# (an unanchored "font" also dropped src/components/font and broke the build).
 node_modules
 .next
 .git
@@ -6,13 +8,14 @@ node_modules
 .env.local
 
 # Source font library (663 MB) + generated cache — served from Supabase Storage.
-font
-.cache
-public/fonts/*
-!public/fonts/montserrat
+/font
+/.cache
+# Only the site's own UI fonts ship from public/fonts.
+/public/fonts/*
+!/public/fonts/ui
 
 # Ingest data (catalog.json, multi-GB records.jsonl) — only used by local scripts.
-data
+/data
 
 # Local SQLite (no longer used) + scratch
 dev.db

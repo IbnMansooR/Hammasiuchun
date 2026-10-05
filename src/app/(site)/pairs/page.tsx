@@ -5,16 +5,23 @@ import { styleFamily, webfontUrl } from "@/lib/fonts";
 export const metadata = {
   title: "Shrift juftliklari",
   description: "Sarlavha va matn uchun tayyor shrift kombinatsiyalari — namuna matnlari bilan.",
+  alternates: { canonical: "/pairs" },
 };
 export const dynamic = "force-dynamic";
+
+const cutStyle = (c: { slug: string; style: string; weight: number; italic: boolean }) => ({
+  fontFamily: `"${styleFamily(c.slug, c.style)}", var(--font)`,
+  fontWeight: c.weight,
+  fontStyle: c.italic ? ("italic" as const) : ("normal" as const),
+});
 
 export default async function PairsPage() {
   const pairings = await getPairings();
 
   // @font-face for every cut used on the page (unique family per cut).
-  const cuts = pairings.flatMap((p) => [p.heading, p.body]);
   const seen = new Set<string>();
-  const faceCSS = cuts
+  const faceCSS = pairings
+    .flatMap((p) => [p.heading, p.body])
     .filter((c) => { const k = `${c.slug}/${c.style}`; if (seen.has(k)) return false; seen.add(k); return true; })
     .map((c) =>
       `@font-face{font-family:"${styleFamily(c.slug, c.style)}";` +
@@ -23,42 +30,34 @@ export default async function PairsPage() {
     .join("");
 
   return (
-    <div className="container section" style={{ paddingTop: 30 }}>
+    <div className="container">
       <style dangerouslySetInnerHTML={{ __html: faceCSS }} />
-      <div className="eyebrow">Juftliklar</div>
-      <h1 style={{ fontSize: "clamp(32px,5vw,64px)", marginBottom: 14 }}>Shrift juftliklari</h1>
-      <p className="muted" style={{ fontSize: 18, maxWidth: 620, marginBottom: 30 }}>
-        Sarlavha va matn uchun tayyor kombinatsiyalar. Har bir juftlik — bitta xarakterli
-        kesim va bitta oʻqilishi oson kesim. Kartani bosib, shriftga oʻting.
-      </p>
+      <header className="page-head narrow">
+        <div className="eyebrow">Juftliklar</div>
+        <h1>Bir-birini toʻldiradigan shriftlar</h1>
+        <p className="lead">
+          Sarlavha uchun xarakterli kesim, matn uchun oʻqilishi oson kesim. Har bir juftlik tayyor —
+          shrift nomini bosib, uni sinab koʻring.
+        </p>
+      </header>
 
       {pairings.length === 0 ? (
-        <p className="muted" style={{ padding: "40px 0" }}>Juftliklar hozircha mavjud emas.</p>
+        <div className="empty">
+          <div className="display">Hozircha juftlik yoʻq</div>
+          <p>Katalog toʻlgani sari bu yerda tayyor kombinatsiyalar paydo boʻladi.</p>
+          <Link href="/fonts" className="btn btn-primary">Shriftlarni koʻrish</Link>
+        </div>
       ) : (
         <div className="pairs-grid">
           {pairings.map((p) => (
             <article className="pair-card" key={p.id}>
               <div className="pair-tag">{p.label}</div>
-              <div
-                className="pair-head"
-                style={{ fontFamily: `"${styleFamily(p.heading.slug, p.heading.style)}", var(--font)`, fontWeight: p.heading.weight, fontStyle: p.heading.italic ? "italic" : "normal" }}
-              >
-                {p.sampleHeading}
-              </div>
-              <p
-                className="pair-body"
-                style={{ fontFamily: `"${styleFamily(p.body.slug, p.body.style)}", var(--font)`, fontWeight: p.body.weight, fontStyle: p.body.italic ? "italic" : "normal" }}
-              >
-                {p.sampleBody}
-              </p>
+              <h2 className="pair-head" style={cutStyle(p.heading)}>{p.sampleHeading}</h2>
+              <p className="pair-body" style={cutStyle(p.body)}>{p.sampleBody}</p>
               <div className="pair-meta">
-                <Link href={`/fonts/${p.heading.slug}`}>
-                  <strong>{p.heading.name}</strong> · {p.heading.style}
-                </Link>
-                <span className="pair-plus">+</span>
-                <Link href={`/fonts/${p.body.slug}`}>
-                  <strong>{p.body.name}</strong> · {p.body.style}
-                </Link>
+                <Link href={`/fonts/${p.heading.slug}`}><strong>{p.heading.name}</strong> {p.heading.style}</Link>
+                <span className="pair-plus" aria-hidden="true">+</span>
+                <Link href={`/fonts/${p.body.slug}`}><strong>{p.body.name}</strong> {p.body.style}</Link>
               </div>
             </article>
           ))}
