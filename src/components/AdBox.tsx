@@ -2,11 +2,13 @@
 import { useEffect, useRef } from "react";
 import { trackEvent } from "@/lib/trackClient";
 import type { ActiveAd } from "@/lib/ads";
+import { useT } from "@/i18n/client";
 
 /** One labelled banner. It counts a view once, when at least half of it has been on screen for a second,
  * and a click when it is followed. The link is marked sponsored and always says "Reklama". */
 export default function AdBox({ ad }: { ad: ActiveAd }) {
   const box = useRef<HTMLElement>(null);
+  const label = useT().card.ad;
   useEffect(() => {
     const el = box.current;
     if (!el) return;
@@ -25,11 +27,11 @@ export default function AdBox({ ad }: { ad: ActiveAd }) {
   }, [ad.id]);
 
   return (
-    <aside className="ad" ref={box} aria-label="Reklama">
+    <aside className="ad" ref={box} aria-label={label}>
       <a href={ad.href} target="_blank" rel="sponsored noopener noreferrer" onClick={() => trackEvent("ad_click", String(ad.id))}>
         <img src={ad.image} alt={ad.title} width={ad.width} height={ad.height} loading="lazy" decoding="async" />
       </a>
-      <span className="ad-tag">Reklama</span>
+      <span className="ad-tag">{label}</span>
     </aside>
   );
 }

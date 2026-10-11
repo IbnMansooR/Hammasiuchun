@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { exchangeGoogleCode, googleEnabled } from "@/lib/googleAuth";
 import { startUserSession, blockedLoginUrl } from "@/lib/userAuth";
 import { recordServerHit } from "@/lib/analytics";
+import { withLocale } from "@/i18n/config";
 
 export const runtime = "nodejs";
 
@@ -13,13 +14,14 @@ export async function GET(req: NextRequest) {
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   const cookieState = req.cookies.get("feekr_g_state")?.value;
+  const to = (path: string) => new URL(withLocale(req.cookies.get("feekr_g_lang")?.value === "ru" ? "ru" : "uz", path), req.url);
 
   if (!code || !state || !cookieState || state !== cookieState) {
-    return NextResponse.redirect(new URL("/login?error=google", req.url));
+    return NextResponse.redirect(to("/login?error=google"));
   }
 
   const profile = await exchangeGoogleCode(code);
-  if (!profile) return NextResponse.redirect(new URL("/login?error=google", req.url));
+  if (!profile) return NextResponse.redirect(to("/login?error=google"));
 
   // Link by googleId first; fall back to linking an existing email/password
   // account so someone who registered with email doesn't end up with two
@@ -43,7 +45,8 @@ export async function GET(req: NextRequest) {
   }
 
   const blocked = await startUserSession(user.id);
-  const res = NextResponse.redirect(new URL(blocked ? blockedLoginUrl(blocked) : "/account", req.url));
+  const res = NextResponse.redirect(to(blocked ? blockedLoginUrl(blocked) : "/account"));
   res.cookies.delete("feekr_g_state");
+  res.cookies.delete("feekr_g_lang");
   return res;
 }

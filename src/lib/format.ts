@@ -1,3 +1,5 @@
+import type { Locale } from "@/i18n/config";
+
 export function formatPrice(cents: number, isFree: boolean): string {
   if (isFree || !Number.isFinite(cents) || cents <= 0) return "Bepul";
   // Render exact values: whole dollars without decimals, otherwise 2 places.
@@ -21,24 +23,30 @@ const MONTHS = [
   "iyul", "avgust", "sentabr", "oktabr", "noyabr", "dekabr",
 ];
 
-export function formatDate(d: Date | string | null): string {
+const MONTHS_RU = [
+  "января", "февраля", "марта", "апреля", "мая", "июня",
+  "июля", "августа", "сентября", "октября", "ноября", "декабря",
+];
+
+export function formatDate(d: Date | string | null, locale: Locale = "uz"): string {
   if (!d) return "";
   const date = typeof d === "string" ? new Date(d) : d;
   if (Number.isNaN(date.getTime())) return "";
   // Use UTC getters so a date-only string ("2026-07-06", parsed as UTC midnight)
   // does not shift by a day depending on the server's timezone.
+  if (locale === "ru") return `${date.getUTCDate()} ${MONTHS_RU[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
   return `${date.getUTCDate()}-${MONTHS[date.getUTCMonth()]}, ${date.getUTCFullYear()}`;
 }
 
 /** Date + time in Tashkent (fixed UTC+5, no DST), e.g. "4-oktabr, 2026, 18:30". */
-export function formatDateTime(d: Date | string | null): string {
+export function formatDateTime(d: Date | string | null, locale: Locale = "uz"): string {
   if (!d) return "";
   const date = typeof d === "string" ? new Date(d) : d;
   if (Number.isNaN(date.getTime())) return "";
   const t = new Date(date.getTime() + 5 * 60 * 60 * 1000);
   const hh = String(t.getUTCHours()).padStart(2, "0");
   const mm = String(t.getUTCMinutes()).padStart(2, "0");
-  return `${formatDate(t)}, ${hh}:${mm}`;
+  return `${formatDate(t, locale)}, ${hh}:${mm}`;
 }
 
 export function fmtBytes(n: number): string {

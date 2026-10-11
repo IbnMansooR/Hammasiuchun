@@ -1,28 +1,26 @@
-import Link from "next/link";
+import Link from "@/components/LLink";
 import type { Metadata } from "next";
 import { getPublishedWorks } from "@/lib/works";
 import WorkCard from "@/components/WorkCard";
 import AdSlot from "@/components/AdSlot";
 import { IconArrow } from "@/components/Icons";
+import { alternates, getLocale, lhref } from "@/i18n/server";
+import { DICTS } from "@/i18n/dict";
 
-export const metadata: Metadata = {
-  title: "Dizaynerlar",
-  description: "Dizaynerlar: Feekr jamoasi va hamkor dizaynerlarning brending, logotip, qadoq va tipografiya ishlari.",
-  alternates: { canonical: "/dizaynerlar" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = DICTS[await getLocale()].works;
+  return { title: t.metaTitle, description: t.metaDescription, alternates: await alternates("/dizaynerlar") };
+}
 
-const KINDS = [
-  { key: "", label: "Hammasi" },
-  { key: "own", label: "Feekr ishlari" },
-  { key: "partner", label: "Hamkorlar" },
-  { key: "member", label: "Aʼzolar" },
-] as const;
+const KINDS = ["", "own", "partner", "member"] as const;
 
 export default async function DesignersPage({ searchParams }: { searchParams: Promise<{ kind?: string; tag?: string }> }) {
   const sp = await searchParams;
   const kind = sp.kind === "own" || sp.kind === "partner" || sp.kind === "member" ? sp.kind : "";
   const tag = (sp.tag ?? "").trim();
-  const all = await getPublishedWorks();
+  const [all, locale] = await Promise.all([getPublishedWorks(), getLocale()]);
+  const t = DICTS[locale].works;
+  const base = await lhref("/dizaynerlar");
 
   const tagCounts = new Map<string, number>();
   for (const w of all) for (const t of w.tags) tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
@@ -36,33 +34,33 @@ export default async function DesignersPage({ searchParams }: { searchParams: Pr
   const href = (p: { kind?: string; tag?: string }) => {
     const u = new URLSearchParams();
     const k = p.kind ?? kind;
-    const t = p.tag ?? tag;
+    const tg = p.tag ?? tag;
     if (k) u.set("kind", k);
-    if (t) u.set("tag", t);
+    if (tg) u.set("tag", tg);
     const s = u.toString();
-    return s ? `/dizaynerlar?${s}` : "/dizaynerlar";
+    return s ? `${base}?${s}` : base;
   };
 
   return (
     <div className="container">
       <header className="page-head">
-        <div className="eyebrow">Ishlar</div>
-        <h1>Dizaynerlar</h1>
-        <p className="lead">Brending, logotip, qadoq va tipografiya loyihalari — Feekr jamoasi va biz tavsiya qiladigan dizaynerlardan.</p>
+        <div className="eyebrow">{t.eyebrow}</div>
+        <h1>{t.title}</h1>
+        <p className="lead">{t.lead}</p>
       </header>
 
       {all.length > 0 && (
         <div className="pf-filters">
-          <div className="seg" role="group" aria-label="Ish turi">
+          <div className="seg" role="group" aria-label={t.kindLabel}>
             {KINDS.map((k) => (
-              <Link key={k.key} href={href({ kind: k.key })} className="seg-link" aria-current={kind === k.key ? "true" : undefined}>{k.label}</Link>
+              <Link key={k} href={href({ kind: k })} className="seg-link" aria-current={kind === k ? "true" : undefined}>{t.kinds[k]}</Link>
             ))}
           </div>
           {tags.length > 1 && (
-            <div className="pf-tags" role="group" aria-label="Teg boʻyicha">
-              {tags.map(([t, n]) => (
-                <Link key={t} href={href({ tag: tag === t ? "" : t })} className={`chip${tag === t ? " active" : ""}`} aria-current={tag === t ? "true" : undefined}>
-                  {t} <span className="n">{n}</span>
+            <div className="pf-tags" role="group" aria-label={t.byTag}>
+              {tags.map(([tg, n]) => (
+                <Link key={tg} href={href({ tag: tag === tg ? "" : tg })} className={`chip${tag === tg ? " active" : ""}`} aria-current={tag === tg ? "true" : undefined}>
+                  {tg} <span className="n">{n}</span>
                 </Link>
               ))}
             </div>
@@ -72,9 +70,9 @@ export default async function DesignersPage({ searchParams }: { searchParams: Pr
 
       {list.length === 0 ? (
         <div className="empty">
-          <p className="display">{filtered ? "Bu boʻlimda hali ish yoʻq" : "Tez orada"}</p>
-          <p>{filtered ? "Boshqa filtrni tanlab koʻring." : "Birinchi loyihalar shu yerda paydo boʻladi."}</p>
-          {filtered && <Link href="/dizaynerlar" className="btn">Barcha ishlar</Link>}
+          <p className="display">{filtered ? t.emptyFiltered : t.soon}</p>
+          <p>{filtered ? t.emptyFilteredText : t.soonText}</p>
+          {filtered && <Link href="/dizaynerlar" className="btn">{t.all}</Link>}
         </div>
       ) : (
         <>
@@ -89,12 +87,12 @@ export default async function DesignersPage({ searchParams }: { searchParams: Pr
 
       <section className="pf-cta">
         <div>
-          <h2>Ishingiz shu yerda boʻlsinmi?</h2>
-          <p>Feekr aʼzosi boʻlsangiz, ishingizni yuboring: koʻrib chiqamiz va chop etamiz. Studiya yoki brend boʻlsangiz, hamkorlik yoki reklama uchun yozing. Hamkor va aʼzolar ishlari doim belgilanadi.</p>
+          <h2>{t.ctaTitle}</h2>
+          <p>{t.ctaText}</p>
         </div>
         <div className="pf-cta-actions">
-          <Link href="/dizaynerlar/yuborish" className="btn btn-primary btn-lg">Ishimni yuboraman <IconArrow className="ico" /></Link>
-          <Link href="/support" className="btn btn-lg">Hamkorlik va reklama</Link>
+          <Link href="/dizaynerlar/yuborish" className="btn btn-primary btn-lg">{t.ctaSubmit} <IconArrow className="ico" /></Link>
+          <Link href="/support" className="btn btn-lg">{t.ctaPartner}</Link>
         </div>
       </section>
     </div>

@@ -1,4 +1,5 @@
-import Link from "next/link";
+import Link from "@/components/LLink";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/userAuth";
 import { registerAction } from "../account/actions";
@@ -8,66 +9,68 @@ import { smsEnabled } from "@/lib/eskiz";
 import { telegramLoginBot } from "@/lib/telegramAuth";
 import TelegramLogin from "@/components/TelegramLogin";
 import { IconBell, IconHeart, IconImage } from "@/components/Icons";
+import { alternates, getLocale, lhref } from "@/i18n/server";
+import { DICTS } from "@/i18n/dict";
 
-export const metadata = { title: "Roʻyxatdan oʻtish" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: DICTS[await getLocale()].auth.registerTitle, alternates: await alternates("/register") };
+}
 
-const ERRORS: Record<string, string> = {
-  email: "Email manzilini toʻgʻri kiriting.",
-  password: "Parol kamida 8 belgidan iborat boʻlishi kerak.",
-  exists: "Bu email bilan hisob allaqachon mavjud. Kirish sahifasidan foydalaning.",
-  locked: "Juda koʻp urinish. Iltimos, birozdan soʻng qayta urinib koʻring.",
-};
+const PERK_ICONS = [IconHeart, IconBell, IconImage];
 
 export default async function RegisterPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  if (await getCurrentUser()) redirect("/account");
+  if (await getCurrentUser()) redirect(await lhref("/account"));
   const { error } = await searchParams;
+  const locale = await getLocale();
+  const t = DICTS[locale].auth;
   const bot = await telegramLoginBot();
 
   return (
     <div className="container auth">
       <div className="auth-card">
-        <h1>Roʻyxatdan oʻtish</h1>
-        <p className="sub">Bir daqiqa. Hisob bilan:</p>
+        <h1>{t.registerTitle}</h1>
+        <p className="sub">{t.registerSub}</p>
         <ul className="perks">
-          <li><IconHeart aria-hidden="true" /><span>Sevimlilaringiz telefonda ham, kompyuterda ham turadi</span></li>
-          <li><IconBell aria-hidden="true" /><span>Yangi shriftlar chiqqanda qoʻngʻiroqchada xabar</span></li>
-          <li><IconImage aria-hidden="true" /><span>“Dizaynerlar” boʻlimiga oʻz ishingizni yuborish</span></li>
+          {t.perks.map((p, i) => {
+            const Icon = PERK_ICONS[i];
+            return <li key={p}><Icon aria-hidden="true" /><span>{p}</span></li>;
+          })}
         </ul>
         {error && (
           <div className="alert alert-error" role="alert">
-            {ERRORS[error] ?? "Xatolik yuz berdi."}
+            {t.regErrors[error] ?? t.errOther}
           </div>
         )}
         {(googleEnabled || bot) && (
           <>
             <div className="oneclick">
-              {googleEnabled && <a href="/api/auth/google" className="btn btn-lg btn-block">Google orqali davom etish</a>}
+              {googleEnabled && <a href={locale === "ru" ? "/api/auth/google?lang=ru" : "/api/auth/google"} className="btn btn-lg btn-block">{t.google}</a>}
               {bot && <TelegramLogin bot={bot} />}
             </div>
-            <div className="divider">yoki email bilan</div>
+            <div className="divider">{t.orEmail}</div>
           </>
         )}
         <form action={registerAction}>
           <div className="field">
-            <label htmlFor="reg-email">Email</label>
+            <label htmlFor="reg-email">{t.email}</label>
             <input id="reg-email" type="email" name="email" autoComplete="email" required />
           </div>
           <div className="field">
-            <label htmlFor="reg-password">Parol</label>
+            <label htmlFor="reg-password">{t.password}</label>
             <input id="reg-password" type="password" name="password" autoComplete="new-password" required minLength={8} />
           </div>
-          <SubmitButton pendingLabel="Yuborilmoqda…" className="btn btn-primary btn-lg btn-block" style={{ marginTop: 8 }}>Roʻyxatdan oʻtish</SubmitButton>
+          <SubmitButton pendingLabel={t.sending} className="btn btn-primary btn-lg btn-block" style={{ marginTop: 8 }}>{t.register}</SubmitButton>
         </form>
         <p className="auth-foot">
-          Hisobingiz bormi? <Link href="/login">Kirish</Link>
+          {t.haveAccount} <Link href="/login">{t.login}</Link>
           {smsEnabled && (
             <>
               <br />
-              Telefon raqami orqali ham <Link href="/login">shu yerdan</Link> kirishingiz mumkin.
+              {t.phoneTooA}<Link href="/login">{t.phoneTooLink}</Link>{t.phoneTooB}
             </>
           )}
         </p>
-        <p className="auth-fine">Shriftlarni yuklab olish hisobsiz ham bepul.</p>
+        <p className="auth-fine">{t.freeAnyway}</p>
       </div>
     </div>
   );

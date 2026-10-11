@@ -46,8 +46,8 @@ export async function getStats(days: Period) {
       FROM "Hit" WHERE "at" >= ${since} AND name IN ('view', 'leave')
       GROUP BY path HAVING COUNT(*) FILTER (WHERE name = 'view') > 0 ORDER BY views DESC, path LIMIT 15`,
     db.$queryRaw<{ slug: string; views: number }[]>`
-      SELECT substring(path from '^/fonts/([^/]+)$') AS slug, COUNT(*)::int AS views
-      FROM "Hit" WHERE "at" >= ${since} AND name = 'view' AND path ~ '^/fonts/[^/]+$'
+      SELECT substring(path from '^(?:/ru)?/fonts/([^/]+)$') AS slug, COUNT(*)::int AS views
+      FROM "Hit" WHERE "at" >= ${since} AND name = 'view' AND path ~ '^(/ru)?/fonts/[^/]+$'
       GROUP BY 1 ORDER BY views DESC, slug LIMIT 15`,
     db.$queryRaw<{ slug: string; name: string; n: number }[]>`
       SELECT meta AS slug, name, COUNT(*)::int AS n FROM "Hit"
@@ -73,7 +73,7 @@ export async function getStats(days: Period) {
       SELECT COUNT(DISTINCT visitor)::int AS n FROM "Hit" WHERE name IN ('view', 'leave') AND "at" >= ${halfHourAgo}`,
     db.$queryRaw<{ visited: number; sawFont: number; wished: number; downloaded: number; signed: number }[]>`
       SELECT COUNT(DISTINCT visitor) FILTER (WHERE name = 'view')::int AS visited,
-             COUNT(DISTINCT visitor) FILTER (WHERE name = 'view' AND path ~ '^/fonts/[^/]+$')::int AS "sawFont",
+             COUNT(DISTINCT visitor) FILTER (WHERE name = 'view' AND path ~ '^(/ru)?/fonts/[^/]+$')::int AS "sawFont",
              COUNT(DISTINCT visitor) FILTER (WHERE name = 'wish')::int AS wished,
              COUNT(DISTINCT visitor) FILTER (WHERE name = 'download')::int AS downloaded,
              COUNT(DISTINCT visitor) FILTER (WHERE name = 'signup')::int AS signed

@@ -3,14 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import { IconDownload } from "../Icons";
 import { trackEvent } from "@/lib/trackClient";
 import { offerSave } from "@/lib/savePrompt";
+import { useT } from "@/i18n/client";
 
-const LINKS = [
-  { id: "sinash", label: "Sinash" },
-  { id: "uslublar", label: "Uslublar" },
-  { id: "belgilar", label: "Belgilar" },
-  { id: "matn", label: "Matn" },
-  { id: "haqida", label: "Haqida" },
-];
+const LINKS = ["sinash", "uslublar", "belgilar", "matn", "haqida"].map((id) => ({ id }));
 
 /** Sticky in-page navigation with scroll-spy; once the hero's download button
  * scrolls away, the family name and a compact download button slide in. */
@@ -18,6 +13,7 @@ export default function Subnav({ name, slug, styleCount, has }: { name: string; 
   const [active, setActive] = useState("sinash");
   const [stuck, setStuck] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const t = useT().font;
   const links = LINKS.filter((l) => has.includes(l.id));
 
   useEffect(() => {
@@ -45,13 +41,13 @@ export default function Subnav({ name, slug, styleCount, has }: { name: string; 
     <div className={`subnav${stuck ? " stuck" : ""}`} ref={ref}>
       <div className="container subnav-in">
         <span className="subnav-name" aria-hidden={!stuck}>{name}</span>
-        <nav className="subnav-links" aria-label="Sahifa boʻlimlari">
+        <nav className="subnav-links" aria-label={t.sections}>
           {links.map((l) => (
-            <a key={l.id} href={`#${l.id}`} aria-current={active === l.id ? "true" : undefined}>{l.label}</a>
+            <a key={l.id} href={`#${l.id}`} aria-current={active === l.id ? "true" : undefined}>{t.nav[l.id]}</a>
           ))}
         </nav>
         <a className="btn btn-accent btn-sm subnav-cta" href={`/api/download-family/${slug}`} onClick={() => { trackEvent("download", slug); offerSave("download", {}, 1500); }} tabIndex={stuck ? 0 : -1} aria-hidden={!stuck}>
-          <IconDownload className="ico" /> <span className="t">Yuklab olish ({styleCount})</span>
+          <IconDownload className="ico" /> <span className="t">{t.downloadN(styleCount)}</span>
         </a>
       </div>
     </div>

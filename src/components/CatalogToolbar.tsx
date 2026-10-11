@@ -1,7 +1,9 @@
 "use client";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, useTransition } from "react";
-import { CATEGORIES, CATEGORY_LABEL, SORTS } from "@/lib/fonts";
+import { CATEGORIES, categoryLabel } from "@/lib/fonts";
+import { useLocale, useT } from "@/i18n/client";
+import { stripLocale, withLocale } from "@/i18n/config";
 import { formatNumber } from "@/lib/format";
 import { usePreview, PREVIEW_MIN, PREVIEW_MAX } from "./PreviewProvider";
 import { IconClose, IconGrid, IconList, IconSearch } from "./Icons";
@@ -13,7 +15,9 @@ const PendingCtx = createContext(false);
  * and the URL-driven filters (search, category, Cyrillic, sort). */
 export function CatalogShell({ total, children }: { total: number; children: React.ReactNode }) {
   const router = useRouter();
-  const pathname = usePathname();
+  const locale = useLocale();
+  const t = useT().catalog;
+  const pathname = withLocale(locale, stripLocale(usePathname() ?? "/fonts").path);
   const params = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const { text, setText, size, setSize, view, setView } = usePreview();
@@ -78,23 +82,23 @@ export function CatalogShell({ total, children }: { total: number; children: Rea
           <div className="ctrl-row">
             <label className="ctrl-preview">
               <span className="aa" aria-hidden="true">Aa</span>
-              <span className="sr-only">Namuna matni — barcha shriftlarda koʻrsatiladi</span>
+              <span className="sr-only">{t.sampleLabel}</span>
               <input
                 type="text"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                placeholder="Matn yozing — barcha shriftlarda koʻring"
+                placeholder={t.samplePlaceholder}
                 autoComplete="off"
                 spellCheck={false}
               />
               {text && (
-                <button type="button" className="clear" onClick={() => setText("")} aria-label="Matnni tozalash">
+                <button type="button" className="clear" onClick={() => setText("")} aria-label={t.clearText}>
                   <IconClose style={{ width: 16, height: 16 }} />
                 </button>
               )}
             </label>
             <label className="ctl ctrl-size">
-              <span>Hajm</span>
+              <span>{t.size}</span>
               <input
                 className="range"
                 type="range"
@@ -103,36 +107,36 @@ export function CatalogShell({ total, children }: { total: number; children: Rea
                 value={size}
                 onChange={(e) => setSize(Number(e.target.value))}
                 style={{ "--p": `${pct}%` } as React.CSSProperties}
-                aria-valuetext={`${size} piksel`}
+                aria-valuetext={t.px(size)}
               />
               <output>{size}px</output>
             </label>
-            <div className="seg" role="group" aria-label="Koʻrinish">
-              <button type="button" aria-pressed={view === "grid"} onClick={() => setView("grid")} aria-label="Toʻr" title="Toʻr"><IconGrid /></button>
-              <button type="button" aria-pressed={view === "list"} onClick={() => setView("list")} aria-label="Roʻyxat" title="Roʻyxat"><IconList /></button>
+            <div className="seg" role="group" aria-label={t.view}>
+              <button type="button" aria-pressed={view === "grid"} onClick={() => setView("grid")} aria-label={t.grid} title={t.grid}><IconGrid /></button>
+              <button type="button" aria-pressed={view === "list"} onClick={() => setView("list")} aria-label={t.list} title={t.list}><IconList /></button>
             </div>
           </div>
           <div className="ctrl-filters">
             <label className="search">
               <IconSearch />
-              <span className="sr-only">Shrift nomi boʻyicha qidirish</span>
-              <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nomi boʻyicha…" />
+              <span className="sr-only">{t.searchLabel}</span>
+              <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t.searchPlaceholder} />
             </label>
             <span className="vr" aria-hidden="true" />
-            <div className="chips" role="group" aria-label="Kategoriya">
-              <button type="button" className="chip" aria-pressed={cat === ""} onClick={() => push({ cat: null })}>Hammasi</button>
+            <div className="chips" role="group" aria-label={t.category}>
+              <button type="button" className="chip" aria-pressed={cat === ""} onClick={() => push({ cat: null })}>{t.all}</button>
               {CATEGORIES.map((c) => (
                 <button type="button" key={c} className="chip" aria-pressed={cat === c} onClick={() => push({ cat: cat === c ? null : c })}>
-                  {CATEGORY_LABEL[c]}
+                  {categoryLabel(c, locale)}
                 </button>
               ))}
-              <button type="button" className="chip" aria-pressed={cyr} onClick={() => push({ cyr: cyr ? null : "1" })} title="Kirill yozuvini qoʻllab-quvvatlaydigan shriftlar">
-                Kirill
+              <button type="button" className="chip" aria-pressed={cyr} onClick={() => push({ cyr: cyr ? null : "1" })} title={t.cyrHint}>
+                {t.cyr}
               </button>
             </div>
-            <span className="ctrl-count" role="status">{isPending ? "Yuklanmoqda…" : `${formatNumber(total)} oila`}</span>
-            <select className="sel" value={sort} aria-label="Saralash" onChange={(e) => push({ sort: e.target.value })}>
-              {Object.entries(SORTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            <span className="ctrl-count" role="status">{isPending ? t.loading : t.families(formatNumber(total))}</span>
+            <select className="sel" value={sort} aria-label={t.sortLabel} onChange={(e) => push({ sort: e.target.value })}>
+              {Object.entries(t.sorts).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </div>
         </div>

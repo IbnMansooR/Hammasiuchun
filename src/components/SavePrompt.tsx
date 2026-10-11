@@ -1,10 +1,12 @@
 "use client";
-import Link from "next/link";
+import Link from "./LLink";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { trackEvent } from "@/lib/trackClient";
 import { OFFER_EVENT, type OfferKind } from "@/lib/savePrompt";
 import { IconBell, IconClose, IconHeart } from "./Icons";
+import { useT } from "@/i18n/client";
+import { stripLocale } from "@/i18n/config";
 
 const KEY = "feekr_sp";
 const DAY = 24 * 60 * 60 * 1000;
@@ -20,14 +22,15 @@ const write = (s: St) => { try { localStorage.setItem(KEY, JSON.stringify(s)); }
  * after a second ♡ and after a download. At most once a day; "no thanks" silences it for two weeks.
  * It never covers the page and never takes focus. */
 export default function SavePrompt() {
-  const pathname = usePathname() ?? "/";
+  const pathname = stripLocale(usePathname() ?? "/").path;
+  const t = useT().prompt;
   const [offer, setOffer] = useState<{ kind: OfferKind; n?: number } | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const onOffer = (e: Event) => {
       const d = (e as CustomEvent<{ kind: OfferKind; n?: number }>).detail;
-      if (!d || QUIET.test(location.pathname)) return;
+      if (!d || QUIET.test(stripLocale(location.pathname).path)) return;
       const st = read();
       const now = Date.now();
       if ((st.until && now < st.until) || (st.shown && now - st.shown < DAY)) return;
@@ -64,21 +67,17 @@ export default function SavePrompt() {
   if (!offer) return null;
   const wish = offer.kind === "wish";
   return (
-    <div className="sp" role="status" aria-live="polite" aria-label={wish ? "Sevimlilarni saqlash taklifi" : "Xabarnoma taklifi"}>
+    <div className="sp" role="status" aria-live="polite" aria-label={wish ? t.wishLabel : t.newsLabel}>
       <span className="sp-ico" aria-hidden="true">{wish ? <IconHeart /> : <IconBell />}</span>
       <div className="sp-body">
-        <b>{wish ? "Tanlovingizni yoʻqotmang" : "Yuklab olindi ✓"}</b>
-        <p>
-          {wish
-            ? `${offer.n ?? 2} ta shrift sevimlilarda. Hisobga saqlang: telefonda ham, kompyuterda ham shu yerda turadi.`
-            : "Yangi shriftlar chiqqanda qoʻngʻiroqchada xabar olasizmi? Hisob ochish bir daqiqa."}
-        </p>
+        <b>{wish ? t.wishTitle : t.newsTitle}</b>
+        <p>{wish ? t.wishText(offer.n ?? 2) : t.newsText}</p>
         <div className="sp-actions">
-          <Link href="/register" className="btn btn-primary btn-sm" onClick={accept}>{wish ? "Hisobga saqlash" : "Xabar olish"}</Link>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={dismiss}>{wish ? "Keyinroq" : "Yoʻq, rahmat"}</button>
+          <Link href="/register" className="btn btn-primary btn-sm" onClick={accept}>{wish ? t.wishCta : t.newsCta}</Link>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={dismiss}>{wish ? t.later : t.noThanks}</button>
         </div>
       </div>
-      <button ref={closeRef} type="button" className="sp-close" aria-label="Yopish" onClick={dismiss}><IconClose /></button>
+      <button ref={closeRef} type="button" className="sp-close" aria-label={t.close} onClick={dismiss}><IconClose /></button>
     </div>
   );
 }

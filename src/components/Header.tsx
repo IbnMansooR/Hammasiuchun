@@ -1,27 +1,31 @@
 "use client";
-import Link from "next/link";
+import Link from "./LLink";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useStore } from "./StoreProvider";
 import { Logo } from "./Logo";
 import ThemeToggle from "./ThemeToggle";
+import LangSwitch from "./LangSwitch";
+import { useT } from "@/i18n/client";
+import { stripLocale } from "@/i18n/config";
 import SearchDialog from "./SearchDialog";
 import { IconArrow, IconBell, IconClose, IconHeart, IconMenu, IconSearch, IconUser } from "./Icons";
 
 const NAV = [
-  { href: "/fonts", label: "Shriftlar" },
-  { href: "/pairs", label: "Juftliklar" },
-  { href: "/dizaynerlar", label: "Dizaynerlar" },
-  { href: "/blog", label: "Jurnal" },
-  { href: "/about", label: "Biz haqimizda" },
-];
+  { href: "/fonts", key: "fonts" },
+  { href: "/pairs", key: "pairs" },
+  { href: "/dizaynerlar", key: "designers" },
+  { href: "/blog", key: "blog" },
+  { href: "/about", key: "about" },
+] as const;
 
 type HeaderUser = { name: string | null; email: string | null } | null;
 
 const INBOX = "/account/notifications";
 
 export default function Header({ user = null, unread: initialUnread = 0 }: { user?: HeaderUser; unread?: number }) {
-  const pathname = usePathname() ?? "/";
+  const pathname = stripLocale(usePathname() ?? "/").path;
+  const t = useT().header;
   const [menu, setMenu] = useState(false);
   const [search, setSearch] = useState(false);
   const { wish, ready } = useStore();
@@ -63,39 +67,40 @@ export default function Header({ user = null, unread: initialUnread = 0 }: { use
   return (
     <header className="hdr">
       <div className="container hdr-in">
-        <Link href="/" className="logo" aria-label="Feekr — bosh sahifa">
+        <Link href="/" className="logo" aria-label={t.home}>
           <Logo />
         </Link>
-        <nav className="hdr-nav" aria-label="Asosiy">
-          {NAV.map((n) => <Link key={n.href} href={n.href} aria-current={current(n.href)}>{n.label}</Link>)}
+        <nav className="hdr-nav" aria-label={t.main}>
+          {NAV.map((n) => <Link key={n.href} href={n.href} aria-current={current(n.href)}>{t.nav[n.key]}</Link>)}
         </nav>
         <div className="hdr-spacer" />
         <div className="hdr-actions">
-          <button type="button" className="hdr-search" onClick={openSearch} aria-label="Shrift qidirish" aria-keyshortcuts="Control+K Meta+K /">
+          <button type="button" className="hdr-search" onClick={openSearch} aria-label={t.search} aria-keyshortcuts="Control+K Meta+K /">
             <IconSearch />
-            <span>Shrift qidirish…</span>
+            <span>{t.searchPlaceholder}</span>
             <kbd className="kbd" aria-hidden="true">/</kbd>
           </button>
+          <LangSwitch className="icon-btn lang-btn hide-m" />
           <ThemeToggle />
-          <Link href="/wishlist" className="icon-btn" aria-label={wishN ? `Sevimlilar (${wishN})` : "Sevimlilar"} aria-current={current("/wishlist")}>
+          <Link href="/wishlist" className="icon-btn" aria-label={wishN ? t.wishlistN(wishN) : t.wishlist} aria-current={current("/wishlist")}>
             <IconHeart />
             {wishN > 0 && <span className="count" aria-hidden="true">{wishN}</span>}
           </Link>
           {user && (
-            <Link href={INBOX} prefetch={false} className="icon-btn" aria-label={unread ? `Bildirishnomalar (${unread} ta yangi)` : "Bildirishnomalar"} aria-current={current(INBOX)}>
+            <Link href={INBOX} prefetch={false} className="icon-btn" aria-label={unread ? t.inboxN(unread) : t.inbox} aria-current={current(INBOX)}>
               <IconBell />
               {unread > 0 && <span className="count" aria-hidden="true">{unread > 99 ? "99+" : unread}</span>}
             </Link>
           )}
           {user ? (
-            <Link href="/account" className="icon-btn hide-m" aria-label="Mening kabinetim"><IconUser /></Link>
+            <Link href="/account" className="icon-btn hide-m" aria-label={t.account}><IconUser /></Link>
           ) : (
-            <Link href="/login" className="btn btn-sm hide-m">Kirish</Link>
+            <Link href="/login" className="btn btn-sm hide-m">{t.login}</Link>
           )}
           <button
             type="button"
             className="icon-btn menu-toggle"
-            aria-label={menu ? "Menyuni yopish" : "Menyu"}
+            aria-label={menu ? t.closeMenu : t.menu}
             aria-expanded={menu}
             aria-controls="mobile-nav"
             onClick={() => setMenu((v) => !v)}
@@ -107,19 +112,20 @@ export default function Header({ user = null, unread: initialUnread = 0 }: { use
 
       {menu && (
         <div className="mnav" id="mobile-nav">
-          <nav className="mnav-links" aria-label="Mobil menyu">
+          <nav className="mnav-links" aria-label={t.mobileNav}>
             {NAV.map((n) => (
               <Link key={n.href} href={n.href} aria-current={current(n.href)} onClick={() => setMenu(false)}>
-                {n.label} <IconArrow />
+                {t.nav[n.key]} <IconArrow />
               </Link>
             ))}
           </nav>
           <div className="mnav-foot">
-            <button type="button" className="btn" onClick={openSearch}><IconSearch className="ico" /> Qidirish</button>
+            <button type="button" className="btn" onClick={openSearch}><IconSearch className="ico" /> {t.searchShort}</button>
             <Link href={user ? "/account" : "/login"} className="btn" onClick={() => setMenu(false)}>
-              <IconUser className="ico" /> {user ? "Mening kabinetim" : "Kirish"}
+              <IconUser className="ico" /> {user ? t.account : t.login}
             </Link>
-            {!user && <Link href="/register" className="btn btn-primary" onClick={() => setMenu(false)}>Roʻyxatdan oʻtish</Link>}
+            {!user && <Link href="/register" className="btn btn-primary" onClick={() => setMenu(false)}>{t.register}</Link>}
+            <LangSwitch variant="long" className="btn" />
           </div>
         </div>
       )}

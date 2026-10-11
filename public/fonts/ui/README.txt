@@ -10,5 +10,10 @@ feekr-display.woff2  A modified version of Fraunces by The Fraunces Project Auth
                    turned-comma glyph. Renamed "Feekr Display" as the OFL asks for
                    modified versions. Licence: OFL-Fraunces.txt.
 
+lora-cyrillic*.woff2  Lora variable (wght 400–700) by The Lora Project Authors, Cyrillic
+                   and Cyrillic-ext subsets, unmodified. Joined to "Feekr Display" by
+                   unicode-range so Russian headings get a matching serif.
+                   Licence: OFL-Lora.txt.
+
 src/app/_og/*.woff are static WOFF copies of the same two families for the
 Open Graph image renderer (Satori cannot read WOFF2).

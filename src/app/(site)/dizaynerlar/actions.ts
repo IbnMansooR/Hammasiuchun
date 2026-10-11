@@ -8,6 +8,7 @@ import { getCurrentUser } from "@/lib/userAuth";
 import { hit, isLocked } from "@/lib/rateLimit";
 import { normalizeUrl, splitLines, splitTags, uniqueWorkSlug } from "@/lib/works";
 import { notifyAdminsNewWork } from "@/lib/tgAdmin";
+import { withLocale } from "@/i18n/config";
 
 const MAX_IMAGES = 8;
 const MAX_PENDING = 5;
@@ -22,8 +23,9 @@ function str(fd: FormData, k: string): string {
 /** A signed-in member sends a work. It is stored as pending and stays invisible until the admin approves it.
  * Problems come back as { error } (not a redirect) so the form keeps everything the member typed and uploaded. */
 export async function submitWorkAction(fd: FormData): Promise<SubmitResult> {
+  const locale = fd.get("locale") === "ru" ? "ru" : "uz"; // the page the form was on
   const user = await getCurrentUser(); // null for signed-out and blocked accounts alike
-  if (!user) redirect("/login");
+  if (!user) redirect(withLocale(locale, "/login"));
 
   const key = `submit:${user.id}`;
   if (await isLocked(key)) return { error: "limit" };
@@ -70,5 +72,5 @@ export async function submitWorkAction(fd: FormData): Promise<SubmitResult> {
   await hit(key, 5, DAY); // at most five submissions a day
   after(() => notifyAdminsNewWork(work.id)); // ✅/❌ buttons in the admin's Telegram
   revalidatePath("/admin/works");
-  redirect("/dizaynerlar/yuborish?sent=1");
+  redirect(withLocale(locale, "/dizaynerlar/yuborish?sent=1"));
 }

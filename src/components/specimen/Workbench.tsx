@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef,
 import { styleFamily, WEIGHT_LABEL, PANGRAM } from "@/lib/fonts";
 import type { GlyphSupport } from "@/lib/glyphSupport";
 import { IconReset } from "../Icons";
+import { useT } from "@/i18n/client";
 
 export type Cut = { style: string; subfamily: string | null; weight: number; italic: boolean };
 type Align = "left" | "center" | "right";
@@ -43,24 +44,26 @@ export function WorkbenchProvider({ cuts, name, children }: { cuts: Cut[]; name:
   return <WorkbenchCtx.Provider value={value}>{children}</WorkbenchCtx.Provider>;
 }
 
-function presets(name: string, support: GlyphSupport | null) {
+function presets(name: string, support: GlyphSupport | null, labels: Record<string, string>) {
   const a = support?.uzLatin ? "ʻ" : "‘";
   const list = [
-    { key: "name", label: "Shrift nomi", text: name },
-    { key: "uz", label: "Oʻzbekcha", text: `O${a}zbekiston — g${a}oyalar, quyosh va shriftlar yurti` },
-    { key: "uzc", label: "Ўзбекча", text: "Ўзбекистон — ғоялар, қуёш ва шрифтлар юрти" },
-    { key: "en", label: "Pangram", text: PANGRAM },
-    { key: "abc", label: "Alifbo", text: "ABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz" },
-    { key: "num", label: "Raqamlar", text: "0123456789 ?!&@%$€ (…) «—» +−×÷=" },
-    { key: "para", label: "Abzas", text: `Yaxshi shrift o${a}zini ko${a}rsatmaydi — u matnni o${a}qishni yengillashtiradi. Harflar orasidagi masofa, so${a}zlar ritmi va satrlar oralig${a}i birgalikda sahifaga ovoz beradi.` },
-  ];
-  return support && !support.cyrillic ? list.filter((p) => p.key !== "uzc") : list;
+    { key: "name", text: name },
+    { key: "uz", text: `O${a}zbekiston — g${a}oyalar, quyosh va shriftlar yurti` },
+    { key: "uzc", text: "Ўзбекистон — ғоялар, қуёш ва шрифтлар юрти" },
+    { key: "ru", text: "Съешь же ещё этих мягких французских булок, да выпей чаю" },
+    { key: "en", text: PANGRAM },
+    { key: "abc", text: "ABCDEFGHIJKLMNOPQRSTUVWXYZ\nabcdefghijklmnopqrstuvwxyz" },
+    { key: "num", text: "0123456789 ?!&@%$€ (…) «—» +−×÷=" },
+    { key: "para", text: `Yaxshi shrift o${a}zini ko${a}rsatmaydi — u matnni o${a}qishni yengillashtiradi. Harflar orasidagi masofa, so${a}zlar ritmi va satrlar oralig${a}i birgalikda sahifaga ovoz beradi.` },
+  ].map((p) => ({ ...p, label: labels[p.key] }));
+  return support && !support.cyrillic ? list.filter((p) => p.key !== "uzc" && p.key !== "ru") : list;
 }
 
 const cutName = (s: Cut) => (s.subfamily || "").replace(/\s*Italic$/i, "").trim() || WEIGHT_LABEL[s.weight] || String(s.weight);
 
 export function Tester({ slug, name, cuts, support = null }: { slug: string; name: string; cuts: Cut[]; support?: GlyphSupport | null }) {
   const { text, setText, weight, setWeight, italic, setItalic } = useWorkbench();
+  const t = useT().font;
   const hasItalic = cuts.some((s) => s.italic);
   const hasUpright = cuts.some((s) => !s.italic);
   const [size, setSize] = useState(120);
@@ -109,7 +112,7 @@ export function Tester({ slug, name, cuts, support = null }: { slug: string; nam
   }, [text, size, cut, align]);
 
   if (!cuts.length || !cut) return null;
-  const list = presets(name, support);
+  const list = presets(name, support, t.presets);
   const pct = ((size - MIN_SIZE) / (maxSize - MIN_SIZE)) * 100;
 
   function reset() {
@@ -126,36 +129,36 @@ export function Tester({ slug, name, cuts, support = null }: { slug: string; nam
     <div className={`tester${dark ? " is-dark" : ""}`} ref={boxRef}>
       <div className="tester-bar">
         {weightCuts.length > 1 && (
-          <select className="sel" value={cut.weight} onChange={(e) => setWeight(Number(e.target.value))} aria-label="Qalinlik">
+          <select className="sel" value={cut.weight} onChange={(e) => setWeight(Number(e.target.value))} aria-label={t.weight}>
             {weightCuts.map((s) => <option key={s.weight} value={s.weight}>{cutName(s)} · {s.weight}</option>)}
           </select>
         )}
         {hasItalic && hasUpright && (
-          <button type="button" className="chip" aria-pressed={italic} onClick={() => setItalic(!italic)}>Kursiv</button>
+          <button type="button" className="chip" aria-pressed={italic} onClick={() => setItalic(!italic)}>{t.italic}</button>
         )}
         <span className="grow" />
         <label className="ctl">
-          <span>Hajm</span>
+          <span>{t.size}</span>
           <input
             className="range" type="range" min={MIN_SIZE} max={maxSize} step={1} value={size}
             style={{ "--p": `${pct}%` } as React.CSSProperties}
-            aria-valuetext={`${size} piksel`}
+            aria-valuetext={t.px(size)}
             onChange={(e) => { userSized.current = true; setSize(Number(e.target.value)); }}
           />
           <output>{size}px</output>
         </label>
-        <div className="seg tester-align" role="group" aria-label="Tekislash">
+        <div className="seg tester-align" role="group" aria-label={t.align}>
           {(["left", "center", "right"] as Align[]).map((a) => (
             <button key={a} type="button" aria-pressed={align === a} onClick={() => setAlign(a)}
-              aria-label={a === "left" ? "Chapga" : a === "center" ? "Markazga" : "Oʻngga"}>
+              aria-label={a === "left" ? t.left : a === "center" ? t.center : t.right}>
               <AlignIcon align={a} />
             </button>
           ))}
         </div>
-        <button type="button" className="chip" aria-pressed={dark} onClick={() => setDark((v) => !v)}><span className="inv-light">Qora fon</span><span className="inv-dark">Oq fon</span></button>
-        <button type="button" className="icon-btn" onClick={reset} aria-label="Tiklash" title="Tiklash"><IconReset /></button>
+        <button type="button" className="chip" aria-pressed={dark} onClick={() => setDark((v) => !v)}><span className="inv-light">{t.darkBg}</span><span className="inv-dark">{t.lightBg}</span></button>
+        <button type="button" className="icon-btn" onClick={reset} aria-label={t.reset} title={t.reset}><IconReset /></button>
       </div>
-      <div className="tester-presets" role="group" aria-label="Tayyor matnlar">
+      <div className="tester-presets" role="group" aria-label={t.presetsLabel}>
         {list.map((p) => (
           <button key={p.key} type="button" className="chip" aria-pressed={text === p.text} onClick={() => setText(p.text)}>{p.label}</button>
         ))}
@@ -163,7 +166,7 @@ export function Tester({ slug, name, cuts, support = null }: { slug: string; nam
       <textarea
         ref={areaRef}
         className="tester-input"
-        aria-label="Namuna matni — oʻzingiz yozing"
+        aria-label={t.testerLabel}
         value={text}
         rows={1}
         spellCheck={false}
@@ -184,6 +187,7 @@ export function Tester({ slug, name, cuts, support = null }: { slug: string; nam
 /** Every cut, set in the tester's text; clicking one loads it into the tester. */
 export function StyleRows({ slug, cuts, fallback }: { slug: string; cuts: Cut[]; fallback: string }) {
   const { text, setWeight, setItalic } = useWorkbench();
+  const openLabel = useT().font.openInTester;
   const line = (text.split("\n")[0] || "").trim() || fallback;
   return (
     <div className="styles">
@@ -203,7 +207,7 @@ export function StyleRows({ slug, cuts, fallback }: { slug: string; cuts: Cut[];
             {line}
           </span>
           <span className="lbl"><b>{s.subfamily || s.style}</b> {s.weight}</span>
-          <span className="sr-only"> — sinash maydonida ochish</span>
+          <span className="sr-only">{openLabel}</span>
         </button>
       ))}
     </div>

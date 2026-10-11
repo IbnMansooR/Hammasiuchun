@@ -1,4 +1,5 @@
 // Helpers for rendering the type library on the web.
+import type { Locale } from "@/i18n/config";
 
 export type StyleLite = { style: string; weight: number; italic: boolean };
 
@@ -16,13 +17,19 @@ export const CATEGORY_LABEL: Record<string, string> = {
   Dingbat: "Belgilar",
 };
 
-export const SORTS: Record<string, string> = {
-  popular: "Ommabop",
-  az: "A–Z",
-  za: "Z–A",
-  styles: "Uslublar soni",
-  new: "Yangi",
+const CATEGORY_LABEL_RU: Record<string, string> = {
+  Sans: "Без засечек",
+  Serif: "С засечками",
+  Slab: "Брусковые",
+  Display: "Акцидентные",
+  Script: "Рукописные",
+  Monospace: "Моноширинные",
+  Dingbat: "Символы",
 };
+
+export function categoryLabel(category: string, locale: Locale = "uz"): string {
+  return (locale === "ru" ? CATEGORY_LABEL_RU : CATEGORY_LABEL)[category] ?? category;
+}
 
 /** CSS font-family token for a family (weight/style-resolved). */
 export function cssFamily(slug: string): string {
@@ -103,7 +110,18 @@ const CARD_SAMPLE: Record<string, string> = {
   Monospace: "const shrift = 'bepul';",
   Dingbat: "ABCDEFGHIJ abcdefghij",
 };
-export function cardSample(category: string, cyrillicOnly = false): string {
+const CARD_SAMPLE_RU: Record<string, string> = {
+  Sans: "Шрифт — голос бренда",
+  Serif: "Гармония слова и формы",
+  Slab: "Сильный, надёжный, точный",
+  Display: "Найдите свой голос",
+  Script: "Тёплые слова",
+  Monospace: "const шрифт = 'бесплатно';",
+  Dingbat: "ABCDEFGHIJ abcdefghij",
+};
+/** On Russian pages a family with Cyrillic shows a Russian line; Latin-only ones keep the Uzbek one. */
+export function cardSample(category: string, cyrillicOnly = false, locale: Locale = "uz", hasCyrillic = cyrillicOnly): string {
+  if (locale === "ru" && hasCyrillic) return CARD_SAMPLE_RU[category] ?? CARD_SAMPLE_RU.Sans;
   if (cyrillicOnly) return "Шрифт — бренд овози";
   return CARD_SAMPLE[category] ?? CARD_SAMPLE.Sans;
 }

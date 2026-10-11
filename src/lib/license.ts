@@ -3,6 +3,7 @@
 // its licence allows free redistribution — or the owner confirmed the rights
 // ("Own" = Feekr's/the designer's own font, "Licensed" = written permission).
 import type { Prisma } from "@prisma/client";
+import type { Locale } from "@/i18n/config";
 
 export const REDISTRIBUTABLE = ["OFL", "Apache", "Public Domain", "Freeware", "Own", "Licensed"] as const;
 export const RESTRICTED = ["Adobe", "Monotype", "Linotype", "Bitstream", "All Rights Reserved", "Shareware", "Unknown"] as const;
@@ -34,9 +35,25 @@ export const LICENSE_NOTE: Record<string, string> = {
   Licensed: "Muallif ruxsati bilan bepul tarqatiladi.",
 };
 
+const LICENSE_NOTE_RU: Record<string, string> = {
+  OFL: "SIL Open Font License — бесплатно, можно использовать и в коммерческих проектах.",
+  Apache: "Apache License 2.0 — бесплатно, можно использовать и в коммерческих проектах.",
+  "Public Domain": "Общественное достояние — можно использовать без ограничений.",
+  Freeware: "Freeware — распространяется бесплатно.",
+  Own: "Предоставлен автором бесплатно.",
+  Licensed: "Распространяется бесплатно с разрешения автора.",
+};
+
+export function licenseNote(licenseClass: string, locale: Locale = "uz"): string | undefined {
+  return (locale === "ru" ? LICENSE_NOTE_RU : LICENSE_NOTE)[licenseClass];
+}
+
 /** Freeware is often "free for personal use" only — say so before people ship it in a product. */
 export const FREEWARE_WARNING =
   "Diqqat: freeware shriftlar koʻpincha faqat shaxsiy foydalanish uchun bepul. Tijoriy loyihada ishlatishdan oldin muallif litsenziyasini tekshiring.";
+
+export const FREEWARE_WARNING_RU =
+  "Внимание: freeware-шрифты часто бесплатны только для личного использования. Перед коммерческим проектом проверьте лицензию автора.";
 
 /** Admin dropdown labels. */
 export const LICENSE_LABEL: Record<string, string> = {

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/LLink";
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { PUBLIC_FAMILY } from "@/lib/license";
@@ -6,7 +6,7 @@ import { CATALOG_TAG, DOWNLOADS_SHOWN_FROM } from "@/lib/stats";
 import { getPairings } from "@/lib/pairs";
 import { CardCover } from "@/components/Cover";
 import { fetchCards, cardsFaceCSS, cardFontStyle, type CardFont } from "@/lib/queries";
-import { CATEGORIES, CATEGORY_LABEL, styleFamily, webfontUrl } from "@/lib/fonts";
+import { CATEGORIES, categoryLabel, styleFamily, webfontUrl } from "@/lib/fonts";
 import { formatDate, formatNumber } from "@/lib/format";
 import FontCard from "@/components/FontCard";
 import WorkCard from "@/components/WorkCard";
@@ -21,15 +21,20 @@ import JsonLd from "@/components/JsonLd";
 import { siteJsonLd } from "@/lib/seo";
 import { getSiteSettingsCached } from "@/lib/settings";
 import { getTgState } from "@/lib/tgState";
+import { alternates, getLocale } from "@/i18n/server";
+import { DICTS } from "@/i18n/dict";
+import type { Metadata } from "next";
 
 // Rendered per request (featured fonts are picked at random), but the data
 // behind it is cached for 5 minutes: the DB sits in another region.
 export const dynamic = "force-dynamic";
-export const metadata = { alternates: { canonical: "/" } };
+export async function generateMetadata(): Promise<Metadata> {
+  return { alternates: await alternates("/") };
+}
 
 const getHomeData = unstable_cache(
   async () => {
-    const [newest, posts, families, styles, cyrillic, showcasePool, catCounts, catReps, pairings, dl] = await Promise.all([
+    const [newest, posts, families, styles, cyrillic, showcasePool, catCounts, catReps, pairings, dl, cyrReps] = await Promise.all([
       fetchCards({ where: PUBLIC_FAMILY, orderBy: [{ isNew: "desc" }, { popularity: "desc" }, { name: "asc" }], take: 6 }),
       db.article.findMany({
         where: { isPublished: true }, orderBy: { publishedAt: "desc" }, take: 3,
@@ -43,10 +48,15 @@ const getHomeData = unstable_cache(
       Promise.all(CATEGORIES.map((c) => fetchCards({ where: { ...PUBLIC_FAMILY, category: c }, orderBy: [{ popularity: "desc" }, { name: "asc" }], take: 1 }))),
       getPairings(),
       db.family.aggregate({ _sum: { downloads: true } }),
+      // The Russian headline word is Cyrillic: rotate it through families that can draw it.
+      Promise.all(CATEGORIES.map((c) => fetchCards({ where: { ...PUBLIC_FAMILY, category: c, hasCyrillic: true }, orderBy: [{ popularity: "desc" }, { name: "asc" }], take: 1 }))),
     ]);
-    return { newest, posts, families, styles, cyrillic, showcasePool, catCounts, catReps: catReps.map((r) => r[0] ?? null), pairings: pairings.slice(0, 2), downloads: dl._sum.downloads ?? 0 };
+    return {
+      newest, posts, families, styles, cyrillic, showcasePool, catCounts, catReps: catReps.map((r) => r[0] ?? null),
+      cyrReps: cyrReps.map((r) => r[0] ?? null), pairings: pairings.slice(0, 2), downloads: dl._sum.downloads ?? 0,
+    };
   },
-  ["home-data-v3"],
+  ["home-data-v4"],
   { revalidate: 300, tags: [CATALOG_TAG] },
 );
 
@@ -59,15 +69,15 @@ function pick<T>(arr: T[], n: number): T[] {
   return a.slice(0, n);
 }
 
-const TYPE_LABEL: Record<string, string> = { blog: "Blog", news: "Yangilik", article: "Maqola" };
-
 export default async function HomePage() {
-  const [{ newest, posts, families, styles, cyrillic, showcasePool, catCounts, catReps, pairings, downloads }, allWorks, settings, tgState] = await Promise.all([
+  const [{ newest, posts, families, styles, cyrillic, showcasePool, catCounts, catReps, cyrReps, pairings, downloads }, allWorks, settings, tgState, locale] = await Promise.all([
     getHomeData(),
     getPublishedWorks(),
     getSiteSettingsCached().catch(() => null),
     getTgState(),
+    getLocale(),
   ]);
+  const t = DICTS[locale].home;
   const sameAs = [
     ...(settings?.socials ?? []).filter((s) => s.enabled && /^https:\/\//.test(s.url)).map((s) => s.url),
     ...(tgState.channel?.username ? [`https://t.me/${tgState.channel.username}`] : []),
@@ -75,7 +85,9 @@ export default async function HomePage() {
   const works = allWorks.slice(0, 3);
 
   // One family per category gives the rotating headline its range of voices.
-  const rotator = catReps.filter((c): c is CardFont => !!c && c.hasLatin && c.category !== "Dingbat");
+  const rotator = (locale === "ru" ? cyrReps : catReps).filter(
+    (c): c is CardFont => !!c && (locale === "ru" ? c.hasCyrillic : c.hasLatin) && c.category !== "Dingbat",
+  );
   const rotSlugs = new Set(rotator.map((r) => r.slug));
   const featuredPool = showcasePool.filter((c) => !rotSlugs.has(c.slug));
   const featured = pick(featuredPool.length >= 4 ? featuredPool : showcasePool, 4);
@@ -97,30 +109,27 @@ export default async function HomePage() {
       <section className="container hero">
         <div className="hero-grid">
           <div>
-            <div className="eyebrow">Bepul shriftlar kutubxonasi</div>
+            <div className="eyebrow">{t.eyebrow}</div>
             <HeroRotator
-              lead="Brendingizga ovoz beradigan"
-              word="shriftlar"
+              lead={t.lead}
+              word={t.word}
               fonts={rotator.map((r) => ({ slug: r.slug, name: r.name, weight: r.previewWeight, italic: r.previewItalic }))}
             />
           </div>
           <div className="hero-side">
-            <p className="lead">
-              Oʻzbek lotin va kirill yozuvini qoʻllab-quvvatlaydigan shriftlar. Sinab koʻring, solishtiring
-              va bir bosishda yuklab oling — hammasi bepul.
-            </p>
+            <p className="lead">{t.intro}</p>
             <div className="hero-cta">
-              <Link href="/fonts" className="btn btn-accent btn-lg">Shriftlarni koʻrish <IconArrow className="ico" /></Link>
-              <Link href="/pairs" className="btn btn-lg">Juftliklar</Link>
+              <Link href="/fonts" className="btn btn-accent btn-lg">{t.seeFonts} <IconArrow className="ico" /></Link>
+              <Link href="/pairs" className="btn btn-lg">{t.pairs}</Link>
             </div>
           </div>
         </div>
         <div className="typebar-wrap"><HeroTypebar /></div>
         <Facts items={[
-          [formatNumber(families), "shrift oilasi"],
-          [formatNumber(styles), "uslub va kesim"],
-          [formatNumber(cyrillic), "kirill yozuvli oila"],
-          ...(downloads >= DOWNLOADS_SHOWN_FROM ? [[formatNumber(downloads), "marta yuklab olingan"] as [string, string]] : []),
+          [formatNumber(families), t.factFamilies(families)],
+          [formatNumber(styles), t.factStyles(styles)],
+          [formatNumber(cyrillic), t.factCyr(cyrillic)],
+          ...(downloads >= DOWNLOADS_SHOWN_FROM ? [[formatNumber(downloads), t.factDownloads(downloads)] as [string, string]] : []),
         ]} />
       </section>
 
@@ -129,10 +138,10 @@ export default async function HomePage() {
         <section className="container section" aria-labelledby="featured-h">
           <div className="section-head">
             <div>
-              <h2 id="featured-h">Tanlangan shriftlar</h2>
-              <p>Yuqorida yozgan matningiz shu yerda — har bir shriftda jonlanadi.</p>
+              <h2 id="featured-h">{t.featured}</h2>
+              <p>{t.featuredSub}</p>
             </div>
-            <Link href="/fonts" className="arrow-link">Barcha shriftlar <IconArrow /></Link>
+            <Link href="/fonts" className="arrow-link">{t.allFonts} <IconArrow /></Link>
           </div>
           <div className="specs">
             {featured.map((f, i) => (
@@ -140,7 +149,7 @@ export default async function HomePage() {
                 <div className="spec-meta">
                   <span className="idx">{String(i + 1).padStart(2, "0")}</span>
                   <h3 className="spec-name"><Link href={`/fonts/${f.slug}`}>{f.name}</Link></h3>
-                  <span className="spec-sub">{CATEGORY_LABEL[f.category] ?? f.category} · {f.styleCount} uslub</span>
+                  <span className="spec-sub">{categoryLabel(f.category, locale)} · {DICTS[locale].card.styles(f.styleCount)}</span>
                 </div>
                 <PreviewText className="spec-text" style={cardFontStyle(f)} fallback={f.name} />
                 <span className="spec-go" aria-hidden="true"><IconArrowUR /></span>
@@ -154,18 +163,18 @@ export default async function HomePage() {
       {tiles.length > 0 && (
         <section className="container section cv" style={{ paddingTop: 0 }} aria-labelledby="cats-h">
           <div className="section-head">
-            <h2 id="cats-h">Kategoriyalar</h2>
+            <h2 id="cats-h">{t.categories}</h2>
           </div>
           <div className="cat-grid">
-            {tiles.map((t) => (
-              <Link key={t.cat} href={`/fonts?cat=${t.cat}`} className="cat-tile">
-                <span className="cat-aa" style={cardFontStyle(t.rep!)} aria-hidden="true">Aa</span>
+            {tiles.map((tile) => (
+              <Link key={tile.cat} href={`/fonts?cat=${tile.cat}`} className="cat-tile">
+                <span className="cat-aa" style={cardFontStyle(tile.rep!)} aria-hidden="true">{locale === "ru" && tile.rep!.hasCyrillic ? "Аа" : "Aa"}</span>
                 <span>
                   <span className="cat-foot">
-                    <span className="cat-name">{CATEGORY_LABEL[t.cat]}</span>
-                    <span className="cat-n">{formatNumber(t.n)}</span>
+                    <span className="cat-name">{categoryLabel(tile.cat, locale)}</span>
+                    <span className="cat-n">{formatNumber(tile.n)}</span>
                   </span>
-                  <span className="cat-from">{t.rep!.name}</span>
+                  <span className="cat-from">{tile.rep!.name}</span>
                 </span>
               </Link>
             ))}
@@ -173,10 +182,10 @@ export default async function HomePage() {
               <span className="cat-aa" aria-hidden="true">A–Z</span>
               <span>
                 <span className="cat-foot">
-                  <span className="cat-name">Barcha shriftlar</span>
+                  <span className="cat-name">{t.allFonts}</span>
                   <span className="cat-n">{formatNumber(families)}</span>
                 </span>
-                <span className="cat-from">Katalogni ochish →</span>
+                <span className="cat-from">{t.openCatalog}</span>
               </span>
             </Link>
           </div>
@@ -187,8 +196,8 @@ export default async function HomePage() {
       {newest.length > 0 && (
         <section className="container section cv" style={{ paddingTop: 0 }} aria-labelledby="new-h">
           <div className="section-head">
-            <h2 id="new-h">Yangi qoʻshilganlar</h2>
-            <Link href="/fonts?sort=new" className="arrow-link">Hammasi <IconArrow /></Link>
+            <h2 id="new-h">{t.newest}</h2>
+            <Link href="/fonts?sort=new" className="arrow-link">{t.all} <IconArrow /></Link>
           </div>
           <div className="fgrid">
             {newest.map((f) => <FontCard key={f.slug} f={f} />)}
@@ -200,18 +209,13 @@ export default async function HomePage() {
       <section className="container section cv" style={{ paddingTop: 0 }} aria-labelledby="uz-h">
         <div className="uz">
           <div>
-            <div className="eyebrow">Oʻzbek tili uchun</div>
-            <h2 id="uz-h">Har bir harf joyida.</h2>
-            <p>
-              Oʻzbek lotin yozuvi “oʻ” va “gʻ” uchun maxsus ʻ belgisini, kirill esa Ў, Қ, Ғ, Ҳ harflarini talab qiladi.
-              Feekr har bir shriftni shu belgilar boʻyicha tekshiradi va sahifasida ochiq koʻrsatadi.
-            </p>
+            <div className="eyebrow">{t.uzEyebrow}</div>
+            <h2 id="uz-h">{t.uzTitle}</h2>
+            <p>{t.uzText}</p>
             <ul className="uz-list">
-              <li>Shrift sahifasida lotin va kirill qoʻllab-quvvatlanishi belgilab qoʻyilgan</li>
-              <li>Sinash maydonida tayyor oʻzbekcha namunalar — lotin va kirillda</li>
-              <li>Katalogda faqat kirill yozuvli shriftlarni saralash mumkin</li>
+              {t.uzList.map((li) => <li key={li}>{li}</li>)}
             </ul>
-            <Link href="/fonts?cyr=1" className="btn btn-primary">Kirill yozuvli shriftlar <IconArrow className="ico" /></Link>
+            <Link href="/fonts?cyr=1" className="btn btn-primary">{t.uzCta} <IconArrow className="ico" /></Link>
           </div>
           <div className="uz-glyphs" aria-hidden="true">
             <div className="hl">Oʻ</div><div>gʻ</div><div>ʼ</div><div>Sh</div>
@@ -225,15 +229,15 @@ export default async function HomePage() {
         <section className="container section cv" style={{ paddingTop: 0 }} aria-labelledby="pairs-h">
           <div className="section-head">
             <div>
-              <h2 id="pairs-h">Shrift juftliklari</h2>
-              <p>Sarlavha va matn uchun tayyor kombinatsiyalar.</p>
+              <h2 id="pairs-h">{t.pairsTitle}</h2>
+              <p>{t.pairsSub}</p>
             </div>
-            <Link href="/pairs" className="arrow-link">Barcha juftliklar <IconArrow /></Link>
+            <Link href="/pairs" className="arrow-link">{t.allPairs} <IconArrow /></Link>
           </div>
           <div className="pairs-grid">
             {pairings.map((p) => (
               <article className="pair-card" key={p.id}>
-                <div className="pair-tag">{p.label}</div>
+                <div className="pair-tag">{p.cats.map((c) => categoryLabel(c, locale)).join(" + ")}</div>
                 <div className="pair-head" style={{ fontFamily: `"${styleFamily(p.heading.slug, p.heading.style)}", var(--font)`, fontWeight: p.heading.weight, fontStyle: p.heading.italic ? "italic" : "normal" }}>
                   {p.sampleHeading}
                 </div>
@@ -258,10 +262,10 @@ export default async function HomePage() {
         <section className="container section cv" style={{ paddingTop: 0 }} aria-labelledby="works-h">
           <div className="section-head">
             <div>
-              <h2 id="works-h">Dizaynerlar</h2>
-              <p>Shriftlar amalda: brending, qadoq va tipografiya loyihalari.</p>
+              <h2 id="works-h">{t.works}</h2>
+              <p>{t.worksSub}</p>
             </div>
-            <Link href="/dizaynerlar" className="arrow-link">Barcha ishlar <IconArrow /></Link>
+            <Link href="/dizaynerlar" className="arrow-link">{t.allWorks} <IconArrow /></Link>
           </div>
           <div className="pf-grid pf-grid-3">
             {works.map((w) => <WorkCard key={w.slug} w={w} />)}
@@ -273,18 +277,18 @@ export default async function HomePage() {
       {posts.length > 0 && (
         <section className="container section cv" style={{ paddingTop: 0, paddingBottom: 0 }} aria-labelledby="blog-h">
           <div className="section-head">
-            <h2 id="blog-h">Jurnal</h2>
-            <Link href="/blog" className="arrow-link">Barcha maqolalar <IconArrow /></Link>
+            <h2 id="blog-h">{t.journal}</h2>
+            <Link href="/blog" className="arrow-link">{t.allPosts} <IconArrow /></Link>
           </div>
           <div className="posts">
             {posts.map((p) => (
               <Link key={p.id} href={`/blog/${p.slug}`} className="post-card">
                 {p.coverImage ? <CardCover src={p.coverImage} alt="" /> : <div className="post-cover typo" aria-hidden="true">{[...p.title][0]}</div>}
                 <div className="post-body">
-                  <span className="label">{TYPE_LABEL[p.type] ?? "Blog"}</span>
+                  <span className="label">{t.postType[p.type] ?? t.postType.blog}</span>
                   <h3>{p.title}</h3>
                   {p.excerpt && <p>{p.excerpt}</p>}
-                  <span className="post-date">{formatDate(p.publishedAt)}</span>
+                  <span className="post-date">{formatDate(p.publishedAt, locale)}</span>
                 </div>
               </Link>
             ))}

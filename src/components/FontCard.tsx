@@ -1,5 +1,7 @@
-import Link from "next/link";
-import { CATEGORY_LABEL, cardSample } from "@/lib/fonts";
+"use client";
+import Link from "./LLink";
+import { categoryLabel, cardSample } from "@/lib/fonts";
+import { useLocale, useT } from "@/i18n/client";
 import { cardFontStyle, type CardFont } from "@/lib/cards";
 import { PreviewText } from "./PreviewProvider";
 import WishButton from "./WishButton";
@@ -9,6 +11,8 @@ import WishButton from "./WishButton";
 export default function FontCard({ f, headingLevel = 3 }: { f: CardFont; headingLevel?: 2 | 3 }) {
   const H = headingLevel === 2 ? "h2" : "h3";
   const cyrillicOnly = !f.hasLatin && f.hasCyrillic;
+  const locale = useLocale();
+  const t = useT().card;
   return (
     <article className="fcard">
       <div className="fcard-head">
@@ -17,13 +21,13 @@ export default function FontCard({ f, headingLevel = 3 }: { f: CardFont; heading
         </H>
         <WishButton slug={f.slug} name={f.name} />
       </div>
-      <PreviewText className="fcard-sample" style={cardFontStyle(f)} fallback={cardSample(f.category, cyrillicOnly)} />
+      <PreviewText className="fcard-sample" style={cardFontStyle(f)} fallback={cardSample(f.category, cyrillicOnly, locale, f.hasCyrillic)} />
       <div className="fcard-foot">
-        <span>{CATEGORY_LABEL[f.category] ?? f.category}</span>
+        <span>{categoryLabel(f.category, locale)}</span>
         <span className="sep" aria-hidden="true" />
-        <span>{f.styleCount} uslub</span>
-        {f.hasCyrillic && <span className="tag" title="Kirill yozuvi bor">Кир</span>}
-        {f.isNew && <span className="tag tag-new">Yangi</span>}
+        <span>{t.styles(f.styleCount)}</span>
+        {f.hasCyrillic && <span className="tag" title={t.hasCyr}>Кир</span>}
+        {f.isNew && <span className="tag tag-new">{t.isNew}</span>}
       </div>
     </article>
   );

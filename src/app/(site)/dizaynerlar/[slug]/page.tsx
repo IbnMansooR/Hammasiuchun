@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/LLink";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
@@ -6,25 +6,30 @@ import { getSession } from "@/lib/auth";
 import { PUBLIC_FAMILY } from "@/lib/license";
 import { renderMarkdown } from "@/lib/markdown";
 import { SITE_URL } from "@/lib/site";
-import { KIND_LABEL, getPublishedWorks, splitLines, splitTags } from "@/lib/works";
+import { getPublishedWorks, splitLines, splitTags } from "@/lib/works";
 import { fetchCards, cardsFaceCSS } from "@/lib/queries";
 import FontCard from "@/components/FontCard";
 import { IconArrow, IconArrowUR, IconChevron } from "@/components/Icons";
+import { getLocale } from "@/i18n/server";
+import { DICTS } from "@/i18n/dict";
 
 const abs = (u: string) => (u.startsWith("/") ? `${SITE_URL}${u}` : u);
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
+  const locale = await getLocale();
   const w = await db.work.findUnique({
     where: { slug },
     select: { title: true, summary: true, coverImage: true, isPublished: true, kind: true, authorName: true },
   });
   if (!w || !w.isPublished) return {};
-  const description = w.summary ?? (w.kind === "partner" && w.authorName ? `${w.authorName} ishi — Feekr’ning “Dizaynerlar” boʻlimida.` : undefined);
+  const description = w.summary ?? (w.kind === "partner" && w.authorName ? DICTS[locale].works.partnerDesc(w.authorName) : undefined);
   return {
     title: w.title,
     description,
+    // A work's own text is written once (usually in Uzbek): the Russian copy points search engines to it.
     alternates: { canonical: `/dizaynerlar/${slug}` },
+    ...(locale === "ru" ? { robots: { index: false, follow: true } } : {}),
     openGraph: { title: w.title, description, type: "article", images: w.coverImage ? [{ url: abs(w.coverImage) }] : undefined },
     twitter: { card: w.coverImage ? "summary_large_image" : "summary" },
   };
@@ -32,6 +37,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function WorkPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  const locale = await getLocale();
+  const t = DICTS[locale].works;
   const w = await db.work.findUnique({ where: { slug } });
   // Drafts are visible to a signed-in admin only (preview before publishing).
   if (!w || (!w.isPublished && !(await getSession()))) notFound();
@@ -56,11 +63,11 @@ export default async function WorkPage({ params }: { params: Promise<{ slug: str
   // Links a member wrote are user content: tell search engines not to vouch for them.
   const linkRel = member ? "nofollow ugc noreferrer noopener" : "noreferrer noopener";
   const facts: { k: string; v: React.ReactNode }[] = [
-    external && w.authorName ? { k: "Muallif", v: w.authorUrl ? <a className="link" href={w.authorUrl} target="_blank" rel={linkRel}>{w.authorName}</a> : w.authorName } : null,
-    !external && w.authorName ? { k: "Muallif", v: w.authorName } : null,
-    w.client ? { k: "Mijoz", v: w.client } : null,
-    w.year ? { k: "Yil", v: String(w.year) } : null,
-    tags.length ? { k: "Yoʻnalish", v: tags.join(", ") } : null,
+    external && w.authorName ? { k: t.author, v: w.authorUrl ? <a className="link" href={w.authorUrl} target="_blank" rel={linkRel}>{w.authorName}</a> : w.authorName } : null,
+    !external && w.authorName ? { k: t.author, v: w.authorName } : null,
+    w.client ? { k: t.client, v: w.client } : null,
+    w.year ? { k: t.year, v: String(w.year) } : null,
+    tags.length ? { k: t.field, v: tags.join(", ") } : null,
   ].filter((x) => x !== null);
 
   const jsonLd = {
@@ -79,17 +86,17 @@ export default async function WorkPage({ params }: { params: Promise<{ slug: str
       {fonts.length > 0 && <style dangerouslySetInnerHTML={{ __html: cardsFaceCSS(fonts) }} />}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
 
-      <nav className="crumbs" aria-label="Yoʻl">
-        <Link href="/dizaynerlar">Dizaynerlar</Link>
+      <nav className="crumbs" aria-label={t.crumbs}>
+        <Link href="/dizaynerlar">{t.title}</Link>
         <IconChevron />
-        <span>{KIND_LABEL[w.kind] ?? "Ish"}</span>
+        <span>{t.kindName[w.kind] ?? t.work}</span>
       </nav>
 
-      {!w.isPublished && <p className="alert alert-warn" role="note" style={{ marginTop: 16 }}>Qoralama — faqat siz (admin) koʻryapsiz.</p>}
+      {!w.isPublished && <p className="alert alert-warn" role="note" style={{ marginTop: 16 }}>{t.draft}</p>}
 
       <header className="work-head">
         <div>
-          {external && <span className="tag tag-warn">{partner ? "Hamkor ishi" : "Aʼzo ishi"}</span>}
+          {external && <span className="tag tag-warn">{t.kindName[w.kind]}</span>}
           <h1>{w.title}</h1>
           {w.summary && <p className="lead">{w.summary}</p>}
         </div>
@@ -127,12 +134,12 @@ export default async function WorkPage({ params }: { params: Promise<{ slug: str
       {external && (
         <aside className="work-partner">
           <p>
-            Bu ish {w.authorName ? <b>{w.authorName}</b> : partner ? "hamkor dizayner" : "Feekr aʼzosi"} tomonidan yaratilgan
-            {partner ? " va Feekr’ning “Dizaynerlar” boʻlimida hamkorlik asosida koʻrsatilmoqda." : ", Feekr jamoasi koʻrib chiqib, “Dizaynerlar” boʻlimida chop etdi."}
+            {t.madeBy} {w.authorName ? <b>{w.authorName}</b> : partner ? t.madeByPartner : t.madeByMember}
+            {t.madeTail(partner)}
           </p>
           {w.authorUrl && (
             <a className="btn" href={w.authorUrl} target="_blank" rel={linkRel}>
-              Muallif portfoliosi <IconArrowUR className="ico" />
+              {t.portfolio} <IconArrowUR className="ico" />
             </a>
           )}
         </aside>
@@ -140,14 +147,14 @@ export default async function WorkPage({ params }: { params: Promise<{ slug: str
 
       {fonts.length > 0 && (
         <section className="fsec" aria-labelledby="h-fonts">
-          <div className="section-head"><h2 id="h-fonts">Ishlatilgan shriftlar</h2></div>
+          <div className="section-head"><h2 id="h-fonts">{t.fontsUsed}</h2></div>
           <div className="fgrid">{fonts.map((f) => <FontCard key={f.slug} f={f} />)}</div>
         </section>
       )}
 
       {next && next.slug !== w.slug && (
         <Link href={`/dizaynerlar/${next.slug}`} className="work-next">
-          <span className="label">Keyingi ish</span>
+          <span className="label">{t.next}</span>
           <span className="work-next-title">{next.title} <IconArrow /></span>
         </Link>
       )}

@@ -1,16 +1,24 @@
-import Link from "next/link";
+import Link from "@/components/LLink";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/userAuth";
 import { formatDateTime } from "@/lib/format";
 import { IconArrow, IconBell, IconChevron } from "@/components/Icons";
+import { getLocale, lhref } from "@/i18n/server";
+import { DICTS } from "@/i18n/dict";
+import { withLocale } from "@/i18n/config";
 
-export const metadata = { title: "Bildirishnomalar", robots: { index: false } };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: DICTS[await getLocale()].account.inbox, robots: { index: false } };
+}
 
 export default async function NotificationsPage() {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) redirect(await lhref("/login"));
+  const locale = await getLocale();
+  const t = DICTS[locale].account;
 
   const items = await db.notification.findMany({
     where: { userId: user.id },
@@ -31,34 +39,34 @@ export default async function NotificationsPage() {
 
   return (
     <div className="container">
-      <nav className="crumbs" aria-label="Yoʻl">
-        <Link href="/account">Kabinet</Link>
+      <nav className="crumbs" aria-label={t.crumbs}>
+        <Link href="/account">{t.eyebrow}</Link>
         <IconChevron />
-        <span>Bildirishnomalar</span>
+        <span>{t.inbox}</span>
       </nav>
       <header className="page-head narrow" style={{ paddingTop: 28 }}>
-        <h1>Bildirishnomalar</h1>
-        <p className="lead">{unread ? `${unread} ta yangi xabar` : "Yangi xabar yoʻq"}</p>
+        <h1>{t.inbox}</h1>
+        <p className="lead">{unread ? t.unreadN(unread) : t.noNew}</p>
       </header>
 
       {items.length === 0 ? (
         <div className="empty">
           <IconBell />
-          <p>Hozircha xabar yoʻq. Feekr jamoasidan yangiliklar shu yerda paydo boʻladi.</p>
+          <p>{t.inboxEmpty}</p>
         </div>
       ) : (
         <ol className="inbox">
           {items.map((n) => (
             <li key={n.id} className={n.readAt ? "" : "is-new"}>
               <div className="inbox-meta">
-                {!n.readAt && <span className="tag tag-new">Yangi</span>}
-                <time dateTime={n.createdAt.toISOString()}>{formatDateTime(n.createdAt)}</time>
+                {!n.readAt && <span className="tag tag-new">{t.isNew}</span>}
+                <time dateTime={n.createdAt.toISOString()}>{formatDateTime(n.createdAt, locale)}</time>
               </div>
               <h2>{n.title}</h2>
               {n.body && <p>{n.body}</p>}
               {n.link && (
-                <a className="link inbox-link" href={n.link} {...(n.link.startsWith("/") ? {} : { target: "_blank", rel: "noreferrer noopener" })}>
-                  Batafsil <IconArrow />
+                <a className="link inbox-link" href={withLocale(locale, n.link)} {...(n.link.startsWith("/") ? {} : { target: "_blank", rel: "noreferrer noopener" })}>
+                  {t.more} <IconArrow />
                 </a>
               )}
             </li>

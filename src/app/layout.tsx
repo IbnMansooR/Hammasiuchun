@@ -3,6 +3,9 @@ import { headers } from "next/headers";
 import { preload } from "react-dom";
 import { SITE_URL } from "@/lib/site";
 import { getSiteSettingsCached } from "@/lib/settings";
+import { getLocale } from "@/i18n/server";
+import { OG_LOCALE } from "@/i18n/config";
+import { DICTS } from "@/i18n/dict";
 import "./globals.css";
 
 const BASE_METADATA: Metadata = {
@@ -30,12 +33,22 @@ const BASE_METADATA: Metadata = {
 
 // Search engine ownership tags come from Admin → Sozlamalar, so they can be added without a redeploy.
 export async function generateMetadata(): Promise<Metadata> {
-  const s = await getSiteSettingsCached().catch(() => null);
+  const [s, locale] = await Promise.all([getSiteSettingsCached().catch(() => null), getLocale()]);
   const verification = {
     ...(s?.googleVerification ? { google: s.googleVerification } : {}),
     ...(s?.yandexVerification ? { yandex: s.yandexVerification } : {}),
   };
-  return Object.keys(verification).length ? { ...BASE_METADATA, verification } : BASE_METADATA;
+  const m = DICTS[locale].meta;
+  const base: Metadata =
+    locale === "uz"
+      ? BASE_METADATA
+      : {
+          ...BASE_METADATA,
+          title: { default: m.title, template: "%s — Feekr" },
+          description: m.description,
+          openGraph: { ...BASE_METADATA.openGraph, locale: OG_LOCALE[locale], title: m.title, description: m.ogDescription },
+        };
+  return Object.keys(verification).length ? { ...base, verification } : base;
 }
 
 export const viewport: Viewport = {
@@ -50,11 +63,16 @@ const THEME_SCRIPT = `try{var t=localStorage.getItem('feekr_theme');if(t==='dark
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const nonce = (await headers()).get("x-nonce") ?? undefined;
+  const locale = await getLocale();
   // Above-the-fold type on every page — fetch it early.
   preload("/fonts/ui/inter-latin.woff2", { as: "font", type: "font/woff2", crossOrigin: "anonymous" });
   preload("/fonts/ui/feekr-display.woff2", { as: "font", type: "font/woff2", crossOrigin: "anonymous" });
+  if (locale === "ru") {
+    preload("/fonts/ui/inter-cyrillic.woff2", { as: "font", type: "font/woff2", crossOrigin: "anonymous" });
+    preload("/fonts/ui/lora-cyrillic.woff2", { as: "font", type: "font/woff2", crossOrigin: "anonymous" });
+  }
   return (
-    <html lang="uz" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <head>
         {/* Browsers blank out the nonce attribute after parsing — expected, not a mismatch. */}
         <script nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />

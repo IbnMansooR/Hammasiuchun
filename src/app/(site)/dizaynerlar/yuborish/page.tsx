@@ -1,52 +1,52 @@
-import Link from "next/link";
+import Link from "@/components/LLink";
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import { PUBLIC_FAMILY } from "@/lib/license";
 import { getCurrentUser } from "@/lib/userAuth";
 import SubmitWorkForm from "@/components/SubmitWorkForm";
 import { IconArrow, IconChevron } from "@/components/Icons";
+import { getLocale } from "@/i18n/server";
+import { DICTS } from "@/i18n/dict";
 
-export const metadata: Metadata = {
-  title: "Ishingizni yuborish",
-  description: "Feekr aʼzolari oʻz dizayn ishlarini “Dizaynerlar” boʻlimiga yuborishi mumkin. Har bir ish chop etishdan oldin koʻrib chiqiladi.",
-  robots: { index: false },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = DICTS[await getLocale()].works;
+  return { title: t.submitMetaTitle, description: t.submitMetaDescription, robots: { index: false } };
+}
 
 export default async function SubmitWorkPage({ searchParams }: { searchParams: Promise<{ sent?: string }> }) {
-  const [user, sp] = await Promise.all([getCurrentUser(), searchParams]);
+  const [user, sp, locale] = await Promise.all([getCurrentUser(), searchParams, getLocale()]);
+  const t = DICTS[locale].works;
 
   return (
     <div className="container">
-      <nav className="crumbs" aria-label="Yoʻl">
-        <Link href="/dizaynerlar">Dizaynerlar</Link>
+      <nav className="crumbs" aria-label={t.crumbs}>
+        <Link href="/dizaynerlar">{t.title}</Link>
         <IconChevron />
-        <span>Ishingizni yuborish</span>
+        <span>{t.submitCrumb}</span>
       </nav>
       <header className="page-head narrow" style={{ paddingTop: 28 }}>
-        <h1>Ishingizni yuboring</h1>
-        <p className="lead">Brending, logotip, qadoq, tipografiya: har qanday dizayn ishi. Biz koʻrib chiqamiz va maʼqul boʻlsa “Dizaynerlar” boʻlimida chop etamiz.</p>
+        <h1>{t.submitTitle}</h1>
+        <p className="lead">{t.submitLead}</p>
       </header>
 
       {!user ? (
         <section className="submit-gate">
-          <h2>Ish yuborish uchun hisob kerak</h2>
+          <h2>{t.gateTitle}</h2>
           <ul className="perks">
-            <li><span>Ishingiz Feekr auditoriyasiga koʻrsatiladi, muallif sifatida havolangiz bilan.</span></li>
-            <li><span>Qaysi shriftlar ishlatilganini belgilaysiz. Ish shu shriftlarning sahifasida ham chiqadi.</span></li>
-            <li><span>Chop etilgach yoki rad etilsa, qoʻngʻiroqchada xabar olasiz.</span></li>
+            {t.gatePerks.map((p) => <li key={p}><span>{p}</span></li>)}
           </ul>
           <div className="submit-gate-actions">
-            <Link href="/register" className="btn btn-primary btn-lg">Roʻyxatdan oʻtish <IconArrow className="ico" /></Link>
-            <Link href="/login" className="btn btn-lg">Kirish</Link>
+            <Link href="/register" className="btn btn-primary btn-lg">{t.register} <IconArrow className="ico" /></Link>
+            <Link href="/login" className="btn btn-lg">{t.login}</Link>
           </div>
         </section>
       ) : sp.sent ? (
         <section className="submit-gate" role="status">
-          <h2>Qabul qilindi ✓</h2>
-          <p className="lead">Ishingiz koʻrib chiqiladi. Natija haqida qoʻngʻiroqchada xabar beramiz. Holatini <Link href="/account/ishlarim" className="link">“Mening ishlarim”</Link> sahifasida koʻrishingiz mumkin.</p>
+          <h2>{t.sentTitle}</h2>
+          <p className="lead">{t.sentA}<Link href="/account/ishlarim" className="link">{t.sentLink}</Link>{t.sentB}</p>
           <div className="submit-gate-actions">
-            <Link href="/dizaynerlar/yuborish" className="btn">Yana bitta yuborish</Link>
-            <Link href="/dizaynerlar" className="btn btn-ghost">Dizaynerlar</Link>
+            <Link href="/dizaynerlar/yuborish" className="btn">{t.another}</Link>
+            <Link href="/dizaynerlar" className="btn btn-ghost">{t.title}</Link>
           </div>
         </section>
       ) : (

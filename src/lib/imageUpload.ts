@@ -23,16 +23,16 @@ export function sameOrigin(req: NextRequest): boolean {
 
 export type ParsedImage = { buf: Buffer; ext: string; mime: string; name: string; base: string };
 
-export async function parseImage(req: NextRequest): Promise<{ ok: true; image: ParsedImage } | { ok: false; response: Response }> {
+export async function parseImage(req: NextRequest, ru = false): Promise<{ ok: true; image: ParsedImage } | { ok: false; response: Response }> {
   const fd = await req.formData().catch(() => null);
   const file = fd?.get("file");
-  if (!(file instanceof File) || file.size === 0) return { ok: false, response: fail("Fayl tanlanmagan.") };
-  if (file.size > MAX_UPLOAD_BYTES) return { ok: false, response: fail("Rasm 4 MB dan katta. Kichikroq fayl tanlang.") };
+  if (!(file instanceof File) || file.size === 0) return { ok: false, response: fail(ru ? "Файл не выбран." : "Fayl tanlanmagan.") };
+  if (file.size > MAX_UPLOAD_BYTES) return { ok: false, response: fail(ru ? "Изображение больше 4 МБ. Выберите файл поменьше." : "Rasm 4 MB dan katta. Kichikroq fayl tanlang.") };
 
   const ext = (path.extname(file.name) || "").toLowerCase();
   const buf = Buffer.from(await file.arrayBuffer());
   if (!EXT_FAMILY[ext] || sniffImageFamily(buf) !== EXT_FAMILY[ext]) {
-    return { ok: false, response: fail("Faqat JPG, PNG, GIF, WebP yoki AVIF rasm yuklash mumkin.") };
+    return { ok: false, response: fail(ru ? "Можно загружать только JPG, PNG, GIF, WebP или AVIF." : "Faqat JPG, PNG, GIF, WebP yoki AVIF rasm yuklash mumkin.") };
   }
   const base = slugify(path.basename(file.name, ext)) || "image";
   const name = `${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 8)}-${base}${ext}`;

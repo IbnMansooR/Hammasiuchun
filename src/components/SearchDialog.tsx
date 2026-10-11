@@ -1,7 +1,8 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CATEGORY_LABEL } from "@/lib/fonts";
+import { categoryLabel } from "@/lib/fonts";
+import { useLhref, useLocale, useT } from "@/i18n/client";
 import { cardsFaceCSS, cardFontStyle, type CardFont } from "@/lib/cards";
 import { IconArrow, IconSearch } from "./Icons";
 
@@ -9,6 +10,10 @@ import { IconArrow, IconSearch } from "./Icons";
  * inert page for free; results follow the ARIA combobox pattern. */
 export default function SearchDialog({ open, onClose, onOpen }: { open: boolean; onClose: () => void; onOpen: () => void }) {
   const router = useRouter();
+  const locale = useLocale();
+  const lhref = useLhref();
+  const d = useT();
+  const t = d.search;
   const ref = useRef<HTMLDialogElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [q, setQ] = useState("");
@@ -52,7 +57,7 @@ export default function SearchDialog({ open, onClose, onOpen }: { open: boolean;
     return () => { clearTimeout(t); ctl.abort(); };
   }, [q, open]);
 
-  const go = useCallback((href: string) => { onClose(); router.push(href); }, [onClose, router]);
+  const go = useCallback((href: string) => { onClose(); router.push(lhref(href)); }, [onClose, router, lhref]);
 
   function onKeyDown(e: React.KeyboardEvent) {
     if (e.key === "ArrowDown") { e.preventDefault(); setActive((i) => Math.min(items.length - 1, i + 1)); }
@@ -75,7 +80,7 @@ export default function SearchDialog({ open, onClose, onOpen }: { open: boolean;
     <dialog
       ref={ref}
       className="sdlg"
-      aria-label="Shrift qidirish"
+      aria-label={t.label}
       onClose={onClose}
       onClick={(e) => { if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains("sdlg-wrap")) onClose(); }}
     >
@@ -92,7 +97,7 @@ export default function SearchDialog({ open, onClose, onOpen }: { open: boolean;
               aria-controls="sdlg-list"
               aria-activedescendant={items[active] ? `sr-${active}` : undefined}
               aria-autocomplete="list"
-              placeholder="Shrift nomini yozing…"
+              placeholder={t.placeholder}
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={onKeyDown}
@@ -102,7 +107,7 @@ export default function SearchDialog({ open, onClose, onOpen }: { open: boolean;
             <kbd className="kbd">esc</kbd>
           </div>
           {items.length > 0 ? (
-            <ul className="sdlg-list" id="sdlg-list" role="listbox" aria-label={q ? "Natijalar" : "Ommabop shriftlar"}>
+            <ul className="sdlg-list" id="sdlg-list" role="listbox" aria-label={q ? t.results : t.popular}>
               {items.map((it, i) => (
                 <li
                   key={it.slug}
@@ -116,22 +121,22 @@ export default function SearchDialog({ open, onClose, onOpen }: { open: boolean;
                   <span className="sdlg-aa" style={cardFontStyle(it)} aria-hidden="true">Aa</span>
                   <span style={{ minWidth: 0 }}>
                     <span className="sdlg-name" style={{ display: "block" }}>{it.name}</span>
-                    <span className="sdlg-meta">{CATEGORY_LABEL[it.category] ?? it.category} · {it.styleCount} uslub</span>
+                    <span className="sdlg-meta">{categoryLabel(it.category, locale)} · {d.card.styles(it.styleCount)}</span>
                   </span>
                   <span className="sdlg-go" aria-hidden="true">{i === active ? "↵" : ""}</span>
                 </li>
               ))}
             </ul>
           ) : (
-            <div className="sdlg-empty" role="status">{loading ? "Qidirilmoqda…" : q ? `“${q}” boʻyicha shrift topilmadi.` : "Yuklanmoqda…"}</div>
+            <div className="sdlg-empty" role="status">{loading ? t.searching : q ? t.none(q) : t.loading}</div>
           )}
           <div className="sdlg-foot">
             <div className="keys">
-              <span><kbd className="kbd">↑</kbd><kbd className="kbd">↓</kbd> tanlash</span>
-              <span><kbd className="kbd">↵</kbd> ochish</span>
+              <span><kbd className="kbd">↑</kbd><kbd className="kbd">↓</kbd> {t.select}</span>
+              <span><kbd className="kbd">↵</kbd> {t.open}</span>
             </div>
-            <a href={catalogHref} onClick={(e) => { e.preventDefault(); go(catalogHref); }} className="arrow-link" style={{ fontSize: 13 }}>
-              Katalogda koʻrish <IconArrow style={{ width: 14, height: 14 }} />
+            <a href={lhref(catalogHref)} onClick={(e) => { e.preventDefault(); go(catalogHref); }} className="arrow-link" style={{ fontSize: 13 }}>
+              {t.inCatalog} <IconArrow style={{ width: 14, height: 14 }} />
             </a>
           </div>
         </div>

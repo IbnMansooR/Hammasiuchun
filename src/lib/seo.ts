@@ -1,8 +1,9 @@
 // schema.org data that helps Google and Yandex understand the site: who runs it, how to search it
 // (sitelinks search box), and for each font a breadcrumb trail and what the font is.
 import { SITE_URL } from "./site";
-import { CATEGORY_LABEL } from "./fonts";
+import { categoryLabel } from "./fonts";
 import { LICENSE_LABEL } from "./license";
+import { withLocale, type Locale } from "@/i18n/config";
 
 const ORG_ID = `${SITE_URL}/#organization`;
 
@@ -15,7 +16,7 @@ export function siteJsonLd(sameAs: string[]) {
       name: "Feekr",
       alternateName: ["Feekr shriftlari", "feekrfont.uz"],
       url: `${SITE_URL}/`,
-      inLanguage: "uz",
+      inLanguage: ["uz", "ru"],
       publisher: { "@id": ORG_ID },
       potentialAction: {
         "@type": "SearchAction",
@@ -40,17 +41,19 @@ type FontForLd = {
   designer: string | null; licenseClass: string; licenseUrl: string | null; updatedAt: Date;
 };
 
-export function fontJsonLd(f: FontForLd, description: string) {
-  const url = `${SITE_URL}/fonts/${f.slug}`;
-  const cat = CATEGORY_LABEL[f.category] ?? f.category;
+export function fontJsonLd(f: FontForLd, description: string, locale: Locale = "uz") {
+  const ru = locale === "ru";
+  const abs = (path: string) => `${SITE_URL}${withLocale(locale, path)}`;
+  const url = abs(`/fonts/${f.slug}`);
+  const cat = categoryLabel(f.category, locale);
   return [
     {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
-        { "@type": "ListItem", position: 1, name: "Feekr", item: `${SITE_URL}/` },
-        { "@type": "ListItem", position: 2, name: "Shriftlar", item: `${SITE_URL}/fonts` },
-        { "@type": "ListItem", position: 3, name: cat, item: `${SITE_URL}/fonts?cat=${encodeURIComponent(f.category)}` },
+        { "@type": "ListItem", position: 1, name: "Feekr", item: ru ? abs("/") : `${SITE_URL}/` },
+        { "@type": "ListItem", position: 2, name: ru ? "Шрифты" : "Shriftlar", item: abs("/fonts") },
+        { "@type": "ListItem", position: 3, name: cat, item: abs(`/fonts?cat=${encodeURIComponent(f.category)}`) },
         { "@type": "ListItem", position: 4, name: f.name, item: url },
       ],
     },
@@ -59,19 +62,22 @@ export function fontJsonLd(f: FontForLd, description: string) {
       "@type": "CreativeWork",
       "@id": `${url}#font`,
       name: f.name,
-      alternateName: `${f.name} shrifti`,
+      alternateName: ru ? `Шрифт ${f.name}` : `${f.name} shrifti`,
       description,
       url,
       image: `${SITE_URL}/api/tg-image/font/${encodeURIComponent(f.slug)}`,
-      genre: `${cat} shrift`,
-      keywords: ["shrift", "bepul shrift", "font", cat, f.hasCyrillic ? "kirill shrift" : null, `${f.styleCount} uslub`].filter(Boolean).join(", "),
-      inLanguage: "uz",
+      genre: ru ? `Шрифт: ${cat.toLowerCase()}` : `${cat} shrift`,
+      keywords: (ru
+        ? ["шрифт", "бесплатный шрифт", "font", cat, f.hasCyrillic ? "кириллический шрифт" : null]
+        : ["shrift", "bepul shrift", "font", cat, f.hasCyrillic ? "kirill shrift" : null, `${f.styleCount} uslub`]
+      ).filter(Boolean).join(", "),
+      inLanguage: locale,
       isAccessibleForFree: true,
-      license: f.licenseUrl || `${SITE_URL}/license`,
+      license: f.licenseUrl || abs("/license"),
       ...(f.designer ? { creator: { "@type": "Person", name: f.designer } } : {}),
       publisher: { "@id": ORG_ID },
       dateModified: f.updatedAt.toISOString(),
-      additionalProperty: [{ "@type": "PropertyValue", name: "Litsenziya", value: LICENSE_LABEL[f.licenseClass] ?? f.licenseClass }],
+      additionalProperty: [{ "@type": "PropertyValue", name: ru ? "Лицензия" : "Litsenziya", value: ru ? f.licenseClass : LICENSE_LABEL[f.licenseClass] ?? f.licenseClass }],
     },
   ];
 }

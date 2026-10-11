@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { COOKIE, verifyToken } from "@/lib/session";
+import { stripLocale } from "@/i18n/config";
 
 /** Per-request CSP. Next.js reads the nonce from the request's CSP header and
  * stamps it on its own inline/bootstrap scripts; 'strict-dynamic' lets those
@@ -27,6 +28,15 @@ function contentSecurityPolicy(nonce: string): string {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // Russian pages live under /ru: the same routes, rendered in Russian. Admin, API and files have no
+  // Russian version, so /ru/admin etc. go to the real address.
+  const { locale, path } = stripLocale(pathname);
+  if (locale === "ru" && /^\/(admin|api|_next|assets|fonts\/ui|uploads)(\/|$)/.test(path)) {
+    const url = req.nextUrl.clone();
+    url.pathname = path;
+    return NextResponse.redirect(url, 308);
+  }
+
   // Gate every /admin route on a valid session cookie, EXCEPT the login page/action.
   // This is the real auth boundary — the layout check alone is not re-run on
   // client-side navigations between sibling admin routes.
@@ -45,7 +55,16 @@ export async function middleware(req: NextRequest) {
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("Content-Security-Policy", csp);
-  const res = NextResponse.next({ request: { headers: requestHeaders } });
+  requestHeaders.delete("x-locale"); // only this middleware decides the language
+  let res: NextResponse;
+  if (locale === "ru") {
+    requestHeaders.set("x-locale", "ru");
+    const url = req.nextUrl.clone();
+    url.pathname = path;
+    res = NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+  } else {
+    res = NextResponse.next({ request: { headers: requestHeaders } });
+  }
   res.headers.set("Content-Security-Policy", csp);
   return res;
 }
@@ -54,6 +73,9 @@ export const config = {
   matcher: [
     // Always run for admin — including prefetch/RSC requests, or the auth gate could be skipped.
     "/admin/:path*",
+    // Russian pages must be rewritten on prefetch/RSC requests too, or they would 404.
+    "/ru",
+    "/ru/:path*",
     {
       // Pages only — API routes, static files and font/asset folders don't need a CSP nonce.
       source: "/((?!api/|_next/static|_next/image|assets/|fonts/ui/|favicon.ico|robots.txt|sitemap.xml).*)",

@@ -750,3 +750,32 @@ The phase 1 suite (74) still passes.
 - the IndexNow payload for changed pages and for `?indexnow=all`.
 
 All earlier suites still pass.
+
+## 19. Russian language (2026-10-11)
+
+**Why.** Many visitors from Uzbekistan read Russian more easily, and Russian searches ("шрифт скачать бесплатно", "кириллические шрифты") are a large share of type searches in the region. Uzbek stays the main language.
+
+**How it works.**
+- **Addresses.** Uzbek pages keep their addresses. Russian pages live under `/ru` (`/ru/fonts`, `/ru/fonts/<slug>`, …). The middleware rewrites `/ru/...` to the same page and tells it the language in a request header; a header sent by the visitor is ignored. `/ru/admin` and `/ru/api/...` redirect to the real address, because the admin panel and the API have no Russian version.
+- **Text.** All interface text is in two dictionaries (`src/i18n/dict/uz.ts`, `ru.ts`). The Russian one must have the same shape as the Uzbek one, so a missing translation is a build error. Russian plurals are correct ("1 начертание, 3 начертания, 5 начертаний"), and dates follow each language ("11-oktabr, 2026" or "11 октября 2026").
+- **Staying in the language.** Every internal link, filter, search result, form and redirect keeps the visitor in their language. This covers sign-in, registration, password reset (the email link too) and Google and Telegram sign-in.
+- **Language switch.** "RU" / "UZ" sits in the header, in the mobile menu and in the footer. It opens the same page in the other language, filters included. It reloads the page fully: both languages share one layout, so a client-side switch would keep the old header text.
+- **Search engines.** Every translated page has its own canonical address and `hreflang` links (uz, ru, x-default). The sitemap lists both addresses with alternates.
+  - Font pages are translated, including the generated description and the structured data.
+  - The few admin-written taglines and descriptions are Uzbek, so Russian font pages use the generated Russian text instead.
+  - Journal articles and designers' works are written once, in Uzbek. Their Russian pages have Russian menus but are `noindex`, point to the Uzbek original and are not in the sitemap. The journal says its articles are in Uzbek.
+- **Headings in Cyrillic.** The display font (Fraunces) has no Cyrillic, so Lora's Cyrillic is joined to "Feekr Display" by `unicode-range` and preloaded on Russian pages (OFL, `public/fonts/ui/OFL-Lora.txt`). On Russian pages, font cards and the tester show Russian sample text for fonts that have Cyrillic. The home headline rotates through Cyrillic fonts.
+- **Not translated:** the admin panel, the Telegram bot, messages sent to members, and the licence file inside the ZIP.
+
+**Verification:** a new suite of 65 checks passes. It covers:
+- language, title, `og:locale`, canonical and hreflang on Uzbek and Russian pages;
+- that a spoofed language header is ignored;
+- every translated page (status and language), the Russian 404, and the `/ru/admin`, `/ru/api` and `/ru/cart` redirects;
+- prefetch requests to Russian pages;
+- `noindex` and canonical on the Russian work and journal pages, and the sitemap alternates;
+- in the browser: links, filters, cards and search staying in `/ru`; the header's current page; switching in both directions with filters kept; the Cyrillic heading font loading;
+- the sign-in error, registration, the account page and sign-out staying in Russian;
+- no horizontal scroll on phones and the Russian mobile menu;
+- no page or hydration errors.
+
+All earlier suites and the accessibility check (now including Russian pages, light and dark) still pass.

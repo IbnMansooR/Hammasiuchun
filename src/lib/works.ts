@@ -7,8 +7,6 @@ export const WORKS_TAG = "works";
 
 export type WorkKind = "own" | "partner" | "member";
 export const KIND_LABEL: Record<string, string> = { own: "Feekr ishi", partner: "Hamkor ishi", member: "Aʼzo ishi" };
-/** The short flag on a card for work that is not Feekr's own. */
-export const KIND_FLAG: Record<string, string> = { partner: "Hamkor", member: "Aʼzo" };
 
 export type WorkCard = {
   slug: string; title: string; summary: string | null; kind: string;

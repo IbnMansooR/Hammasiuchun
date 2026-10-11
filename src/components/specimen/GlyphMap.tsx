@@ -2,6 +2,7 @@
 import { useState } from "react";
 import type { GlyphGroup } from "@/lib/glyphSupport";
 import { IconCopy } from "../Icons";
+import { useT } from "@/i18n/client";
 
 const hex = (ch: string) => "U+" + ch.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0");
 
@@ -9,6 +10,7 @@ const hex = (ch: string) => "U+" + ch.codePointAt(0)!.toString(16).toUpperCase()
 export default function GlyphMap({ groups, fontFamily, weight, italic, total }: {
   groups: GlyphGroup[]; fontFamily: string; weight: number; italic: boolean; total: number;
 }) {
+  const t = useT().font;
   const all = groups.flatMap((g) => g.chars);
   const [sel, setSel] = useState(all.includes("g") ? "g" : all[0] ?? "A");
   const [copied, setCopied] = useState(false);
@@ -27,19 +29,19 @@ export default function GlyphMap({ groups, fontFamily, weight, italic, total }: 
   return (
     <div className="glyphs">
       <div className="glyph-insp">
-        <div className="glyph-big" style={font} aria-live="polite" aria-label={`Tanlangan belgi: ${sel} (${hex(sel)})`}>{sel}</div>
+        <div className="glyph-big" style={font} aria-live="polite" aria-label={t.selected(sel, hex(sel))}>{sel}</div>
         <div className="glyph-meta">
-          <span><b>{hex(sel)}</b> · {total} belgidan</span>
+          <span><b>{hex(sel)}</b> · {t.ofTotal(total)}</span>
           <button type="button" className="btn btn-sm btn-ghost" onClick={copy}>
-            <IconCopy className="ico" /> {copied ? "Nusxalandi" : "Nusxa olish"}
+            <IconCopy className="ico" /> {copied ? t.copied : t.copy}
           </button>
         </div>
       </div>
       <div>
         {shownGroups.map((g) => (
           <div className="glyph-group" key={g.key}>
-            <h3>{g.label} <span className="num">· {g.chars.length}</span></h3>
-            <div className="glyph-cells" role="group" aria-label={g.label}>
+            <h3>{t.groups[g.key] ?? g.label} <span className="num">· {g.chars.length}</span></h3>
+            <div className="glyph-cells" role="group" aria-label={t.groups[g.key] ?? g.label}>
               {g.chars.map((ch) => (
                 <button type="button" key={ch} style={font} aria-pressed={sel === ch} onClick={() => setSel(ch)} onMouseEnter={() => setSel(ch)} aria-label={`${ch} ${hex(ch)}`}>
                   {ch}
@@ -50,7 +52,7 @@ export default function GlyphMap({ groups, fontFamily, weight, italic, total }: 
         ))}
         {extraN > 0 && main.length > 0 && (
           <button type="button" className="btn btn-sm glyph-more" aria-expanded={more} onClick={() => setMore((v) => !v)}>
-            {more ? "Kamroq koʻrsatish" : `Yana ${extraN} ta belgi — qoʻshimcha harflar va simvollar`}
+            {more ? t.less : t.more(extraN)}
           </button>
         )}
       </div>

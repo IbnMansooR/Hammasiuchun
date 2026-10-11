@@ -1,9 +1,10 @@
-import Link from "next/link";
+import Link from "@/components/LLink";
+import type { Metadata } from "next";
 import { preload } from "react-dom";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { cssFamily, styleFamily, fontFaceCSS, fontFaceCSSPerStyle, previewStyle, uzSample, webfontUrl, CATEGORY_LABEL } from "@/lib/fonts";
-import { PUBLIC_FAMILY, isPublicFamily, LICENSE_NOTE } from "@/lib/license";
+import { cssFamily, styleFamily, fontFaceCSS, fontFaceCSSPerStyle, previewStyle, uzSample, webfontUrl, categoryLabel } from "@/lib/fonts";
+import { PUBLIC_FAMILY, isPublicFamily, licenseNote } from "@/lib/license";
 import { getGlyphInfo, groupGlyphs, type GlyphSupport } from "@/lib/glyphSupport";
 import { cardInclude, toCard, cardsFaceCSS } from "@/lib/cards";
 import { formatNumber } from "@/lib/format";
@@ -17,46 +18,48 @@ import { worksUsingFont } from "@/lib/works";
 import { IconArrow, IconChevron } from "@/components/Icons";
 import JsonLd from "@/components/JsonLd";
 import { fontJsonLd } from "@/lib/seo";
+import { alternates, getLocale } from "@/i18n/server";
+import { DICTS } from "@/i18n/dict";
+import type { Locale } from "@/i18n/config";
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
+  const locale = await getLocale();
   const f = await db.family.findUnique({ where: { slug }, select: { name: true, tagline: true, category: true, styleCount: true, hasCyrillic: true, isPublished: true, licenseClass: true } });
   // Don't leak unpublished/restricted family names via 404 metadata.
   return f && isPublicFamily(f)
     ? {
         // What people type: "<name> shrift", "shrift yuklab olish", "kirill shrift".
-        title: { absolute: `${f.name} shrifti — bepul yuklab olish | Feekr` },
-        description: fontDescription(f),
-        alternates: { canonical: `/fonts/${slug}` },
+        title: { absolute: DICTS[locale].font.metaTitle(f.name) },
+        description: fontDescription(f, locale),
+        alternates: await alternates(`/fonts/${slug}`),
       }
     : {};
 }
 
-function fontDescription(f: { name: string; tagline: string | null; category: string; styleCount: number; hasCyrillic: boolean }): string {
-  const cat = (CATEGORY_LABEL[f.category] ?? f.category).toLowerCase();
-  const scripts = f.hasCyrillic ? "lotin va kirill" : "lotin";
-  const base = `${f.name}: ${cat} shrift, ${f.styleCount} uslub, ${scripts} yozuvi. Bepul yuklab oling va oʻz matningizda sinab koʻring.`;
-  return f.tagline ? `${f.tagline.replace(/[.\s]+$/, "")}. ${base}` : base;
+// The admin-written tagline/description are Uzbek: Russian pages use the generated Russian text.
+function fontDescription(f: { name: string; tagline: string | null; category: string; styleCount: number; hasCyrillic: boolean }, locale: Locale): string {
+  const base = DICTS[locale].font.desc(f.name, categoryLabel(f.category, locale), f.styleCount, f.hasCyrillic);
+  return f.tagline && locale === "uz" ? `${f.tagline.replace(/[.\s]+$/, "")}. ${base}` : base;
 }
 
 function autoAbout(f: {
   name: string; category: string; styleCount: number; hasItalic: boolean; glyphs: number;
   designer: string | null; manufacturer: string | null;
-}): string {
-  const cat = CATEGORY_LABEL[f.category] ?? f.category;
-  const parts: string[] = [];
-  parts.push(`${f.name} — ${cat.toLowerCase()} toifasidagi ${f.styleCount} uslubli shrift oilasi.`);
-  if (f.designer) parts.push(`Uni ${f.designer} ishlab chiqqan.`);
-  if (f.manufacturer && f.manufacturer !== f.designer) parts.push(`${f.manufacturer} tomonidan tayyorlangan.`);
-  const bits: string[] = [];
-  if (f.glyphs) bits.push(`${f.glyphs}+ belgi`);
-  if (f.hasItalic) bits.push("kursiv variantlari");
-  if (bits.length) parts.push(`Oila ${bits.join(" va ")}ni oʻz ichiga oladi.`);
-  parts.push(`${cat} shriftlari sarlavhalar, brending va ${f.category === "Display" ? "ekspressiv dizayn" : "matnli tarkib"} uchun mos keladi.`);
-  return parts.join(" ");
+}, locale: Locale): string {
+  return DICTS[locale].font.autoAbout({
+    name: f.name, cat: categoryLabel(f.category, locale), category: f.category, styles: f.styleCount,
+    italic: f.hasItalic, glyphs: f.glyphs, designer: f.designer, manufacturer: f.manufacturer,
+  });
 }
 
-function texts(support: GlyphSupport | null, cyrillicOnly: boolean) {
+function texts(support: GlyphSupport | null, cyrillicOnly: boolean, locale: Locale, hasCyrillic: boolean) {
+  if (locale === "ru" && (support ? support.cyrillic : hasCyrillic)) {
+    return {
+      line: "Узбекистан — край идей, солнца и шрифтов",
+      para: "Хороший шрифт не выставляет себя напоказ — он делает чтение лёгким. Расстояние между буквами, ритм слов и интерлиньяж вместе дают странице голос. Поэтому, выбирая шрифт, смотрите не только на заголовок, но и на длинный текст.",
+    };
+  }
   if (cyrillicOnly) {
     return {
       line: "Ўзбекистон — ғоялар, қуёш ва шрифтлар юрти",
@@ -74,6 +77,8 @@ const WATERFALL = [96, 64, 48, 32, 24, 18, 14];
 
 export default async function FontDetail({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  const locale = await getLocale();
+  const L = DICTS[locale].font;
   const f = await db.family.findUnique({
     where: { slug },
     include: { styles: { orderBy: [{ italic: "asc" }, { weight: "asc" }] } },
@@ -100,22 +105,22 @@ export default async function FontDetail({ params }: { params: Promise<{ slug: s
   const support = glyph?.support ?? null;
   const groups = glyph ? groupGlyphs(glyph.chars) : [];
   const cyrillicOnly = !f.hasLatin && f.hasCyrillic;
-  const t = texts(support, cyrillicOnly);
+  const t = texts(support, cyrillicOnly, locale, f.hasCyrillic);
 
   const faceCSS = fontFaceCSS(slug, cuts) + fontFaceCSSPerStyle(slug, cuts) + cardsFaceCSS(related);
   const family = `"${cssFamily(slug)}", var(--font)`;
   const pvFamily = pv ? `"${styleFamily(slug, pv.style)}", var(--font)` : family;
-  const cat = CATEGORY_LABEL[f.category] ?? f.category;
+  const cat = categoryLabel(f.category, locale);
   const sections = ["sinash", "uslublar", ...(groups.length ? ["belgilar"] : []), "matn", "haqida"];
 
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: faceCSS }} />
-      <JsonLd data={fontJsonLd(f, fontDescription(f))} />
+      <JsonLd data={fontJsonLd(f, fontDescription(f, locale), locale)} />
 
       <div className="container">
-        <nav className="crumbs" aria-label="Yoʻl">
-          <Link href="/fonts">Shriftlar</Link>
+        <nav className="crumbs" aria-label={L.crumbs}>
+          <Link href="/fonts">{L.fonts}</Link>
           <IconChevron />
           <Link href={`/fonts?cat=${f.category}`}>{cat}</Link>
           <IconChevron />
@@ -125,14 +130,14 @@ export default async function FontDetail({ params }: { params: Promise<{ slug: s
         <section className="fhero">
           <div style={{ minWidth: 0 }}>
             <h1 className="fhero-title" style={{ fontFamily: family, fontWeight: pv?.weight ?? 400, fontStyle: pv?.italic ? "italic" : "normal" }}>{f.name}</h1>
-            {f.tagline && <p className="fhero-tagline">{f.tagline}</p>}
+            {f.tagline && locale === "uz" && <p className="fhero-tagline">{f.tagline}</p>}
             {support && (
-              <ul className="fhero-badges" aria-label="Yozuv qoʻllab-quvvatlanishi">
+              <ul className="fhero-badges" aria-label={L.scripts}>
                 <li className={`tag ${support.uzLatin ? "tag-ok" : support.uzLatinBasic ? "tag-warn" : "tag-off"}`}>
-                  {support.uzLatin ? "✓ Oʻzbek lotin — oʻ, gʻ (ʻ)" : support.uzLatinBasic ? "≈ Oʻzbek lotin — ʻ yoʻq, ‘ bilan yoziladi" : "✕ Oʻzbek lotin belgilari yoʻq"}
+                  {support.uzLatin ? L.uzLatinOk : support.uzLatinBasic ? L.uzLatinBasic : L.uzLatinNo}
                 </li>
                 <li className={`tag ${support.uzCyrillic ? "tag-ok" : support.cyrillic ? "tag-warn" : "tag-off"}`}>
-                  {support.uzCyrillic ? "✓ Oʻzbek kirill — ў қ ғ ҳ" : support.cyrillic ? "≈ Rus kirill bor, ў қ ғ ҳ yoʻq" : "✕ Kirill yoʻq"}
+                  {support.uzCyrillic ? L.uzCyrOk : support.cyrillic ? L.uzCyrRu : L.uzCyrNo}
                 </li>
               </ul>
             )}
@@ -141,11 +146,11 @@ export default async function FontDetail({ params }: { params: Promise<{ slug: s
         </section>
 
         <dl className="specsheet">
-          <div><dt>Kategoriya</dt><dd>{cat}</dd></div>
-          <div><dt>Uslublar</dt><dd>{f.styleCount}{f.hasItalic ? " · kursiv bilan" : ""}</dd></div>
-          <div><dt>Belgilar</dt><dd>{f.glyphs > 0 ? `${formatNumber(f.glyphs)}+` : "—"}</dd></div>
-          <div><dt>Dizayner</dt><dd title={f.designer ?? undefined}>{f.designer ?? "—"}</dd></div>
-          <div><dt>Litsenziya</dt><dd>{f.licenseClass}</dd></div>
+          <div><dt>{L.category}</dt><dd>{cat}</dd></div>
+          <div><dt>{L.styles}</dt><dd>{f.styleCount}{f.hasItalic ? L.withItalic : ""}</dd></div>
+          <div><dt>{L.glyphs}</dt><dd>{f.glyphs > 0 ? `${formatNumber(f.glyphs)}+` : "—"}</dd></div>
+          <div><dt>{L.designer}</dt><dd title={f.designer ?? undefined}>{f.designer ?? "—"}</dd></div>
+          <div><dt>{L.license}</dt><dd>{f.licenseClass}</dd></div>
         </dl>
       </div>
 
@@ -154,12 +159,12 @@ export default async function FontDetail({ params }: { params: Promise<{ slug: s
       <WorkbenchProvider cuts={cuts} name={f.name}>
         <div className="container">
           <section id="sinash" className="fsec" aria-labelledby="h-sinash">
-            <div className="fsec-head"><h2 id="h-sinash">Sinab koʻring</h2><span className="label">Matnni oʻzgartirish uchun ustiga bosing</span></div>
+            <div className="fsec-head"><h2 id="h-sinash">{L.tryIt}</h2><span className="label">{L.tryHint}</span></div>
             <Tester slug={slug} name={f.name} cuts={cuts} support={support} />
           </section>
 
           <section id="uslublar" className="fsec cv" aria-labelledby="h-uslublar">
-            <div className="fsec-head"><h2 id="h-uslublar">Uslublar</h2><span className="label">{cuts.length} ta kesim</span></div>
+            <div className="fsec-head"><h2 id="h-uslublar">{L.styles}</h2><span className="label">{L.cuts(cuts.length)}</span></div>
             <StyleRows slug={slug} cuts={cuts} fallback={t.line} />
           </section>
         </div>
@@ -168,13 +173,13 @@ export default async function FontDetail({ params }: { params: Promise<{ slug: s
       <div className="container">
         {groups.length > 0 && (
           <section id="belgilar" className="fsec cv" aria-labelledby="h-belgilar">
-            <div className="fsec-head"><h2 id="h-belgilar">Belgilar</h2><span className="label">{glyph!.chars.length} ta belgi</span></div>
+            <div className="fsec-head"><h2 id="h-belgilar">{L.glyphs}</h2><span className="label">{L.glyphsN(glyph!.chars.length)}</span></div>
             <GlyphMap groups={groups} fontFamily={pvFamily} weight={pv?.weight ?? 400} italic={pv?.italic ?? false} total={glyph!.chars.length} />
           </section>
         )}
 
         <section id="matn" className="fsec cv" aria-labelledby="h-matn">
-          <div className="fsec-head"><h2 id="h-matn">Matnda</h2><span className="label">{pv ? `${pv.style} · ${pv.weight}` : ""}</span></div>
+          <div className="fsec-head"><h2 id="h-matn">{L.inText}</h2><span className="label">{pv ? `${pv.style} · ${pv.weight}` : ""}</span></div>
           <div className="waterfall" style={{ fontFamily: pvFamily, fontWeight: pv?.weight ?? 400, fontStyle: pv?.italic ? "italic" : "normal" }}>
             {WATERFALL.map((px) => (
               <div className="wf-row" key={px}>
@@ -184,33 +189,33 @@ export default async function FontDetail({ params }: { params: Promise<{ slug: s
             ))}
           </div>
           <div className="para-grid" style={{ fontFamily: pvFamily, fontWeight: pv?.weight ?? 400, fontStyle: pv?.italic ? "italic" : "normal" }}>
-            <div><span className="label" style={{ fontFamily: "var(--font)", fontStyle: "normal" }}>Matn · 16 / 26px</span><p style={{ fontSize: 16, lineHeight: "26px" }}>{t.para}</p></div>
-            <div><span className="label" style={{ fontFamily: "var(--font)", fontStyle: "normal" }}>Matn · 21 / 32px</span><p style={{ fontSize: 21, lineHeight: "32px" }}>{t.para}</p></div>
+            <div><span className="label" style={{ fontFamily: "var(--font)", fontStyle: "normal" }}>{L.text} · 16 / 26px</span><p style={{ fontSize: 16, lineHeight: "26px" }}>{t.para}</p></div>
+            <div><span className="label" style={{ fontFamily: "var(--font)", fontStyle: "normal" }}>{L.text} · 21 / 32px</span><p style={{ fontSize: 21, lineHeight: "32px" }}>{t.para}</p></div>
           </div>
         </section>
 
         <section id="haqida" className="fsec cv" aria-labelledby="h-haqida">
-          <div className="fsec-head"><h2 id="h-haqida">{f.name} haqida</h2></div>
+          <div className="fsec-head"><h2 id="h-haqida">{L.about(f.name)}</h2></div>
           <div className="about-grid">
             <div className="prose">
-              <p>{f.description || autoAbout(f)}</p>
-              {f.history && (<><h3>Tarixi</h3><p>{f.history}</p></>)}
-              {f.usage && (<><h3>Qoʻllanilishi</h3><p>{f.usage}</p></>)}
+              <p>{(locale === "uz" && f.description) || autoAbout(f, locale)}</p>
+              {f.history && locale === "uz" && (<><h3>{L.history}</h3><p>{f.history}</p></>)}
+              {f.usage && locale === "uz" && (<><h3>{L.usage}</h3><p>{f.usage}</p></>)}
             </div>
             <dl className="facts">
-              {f.designer && <div><dt>Dizayner</dt><dd>{f.designerUrl ? <a className="link" href={f.designerUrl} target="_blank" rel="noreferrer noopener">{f.designer}</a> : f.designer}</dd></div>}
-              {f.manufacturer && f.manufacturer !== f.designer && <div><dt>Ishlab chiqaruvchi</dt><dd>{f.manufacturer}</dd></div>}
-              {f.version && <div><dt>Versiya</dt><dd>{f.version.replace(/^Version\s*/i, "")}</dd></div>}
-              <div><dt>Litsenziya</dt><dd>{f.licenseUrl ? <a className="link" href={f.licenseUrl} target="_blank" rel="noreferrer noopener">{f.license || f.licenseClass}</a> : (f.license || f.licenseClass)}</dd></div>
-              <div><dt>Foydalanish</dt><dd>{LICENSE_NOTE[f.licenseClass]?.split(" — ")[1] ?? "Shartlar ZIP ichida"}</dd></div>
-              {f.copyright && <div><dt>Huquq egasi</dt><dd style={{ fontWeight: 400, fontSize: 13 }}>{f.copyright}</dd></div>}
+              {f.designer && <div><dt>{L.designer}</dt><dd>{f.designerUrl ? <a className="link" href={f.designerUrl} target="_blank" rel="noreferrer noopener">{f.designer}</a> : f.designer}</dd></div>}
+              {f.manufacturer && f.manufacturer !== f.designer && <div><dt>{L.manufacturer}</dt><dd>{f.manufacturer}</dd></div>}
+              {f.version && <div><dt>{L.version}</dt><dd>{f.version.replace(/^Version\s*/i, "")}</dd></div>}
+              <div><dt>{L.license}</dt><dd>{f.licenseUrl ? <a className="link" href={f.licenseUrl} target="_blank" rel="noreferrer noopener">{f.license || f.licenseClass}</a> : (f.license || f.licenseClass)}</dd></div>
+              <div><dt>{L.use}</dt><dd>{licenseNote(f.licenseClass, locale)?.split(" — ")[1] ?? L.termsInZip}</dd></div>
+              {f.copyright && <div><dt>{L.copyright}</dt><dd style={{ fontWeight: 400, fontSize: 13 }}>{f.copyright}</dd></div>}
             </dl>
           </div>
         </section>
 
         {works.length > 0 && (
           <section className="fsec cv" aria-labelledby="h-works">
-            <div className="fsec-head"><h2 id="h-works">Amalda</h2><span className="label">{f.name} ishlatilgan loyihalar</span></div>
+            <div className="fsec-head"><h2 id="h-works">{L.inUse}</h2><span className="label">{L.inUseSub(f.name)}</span></div>
             <div className="pf-grid pf-grid-3">
               {works.slice(0, 3).map((w) => <WorkCard key={w.slug} w={w} />)}
             </div>
@@ -220,8 +225,8 @@ export default async function FontDetail({ params }: { params: Promise<{ slug: s
         {related.length > 0 && (
           <section className="fsec cv" aria-labelledby="h-related" style={{ paddingTop: 80 }}>
             <div className="section-head">
-              <h2 id="h-related">Oʻxshash shriftlar</h2>
-              <Link href={`/fonts?cat=${f.category}`} className="arrow-link">Barcha {cat.toLowerCase()} <IconArrow /></Link>
+              <h2 id="h-related">{L.similar}</h2>
+              <Link href={`/fonts?cat=${f.category}`} className="arrow-link">{L.allOfCat(cat)} <IconArrow /></Link>
             </div>
             <div className="fgrid">
               {related.map((r) => <FontCard key={r.slug} f={r} />)}

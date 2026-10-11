@@ -1,11 +1,13 @@
 "use client";
 import { useId, useState } from "react";
+import { useT } from "@/i18n/client";
 
 /** Chip input for font slugs, suggesting from the catalogue. */
 export default function SlugPicker({ name, initial, options }: { name: string; initial: string[]; options: { slug: string; name: string }[] }) {
   const [list, setList] = useState<string[]>(initial);
   const [q, setQ] = useState("");
   const id = useId();
+  const t = useT().upload;
   const byName = new Map(options.map((o) => [o.slug, o.name]));
 
   const add = (raw: string) => {
@@ -25,7 +27,7 @@ export default function SlugPicker({ name, initial, options }: { name: string; i
           {list.map((s) => (
             <li key={s} className="chip">
               {byName.get(s) ?? s}
-              <button type="button" onClick={() => setList(list.filter((x) => x !== s))} aria-label={`${byName.get(s) ?? s} ni olib tashlash`}>✕</button>
+              <button type="button" onClick={() => setList(list.filter((x) => x !== s))} aria-label={t.fontRemove(byName.get(s) ?? s)}>✕</button>
             </li>
           ))}
         </ul>
@@ -40,8 +42,8 @@ export default function SlugPicker({ name, initial, options }: { name: string; i
           if (options.some((o) => o.name === v)) add(v); else setQ(v);
         }}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); add(q); } }}
-        placeholder="Shrift nomini yozing…"
-        aria-label="Ishlatilgan shrift qoʻshish"
+        placeholder={t.fontPlaceholder}
+        aria-label={t.fontAdd}
       />
       <datalist id={id}>
         {options.filter((o) => !list.includes(o.slug)).map((o) => <option key={o.slug} value={o.name} />)}

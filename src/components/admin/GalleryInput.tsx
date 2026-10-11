@@ -1,5 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
+import { useLocale, useT } from "@/i18n/client";
 
 // Uploads straight to an upload endpoint (admin by default, /api/me/upload for members), one image per request. Large photos are
 // downsized in the browser first (long side ≤ 2560 px, WebP) so each request
@@ -45,6 +46,8 @@ export default function GalleryInput({
   const [error, setError] = useState<string>("");
   const [manual, setManual] = useState("");
   const input = useRef<HTMLInputElement>(null);
+  const t = useT().upload;
+  const locale = useLocale();
 
   async function upload(files: FileList | null) {
     if (!files?.length) return;
@@ -52,16 +55,16 @@ export default function GalleryInput({
     const added: string[] = [];
     const room = Math.max(0, max - images.length);
     const list = Array.from(files).slice(0, room);
-    if (files.length > room) setError(room ? `Ko‘pi bilan ${max} ta rasm. Ortiqchasi qo‘shilmadi.` : `Ko‘pi bilan ${max} ta rasm qo‘shish mumkin.`);
+    if (files.length > room) setError(room ? t.tooMany(max) : t.maxN(max));
     if (!list.length) return;
     for (let i = 0; i < list.length; i++) {
-      setBusy(`Yuklanmoqda ${i + 1} / ${list.length}…`);
+      setBusy(t.uploading(i + 1, list.length));
       try {
         const fd = new FormData();
         fd.append("file", await prepare(list[i]));
-        const res = await fetch(endpoint, { method: "POST", body: fd });
+        const res = await fetch(locale === "ru" ? `${endpoint}?lang=ru` : endpoint, { method: "POST", body: fd });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.url) throw new Error(data.error || "Yuklashda xatolik.");
+        if (!res.ok || !data.url) throw new Error(data.error || t.failed);
         added.push(data.url);
       } catch (e) {
         setError(`${list[i].name}: ${(e as Error).message}`);
@@ -87,8 +90,8 @@ export default function GalleryInput({
   };
   const addManual = () => {
     const u = manual.trim();
-    if (!/^https:\/\/\S+$/.test(u) && !u.startsWith("/uploads/")) { setError("Havola https:// bilan boshlanishi kerak."); return; }
-    if (images.length >= max) { setError(`Ko‘pi bilan ${max} ta rasm qo‘shish mumkin.`); return; }
+    if (!/^https:\/\/\S+$/.test(u) && !u.startsWith("/uploads/")) { setError(t.https); return; }
+    if (images.length >= max) { setError(t.maxN(max)); return; }
     setImages((prev) => (prev.includes(u) ? prev : [...prev, u]));
     setCover((c) => c || u);
     setManual("");
@@ -106,10 +109,10 @@ export default function GalleryInput({
         onDragLeave={(e) => e.currentTarget.classList.remove("is-over")}
         onDrop={(e) => { e.preventDefault(); e.currentTarget.classList.remove("is-over"); upload(e.dataTransfer.files); }}
       >
-        <p><b>Rasmlarni shu yerga tashlang</b> yoki</p>
-        <button type="button" className="btn btn-sm" onClick={() => input.current?.click()} disabled={!!busy}>Fayl tanlash</button>
+        <p><b>{t.drop}</b> {t.or}</p>
+        <button type="button" className="btn btn-sm" onClick={() => input.current?.click()} disabled={!!busy}>{t.pick}</button>
         <input ref={input} type="file" accept={ACCEPT} multiple hidden onChange={(e) => upload(e.target.files)} />
-        <p className="muted">JPG, PNG, WebP, GIF, AVIF{max < 60 ? `, ko‘pi bilan ${max} ta` : ""}. Katta rasmlar avtomatik kichraytiriladi.</p>
+        <p className="muted">{t.formats(max < 60 ? max : null)}</p>
         {busy && <p role="status" className="drop-busy">{busy}</p>}
       </div>
       {error && <p role="alert" className="adm-notice adm-notice-error" style={{ marginTop: 10 }}>{error}</p>}
@@ -119,12 +122,12 @@ export default function GalleryInput({
           {images.map((u, i) => (
             <li key={u} className={u === cover ? "is-cover" : ""}>
               <img src={u} alt="" loading="lazy" />
-              {u === cover && <span className="tag tag-new thumbs-badge">Muqova</span>}
+              {u === cover && <span className="tag tag-new thumbs-badge">{t.cover}</span>}
               <div className="thumbs-bar">
-                <button type="button" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Chapga">←</button>
-                <button type="button" onClick={() => move(i, 1)} disabled={i === images.length - 1} aria-label="Oʻngga">→</button>
-                {pickCover && u !== cover && <button type="button" onClick={() => setCover(u)}>Muqova</button>}
-                <button type="button" onClick={() => remove(u)} aria-label="Olib tashlash" className="danger">✕</button>
+                <button type="button" onClick={() => move(i, -1)} disabled={i === 0} aria-label={t.left}>←</button>
+                <button type="button" onClick={() => move(i, 1)} disabled={i === images.length - 1} aria-label={t.right}>→</button>
+                {pickCover && u !== cover && <button type="button" onClick={() => setCover(u)}>{t.cover}</button>}
+                <button type="button" onClick={() => remove(u)} aria-label={t.remove} className="danger">✕</button>
               </div>
             </li>
           ))}
@@ -138,10 +141,10 @@ export default function GalleryInput({
           value={manual}
           onChange={(e) => setManual(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addManual(); } }}
-          placeholder="…yoki rasm havolasini qoʻying (https://)"
-          aria-label="Rasm havolasi"
+          placeholder={t.urlPlaceholder}
+          aria-label={t.urlLabel}
         />
-        <button type="button" className="btn btn-sm" onClick={addManual}>Qoʻshish</button>
+        <button type="button" className="btn btn-sm" onClick={addManual}>{t.add}</button>
       </div>
       )}
     </div>

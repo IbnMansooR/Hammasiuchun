@@ -6,6 +6,7 @@ export type PairSide = { slug: string; name: string; style: string; weight: numb
 export type Pairing = {
   id: string;
   label: string;
+  cats: [string, string]; // heading and body categories (for labels in other languages)
   heading: PairSide;
   body: PairSide;
   sampleHeading: string;
@@ -104,6 +105,7 @@ export async function getPairings(): Promise<Pairing[]> {
     pairings.push({
       id: `${hf.slug}__${bf.slug}`,
       label: `${CATEGORY_LABEL[hCat] ?? hCat} + ${CATEGORY_LABEL[bCat] ?? bCat}`,
+      cats: [hCat, bCat],
       heading: { slug: hf.slug, name: hf.name, style: h.style, weight: h.weight, italic: h.italic },
       body: { slug: bf.slug, name: bf.name, style: b.style, weight: b.weight, italic: b.italic },
       sampleHeading: s.h,

@@ -2,6 +2,7 @@
 import { useState } from "react";
 import PhoneLoginForm from "./PhoneLoginForm";
 import TelegramLogin from "./TelegramLogin";
+import { useLocale, useT } from "@/i18n/client";
 
 export default function AuthTabs({
   emailForm, googleEnabled, smsEnabled, telegramBot = null,
@@ -13,13 +14,15 @@ export default function AuthTabs({
   telegramBot?: string | null;
 }) {
   const [tab, setTab] = useState<"email" | "phone">("email");
+  const t = useT().auth;
+  const locale = useLocale();
 
   return (
     <div>
       {smsEnabled && (
-        <div className="seg" role="group" aria-label="Kirish usuli" style={{ marginBottom: 20, display: "flex" }}>
-          <button type="button" style={{ flex: 1 }} aria-pressed={tab === "email"} onClick={() => setTab("email")}>Email</button>
-          <button type="button" style={{ flex: 1 }} aria-pressed={tab === "phone"} onClick={() => setTab("phone")}>Telefon</button>
+        <div className="seg" role="group" aria-label={t.method} style={{ marginBottom: 20, display: "flex" }}>
+          <button type="button" style={{ flex: 1 }} aria-pressed={tab === "email"} onClick={() => setTab("email")}>{t.email}</button>
+          <button type="button" style={{ flex: 1 }} aria-pressed={tab === "phone"} onClick={() => setTab("phone")}>{t.phoneTab}</button>
         </div>
       )}
 
@@ -27,11 +30,11 @@ export default function AuthTabs({
 
       {(googleEnabled || telegramBot) && (
         <>
-          <div className="divider">yoki</div>
+          <div className="divider">{t.or}</div>
           <div className="oneclick">
             {googleEnabled && (
-              <a href="/api/auth/google" className="btn btn-lg btn-block">
-                Google orqali davom etish
+              <a href={locale === "ru" ? "/api/auth/google?lang=ru" : "/api/auth/google"} className="btn btn-lg btn-block">
+                {t.google}
               </a>
             )}
             {telegramBot && <TelegramLogin bot={telegramBot} />}

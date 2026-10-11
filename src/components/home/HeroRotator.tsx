@@ -1,5 +1,6 @@
 "use client";
-import Link from "next/link";
+import Link from "../LLink";
+import { useT } from "@/i18n/client";
 import { useEffect, useRef, useState } from "react";
 import { cssFamily } from "@/lib/fonts";
 
@@ -12,6 +13,7 @@ export default function HeroRotator({ lead, word, fonts }: { lead: string; word:
   const [i, setI] = useState(0);
   const [out, setOut] = useState(false);
   const idx = useRef(0);
+  const fontLabel = useT().card.fontLabel;
 
   useEffect(() => {
     if (fonts.length < 2 || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -54,7 +56,7 @@ export default function HeroRotator({ lead, word, fonts }: { lead: string; word:
       {f && (
         <p className="rot-cap">
           <span className="rot-dot" aria-hidden="true" />
-          <span>Shrift:</span> <Link href={`/fonts/${f.slug}`}>{f.name}</Link>
+          <span>{fontLabel}</span> <Link href={`/fonts/${f.slug}`}>{f.name}</Link>
         </p>
       )}
     </>
