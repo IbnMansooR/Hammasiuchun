@@ -223,6 +223,10 @@ export async function saveSearchVerificationAction(fd: FormData) {
   const rawY = str(fd, "yandexVerification");
   // An easy mix-up: the sitemap address goes into Google / Yandex, not here.
   if ([rawG, rawY].some((v) => /sitemap|^https?:\/\//i.test(v))) redirect("/admin/settings?error=sitemap#search");
+  // "google-site-verification=…" is the DNS (TXT record) code of a "Domain" property: it cannot work as a meta tag.
+  if (/^\s*(google|yandex)-(site-)?verification\s*=/i.test(rawG) || /^\s*yandex-verification\s*[:=]/i.test(rawY)) {
+    redirect("/admin/settings?error=dns#search");
+  }
   const google = cleanVerification(rawG);
   const yandex = cleanVerification(rawY);
   if ((rawG && !google) || (rawY && !yandex)) redirect("/admin/settings?error=verification#search");

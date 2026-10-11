@@ -82,6 +82,12 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         </p>
         {saved === "search" && <div className="adm-notice adm-notice-ok" role="status">Saqlandi. Endi Google / Yandex sahifasida “Tasdiqlash” tugmasini bosing.</div>}
         {error === "verification" && <div className="adm-notice adm-notice-error" role="alert">Kod notoʻgʻri koʻrinadi. Google yoki Yandex bergan <code>content="…"</code> ichidagi qiymatni qoʻying.</div>}
+        {error === "dns" && (
+          <div className="adm-notice adm-notice-error" role="alert">
+            Bu DNS (TXT yozuvi) uchun kod: u Search Console’da “Domain” turi tanlanganda beriladi va saytga emas, domen DNS sozlamalariga qoʻshiladi.
+            Bu yerda ishlatish uchun Search Console’da <b>“URL prefix”</b> turini tanlang va <b>“HTML tag”</b> usulidagi <code>&lt;meta …&gt;</code> tegini oling.
+          </div>
+        )}
         {error === "sitemap" && (
           <div className="adm-notice adm-notice-error" role="alert">
             Bu maydonlarga sitemap emas, Google va Yandex bergan <b>tasdiqlash kodi</b> qoʻyiladi. Sitemap Google Search Console va Yandex Webmaster ichida qoʻshiladi (pastda yozilgan).
