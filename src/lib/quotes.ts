@@ -148,14 +148,25 @@ export function toCyrillic(s: string): string {
 
 export type PickedQuote = { id: string; lines: string; author: string | null; cyrillic: boolean };
 
-/** The text as this font can draw it: Uzbek signs and dashes fall back to plainer ones, and
- * anything else missing rules the quote out. */
+/** The text as this font can draw it. Uzbek signs and dashes fall back to plainer ones; a font
+ * with no dash at all gets a line break instead, and one without punctuation (many display and
+ * demo fonts) gets the words alone. A missing letter rules the quote out. */
 function drawable(text: string, has: (c: string) => boolean): string | null {
+  const pick = (...cs: string[]) => cs.find(has) ?? null;
   let t = text;
-  if (!has("ʻ")) t = t.replace(/ʻ/g, has("‘") ? "‘" : "'");
-  if (!has("ʼ")) t = t.replace(/ʼ/g, has("’") ? "’" : "'");
-  if (!has("—")) t = t.replace(/—/g, has("–") ? "–" : "-");
-  return [...t].every((c) => /\s/.test(c) || has(c)) ? t : null;
+  for (const [sign, ...alts] of [["ʻ", "‘", "'"], ["ʼ", "’", "'"]]) {
+    if (!t.includes(sign) || has(sign)) continue;
+    const alt = pick(...alts);
+    if (!alt) return null;
+    t = t.split(sign).join(alt);
+  }
+  if (!has("—")) t = t.replace(/\s*—\s*/g, (m) => {
+    const d = pick("–", "-");
+    return d ? m.replace("—", d) : "\n";
+  });
+  for (const p of ".,:;!?") if (!has(p)) t = t.split(p).join("");
+  t = t.replace(/[ \t]*\n[ \t]*/g, "\n").replace(/ {2,}/g, " ").trim();
+  return t && [...t].every((c) => /\s/.test(c) || has(c)) ? t : null;
 }
 
 function fit(q: Quote, has: (c: string) => boolean, cyrillicFirst: boolean): PickedQuote | null {

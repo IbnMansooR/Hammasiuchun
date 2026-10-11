@@ -837,7 +837,7 @@ All earlier suites still pass.
 **What it does.** The bot now posts the site's fonts to the Telegram channel by itself, one family per post, the way type foundries post. Each post is an album of 1080×1350 pictures (4:5, the largest Telegram shows in a feed), rendered by the site from the font file:
 1. **Iqtibos:** a quote set in the font, as large as it fits, with the font's own quotation mark, the author and the font's name.
 2. **Muqova:** "Aa", the name, category, styles, scripts and designer.
-3. **Harflar:** the Latin alphabet, the Uzbek letters (oʻ gʻ sh ch ʼ and ў қ ғ ҳ), Cyrillic and figures. A sign the font lacks is left out rather than drawn as a box.
+3. **Harflar:** the Latin alphabet, the Uzbek letters (oʻ gʻ sh ch ʼ and ў қ ғ ҳ), Cyrillic and figures. A sign the font lacks is left out rather than drawn as a box, an empty section is not shown, and wide faces shrink to the page width.
 4. **Matn:** a headline, a paragraph and three text sizes.
 5. **Uslublar:** each style in its own cut. Only for families with 3+ styles.
 
@@ -855,7 +855,8 @@ How a quote is chosen:
 - The choice is deterministic, so the preview is exactly what gets posted.
 - It moves on after every post: the last 40 used quotes are not repeated, and the admin's own quotes go first.
 - Cyrillic-only fonts get the quote transliterated to Uzbek Cyrillic.
-- A font without ʻ or — gets the nearest sign it has.
+- A font without ʻ or — gets the nearest sign it has. With no dash at all, a line break takes its place.
+- A font without punctuation (common in demo fonts) gets the words alone. Production's newest font, a letters-only demo, showed this.
 - A quote the font can't draw is never used.
 
 How the text is laid out:
@@ -888,9 +889,9 @@ How the text is laid out:
 - Poster URLs are public, but they only render published families and known quotes, never arbitrary text. They are rate-limited and cached for a week on the CDN.
 
 **Verification:**
-- Posters were rendered and checked by eye for sans, serif, mono, script (Pacifico), display (Lobster, Bebas Neue), a Latin-only Thai face (Loma) and a Cyrillic-only case.
-- A new suite of 50 checks passes:
-  - the poster route: bad input, unknown quote, styles picture;
+- Posters were rendered and checked by eye for sans, serif, mono, script (Pacifico), display (Lobster, Bebas Neue), a Latin-only Thai face (Loma), a letters-only font and a Cyrillic-only case. After deploy they were checked again on production fonts: Montserrat (all five pictures), MADE Tommy Outline and the letters-only Raventy demo.
+- A new suite of 52 checks passes:
+  - the poster route: bad input, unknown quote, styles picture, a letters-only font;
   - the scheduled run: album order, every picture fetched as PNG by the fake Telegram, the same quote on each, a quote that suits the font, the caption and its link, the admin's message, remembered state;
   - no second post the same day; "busy" when the day is already claimed; the next family with a different quote; every-3-days; off;
   - album refused → single card, with the quote not counted as used;

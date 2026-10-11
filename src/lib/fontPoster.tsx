@@ -248,6 +248,7 @@ export async function renderPoster(slug: string, kind: PosterKind, q: string | n
   const [base, main] = await Promise.all([ogFonts(), readFont(sample.folder, sample.file)]);
   if (!main) return null;
   const p = paletteFor(slug);
+  const measure = measurer(main);
   const t = texts(has, cyrillicOnly);
   const S = "Specimen, Feekr Sans";
   const total = kinds.length;
@@ -265,7 +266,7 @@ export async function renderPoster(slug: string, kind: PosterKind, q: string | n
   if (kind === "iqtibos" && quote) {
     // The quote as large as it fits, lines balanced; the font's own quotation mark when it has one.
     const lh = lineHeight(main, quote.lines, 1.08, 1.5);
-    const fit = fitText(quote.lines, measurer(main), { width: 900, height: 720, max: 150, min: 40, lh });
+    const fit = fitText(quote.lines, measure, { width: 900, height: 720, max: 150, min: 40, lh });
     const mark = has("“") ? "“" : has("«") ? "«" : null;
     const dash = !quote.cyrillic || has("—") ? "—" : "–";
     const nameInFont = [...fam.name].every((c) => c === " " || has(c));
@@ -304,12 +305,17 @@ export async function renderPoster(slug: string, kind: PosterKind, q: string | n
     const lat = !cyrillicOnly;
     const cyr = fam.hasCyrillic && has("Ж");
     const big = lat && cyr ? 66 : 84;
-    const a = has("ʻ") ? "ʻ" : "‘";
-    const uzLat = only(`O${a} o${a} G${a} g${a} Sh sh Ch ch ʼ`);
-    const uzCyr = only("Ў ў Қ қ Ғ ғ Ҳ ҳ");
-    const row = (s: string, size: number) => (
-      <div style={{ display: "flex", fontFamily: S, fontSize: size, lineHeight: 1.15, letterSpacing: 2 }}>{s}</div>
-    );
+    // oʻ gʻ with whichever sign the font has; without any, just the digraphs.
+    const a = ["ʻ", "‘", "'"].find(has);
+    const uzLat = only([a ? `O${a} o${a} G${a} g${a}` : "", "Sh sh Ch ch", has("ʼ") ? "ʼ" : ""].filter(Boolean).join(" ")).trim();
+    const uzCyr = only("Ў ў Қ қ Ғ ғ Ҳ ҳ").trim();
+    const figures = only("0123456789 !?&@%").trim();
+    // Wide faces shrink to the page width instead of running off it.
+    const row = (s: string, size: number) => {
+      const w = measure(s, size) + 2 * s.length;
+      const px = w > 936 ? Math.floor((size * 936) / w) : size;
+      return <div style={{ display: "flex", fontFamily: S, fontSize: px, lineHeight: 1.15, letterSpacing: 2 }}>{s}</div>;
+    };
     body = (
       <div style={{ display: "flex", flexDirection: "column", gap: 26 }}>
         {lat && (
@@ -321,11 +327,11 @@ export async function renderPoster(slug: string, kind: PosterKind, q: string | n
             {row(only(LOW.slice(13)), big)}
           </div>
         )}
-        {(uzLat.trim() || (cyr && uzCyr.trim())) && (
+        {((lat && uzLat) || (cyr && uzCyr)) && (
           <div style={{ display: "flex", flexDirection: "column" }}>
             <Label p={p}>Oʻzbekcha</Label>
-            {lat && uzLat.trim() && row(uzLat, big * 0.8)}
-            {cyr && uzCyr.trim() && row(uzCyr, big * 0.8)}
+            {lat && uzLat && row(uzLat, big * 0.8)}
+            {cyr && uzCyr && row(uzCyr, big * 0.8)}
           </div>
         )}
         {cyr && (
@@ -335,10 +341,12 @@ export async function renderPoster(slug: string, kind: PosterKind, q: string | n
             {row(only(CYR_UP.slice(16)), big * 0.85)}
           </div>
         )}
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <Label p={p}>Raqamlar</Label>
-          {row(only("0123456789 !?&@%"), big * 0.8)}
-        </div>
+        {figures && (
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <Label p={p}>Raqamlar</Label>
+            {row(figures, big * 0.8)}
+          </div>
+        )}
       </div>
     );
   } else if (kind === "matn") {
