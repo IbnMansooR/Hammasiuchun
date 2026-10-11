@@ -9,7 +9,8 @@ export const botToken = () => process.env.TELEGRAM_BOT_TOKEN ?? "";
 export const botUsername = () => (process.env.TELEGRAM_BOT_USERNAME ?? "").replace(/^@/, "");
 export const botEnabled = () => !!(botToken() && botUsername());
 
-export type TgResult<T> = { ok: true; result: T } | { ok: false; code: number; description: string };
+/** `timeout`: no answer in time, so the request may still have gone through. */
+export type TgResult<T> = { ok: true; result: T } | { ok: false; code: number; description: string; timeout?: boolean };
 
 export type TgMessage = { message_id: number; chat: { id: number; type: string } };
 export type InlineButton = { text: string; url?: string; callback_data?: string };
@@ -23,14 +24,16 @@ export async function tg<T = unknown>(method: string, params: Record<string, unk
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(params),
-      signal: AbortSignal.timeout(method === "sendPhoto" ? 25_000 : 10_000),
+      // Telegram downloads the pictures before it answers; an album of rendered posters takes a while.
+      signal: AbortSignal.timeout(method === "sendMediaGroup" ? 50_000 : method === "sendPhoto" ? 25_000 : 10_000),
       cache: "no-store",
     });
     const data = (await res.json().catch(() => null)) as { ok?: boolean; result?: T; error_code?: number; description?: string } | null;
     if (data?.ok) return { ok: true, result: data.result as T };
     return { ok: false, code: data?.error_code ?? res.status, description: (data?.description ?? `HTTP ${res.status}`).slice(0, 200) };
   } catch (e) {
-    return { ok: false, code: 0, description: e instanceof Error && e.name === "TimeoutError" ? "Telegram javob bermadi" : "Telegram bilan aloqa yoʻq" };
+    const timeout = e instanceof Error && e.name === "TimeoutError";
+    return { ok: false, code: 0, description: timeout ? "Telegram javob bermadi" : "Telegram bilan aloqa yoʻq", timeout };
   }
 }
 
@@ -80,6 +83,15 @@ export async function sendPhotoOrText(chatId: string | number, photo: string | n
     if (r.ok || r.code !== 400 || !/url|file|photo|image/i.test(r.description)) return r;
   }
   return sendMessage(chatId, html, keyboard, extra);
+}
+
+/** Several pictures as one album; the caption (HTML) goes on the first. Albums can't carry buttons. */
+export function sendAlbum(chatId: string | number, photos: string[], html: string, extra: Record<string, unknown> = {}) {
+  return tg<TgMessage[]>("sendMediaGroup", {
+    chat_id: chatId,
+    media: photos.slice(0, 10).map((url, i) => ({ type: "photo", media: url, ...(i === 0 ? { caption: html, parse_mode: "HTML" } : {}) })),
+    ...extra,
+  });
 }
 
 /** Telegram allows ~30 messages a second overall; stay under it for bulk sends. */

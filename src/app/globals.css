@@ -942,11 +942,32 @@ section.adm-card + section.adm-card, .stat-grid + section.adm-card { margin-top:
 .adm-tg-list { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 8px; }
 .adm-tg-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-sm); font-size: 14px; }
 .adm-tg-list .adm-meta { display: inline; margin-left: 6px; }
+.adm-tg-auto { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 4px 0 10px; }
+.adm-tg-auto .sel { width: auto; }
+.adm-tg-album { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin: 10px 0 14px; }
+.adm-tg-album img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--subtle); }
+.adm-tg-queue { counter-reset: q; }
+.adm-tg-quote { margin-top: 12px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; font-size: 14px; }
+.adm-tg-quote .adm-tg-form { flex-wrap: nowrap; margin: 0; }
+.adm-tg-quote .sel { flex: 1 1 auto; width: 100%; min-width: 0; }
+.adm-tg-quote .btn { flex: none; }
+.adm-h3 { font-size: 13px; font-weight: 600; color: var(--fg-2); margin: 18px 0 8px; }
+.adm-quote-form { display: grid; gap: 4px; margin: 4px 0 6px; max-width: 640px; }
+.adm-quote-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 220px); gap: 12px; }
+.adm-quote-form .btn { justify-self: start; }
+.adm-quote-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.adm-quote-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--r-sm); font-size: 14px; }
+.adm-quote-list q { quotes: "“" "”"; }
+.adm-quote-list li.is-off > span { color: var(--muted); text-decoration: line-through; }
+.adm-quote-builtin { margin-top: 16px; }
+.adm-quote-builtin summary { cursor: pointer; font-size: 14px; font-weight: 500; }
+@media (max-width: 560px) { .adm-quote-row { grid-template-columns: 1fr; } .adm-quote-list li { flex-wrap: wrap; } }
 .adm-tg-link { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .adm-tg-form { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
 .adm-tg-form input { flex: 1 1 200px; max-width: 320px; }
 .adm-steps { padding-left: 20px; display: grid; gap: 6px; }
 .adm-tg-compose { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.adm-tg-preview { min-width: 0; }
 .adm-tg-preview img { display: block; width: 100%; border-radius: var(--r); border: 1px solid var(--line); background: var(--subtle); }
 .adm-tg-preview .adm-blank { border: 1px dashed var(--line); border-radius: var(--r); padding: 48px 16px; }
 .adm-tg-buttons { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }

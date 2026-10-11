@@ -26,7 +26,7 @@ const CANDIDATES = [
   0x2013, 0x2014, 0x2018, 0x2019, 0x201c, 0x201d, 0x201e, 0x2026, 0x20ac, 0x2116, ...range(0x400, 0x45f), ...range(0x490, 0x4ff),
 ];
 
-function staticFont(data: Buffer): fontkit.Font | null {
+export function staticFont(data: Buffer): fontkit.Font | null {
   try {
     const f = fontkit.create(data) as fontkit.Font;
     if ("fonts" in (f as object)) return null; // a collection (.ttc)
@@ -49,32 +49,53 @@ async function satoriDraws(data: Buffer): Promise<boolean> {
   }
 }
 
+type FamilyRow = { slug: string; name: string; folder: string; styles: { style: string; weight: number; italic: boolean; file: string; ext: string; size: number }[] };
+const FAMILY_SELECT = { slug: true, name: true, folder: true, styles: { select: { style: true, weight: true, italic: true, file: true, ext: true, size: true } } } as const;
+
+/** A family's preview cut, if the renderer can draw it, with the characters it covers. */
+async function sampleOf(f: FamilyRow): Promise<SampleFont | null> {
+  const cuts = f.styles.filter((s) => s.ext !== "woff2" && s.size <= MAX_BYTES);
+  const pv = previewStyle(cuts);
+  const cut = pv && cuts.find((s) => s.style === pv.style);
+  if (!cut) return null;
+  const data = await readFont(f.folder, cut.file).catch(() => null);
+  const font = data && data.length <= MAX_BYTES ? staticFont(data) : null;
+  if (!data || !font || !(await satoriDraws(data))) return null;
+  const chars = CANDIDATES.filter((cp) => font.hasGlyphForCodePoint(cp)).map((cp) => String.fromCodePoint(cp)).join("");
+  return { slug: f.slug, name: f.name, folder: f.folder, file: cut.file, chars };
+}
+
 /** Public families that can draw samples, most downloaded first, with the characters each covers.
  * Built once a day (it reads every family's file), then served from the cache. */
 export const sampleFonts = unstable_cache(
   async (): Promise<SampleFont[]> => {
-    const fams = await db.family.findMany({
-      where: PUBLIC_FAMILY,
-      orderBy: [{ downloads: "desc" }, { name: "asc" }],
-      select: { slug: true, name: true, folder: true, styles: { select: { style: true, weight: true, italic: true, file: true, ext: true, size: true } } },
-    });
+    const fams = await db.family.findMany({ where: PUBLIC_FAMILY, orderBy: [{ downloads: "desc" }, { name: "asc" }], select: FAMILY_SELECT });
     const out: SampleFont[] = [];
     for (const f of fams) {
-      const cuts = f.styles.filter((s) => s.ext !== "woff2" && s.size <= MAX_BYTES);
-      const pv = previewStyle(cuts);
-      const cut = pv && cuts.find((s) => s.style === pv.style);
-      if (!cut) continue;
-      const data = await readFont(f.folder, cut.file).catch(() => null);
-      const font = data && data.length <= MAX_BYTES ? staticFont(data) : null;
-      if (!data || !font || !(await satoriDraws(data))) continue;
-      const chars = CANDIDATES.filter((cp) => font.hasGlyphForCodePoint(cp)).map((cp) => String.fromCodePoint(cp)).join("");
-      out.push({ slug: f.slug, name: f.name, folder: f.folder, file: cut.file, chars });
+      const s = await sampleOf(f);
+      if (s) out.push(s);
     }
     return out;
   },
   ["tg-sample-fonts-v1"],
   { revalidate: 60 * 60 * 24, tags: ["sample-fonts"] },
 );
+
+/** One public family's sample (or null when it can't be drawn), reading only that family's file.
+ * Cached per family and version, so a new upload is seen at once; the channel posters use this,
+ * since the whole catalogue (thousands of files) can't be read within one request. */
+export async function familySample(slug: string): Promise<SampleFont | null> {
+  const f = await db.family.findFirst({ where: { ...PUBLIC_FAMILY, slug }, select: { updatedAt: true } });
+  if (!f) return null;
+  return unstable_cache(
+    async () => {
+      const row = await db.family.findFirst({ where: { ...PUBLIC_FAMILY, slug }, select: FAMILY_SELECT });
+      return row ? sampleOf(row) : null;
+    },
+    ["tg-family-sample-v1", slug, String(f.updatedAt.getTime())],
+    { revalidate: 60 * 60 * 24 * 30 },
+  )();
+}
 
 /** Official Uzbek Latin signs: oʻ gʻ use ʻ (U+02BB), the tutuq belgisi inside a word is ʼ (U+02BC).
  * People type ' ` ‘ ’ instead; the sample shows the correct ones. */

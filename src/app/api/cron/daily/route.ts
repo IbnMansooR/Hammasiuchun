@@ -10,6 +10,7 @@ import { db } from "@/lib/db";
 import { PUBLIC_FAMILY } from "@/lib/license";
 import { submitIndexNow } from "@/lib/indexnow";
 import { withLocale } from "@/i18n/config";
+import { runAutopost } from "@/lib/tgAutopost";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,6 +40,9 @@ async function changedPaths(all: boolean): Promise<string[]> {
 
 export async function GET(req: NextRequest) {
   if (!authorized(req)) return new NextResponse(null, { status: 401 });
+  // The channel post first: an album of rendered posters is the slowest step and must finish
+  // well inside the time limit (a cut-off send could be repeated tomorrow).
+  const autopost = botEnabled() ? await runAutopost().catch(() => ({ posted: null, reason: "send" as const })) : null;
   const indexnow = await submitIndexNow(await changedPaths(req.nextUrl.searchParams.get("indexnow") === "all")).catch(() => null);
   if (!botEnabled()) return NextResponse.json({ sent: 0, reason: "bot not configured", indexnow });
   const report = await sendDailyReport();
@@ -47,5 +51,5 @@ export async function GET(req: NextRequest) {
   const digest = friday ? await sendDigestDraft() : null;
   // Keep the bot's font list warm so the first sample of the day is quick.
   const fonts = (await sampleFonts().catch(() => [])).length;
-  return NextResponse.json({ ...report, digest, fonts, indexnow });
+  return NextResponse.json({ ...report, digest, autopost, fonts, indexnow });
 }

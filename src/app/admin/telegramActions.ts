@@ -1,11 +1,15 @@
 "use server";
+import crypto from "node:crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/adminGuard";
 import { SITE_URL } from "@/lib/site";
 import { botEnabled, botToken, sendMessage, tg } from "@/lib/telegram";
-import { LINK_TTL_MS, getTgState, linkCode, updateTgState, type TgChannel } from "@/lib/tgState";
+import { AUTOPOST_EVERY, LINK_TTL_MS, getTgState, linkCode, updateTgState, type TgChannel } from "@/lib/tgState";
+import { runAutopost } from "@/lib/tgAutopost";
 import { CAPTION_MAX, digestDraft, fontDraft, postDraft, workDraft } from "@/lib/tgPosts";
+import { AUTHOR_MAX, BUILTIN_QUOTES, MOODS, cleanQuote, isQuoteId, type Mood } from "@/lib/quotes";
+import { uzbekize } from "@/lib/fontSamples";
 
 const BACK = "/admin/telegram";
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
@@ -97,7 +101,8 @@ export async function postToChannelAction(fd: FormData) {
   const kind = str(fd, "kind");
   const ref = str(fd, "ref");
   const back = `${BACK}/post?${kind === "digest" ? "digest=1" : `${kind === "work" ? "work" : "font"}=${encodeURIComponent(ref)}`}`;
-  const draft = kind === "work" ? await workDraft(Number(ref)) : kind === "font" ? await fontDraft(ref) : kind === "digest" ? await digestDraft() : null;
+  const quote = str(fd, "q");
+  const draft = kind === "work" ? await workDraft(Number(ref)) : kind === "font" ? await fontDraft(ref, isQuoteId(quote) ? quote : null) : kind === "digest" ? await digestDraft() : null;
   if (!draft) fail("gone", back);
   const caption = str(fd, "caption");
   if (!caption) fail("empty", back);
@@ -106,4 +111,83 @@ export async function postToChannelAction(fd: FormData) {
   if (!r.ok) fail(r.reason, back);
   revalidatePath(BACK);
   redirect(`${back}&ok=posted`);
+}
+
+/* ---------------- automatic font posts ---------------- */
+
+export async function saveAutopostAction(fd: FormData) {
+  await requireAdmin();
+  const every = Number(fd.get("every"));
+  await updateTgState((s) => {
+    s.autopost.on = fd.get("on") === "on";
+    if ((AUTOPOST_EVERY as readonly number[]).includes(every)) s.autopost.every = every;
+  });
+  revalidatePath(BACK);
+  redirect(`${BACK}?ok=auto#auto`);
+}
+
+export async function skipAutopostAction(fd: FormData) {
+  await requireAdmin();
+  const slug = str(fd, "slug").replace(/[^a-z0-9-]/gi, "").toLowerCase();
+  if (slug) await updateTgState((s) => { if (!s.autopost.skip.includes(slug)) s.autopost.skip.push(slug); });
+  revalidatePath(BACK);
+  redirect(`${BACK}#auto`);
+}
+
+export async function unskipAutopostAction() {
+  await requireAdmin();
+  await updateTgState((s) => { s.autopost.skip = []; });
+  revalidatePath(BACK);
+  redirect(`${BACK}#auto`);
+}
+
+/** "Post now": the next family in the queue, whatever the schedule says. */
+export async function postNextNowAction() {
+  await requireAdmin();
+  const r = await runAutopost({ force: true });
+  revalidatePath(BACK);
+  if (!r.posted) {
+    const code = { empty: "autoempty", nochannel: "channelfirst", notadmin: "notadmin", unsure: "autounsure" } as Record<string, string>;
+    fail(code[r.reason ?? ""] ?? "autosend");
+  }
+  redirect(`${BACK}?ok=autoposted#auto`);
+}
+
+/* ---------------- poster quotes ---------------- */
+
+const QBACK = `${BACK}?ok=quote#quotes`;
+
+export async function addQuoteAction(fd: FormData) {
+  await requireAdmin();
+  const text = cleanQuote(String(fd.get("text") ?? ""));
+  const author = uzbekize(str(fd, "author").replace(/[<>]/g, "")).replace(/\s+/g, " ").slice(0, AUTHOR_MAX).trim();
+  const mood = str(fd, "mood") as Mood;
+  if (!text) fail("qempty", `${BACK}#quotes`);
+  if (!MOODS.includes(mood)) fail("qmood", `${BACK}#quotes`);
+  await updateTgState((s) => {
+    s.quotes.custom = [{ id: `c${crypto.randomBytes(4).toString("hex")}`, text, author: author || null, mood }, ...s.quotes.custom].slice(0, 200);
+  });
+  revalidatePath(BACK);
+  redirect(QBACK);
+}
+
+export async function removeQuoteAction(fd: FormData) {
+  await requireAdmin();
+  const id = str(fd, "id");
+  if (isQuoteId(id)) await updateTgState((s) => { s.quotes.custom = s.quotes.custom.filter((q) => q.id !== id); });
+  revalidatePath(BACK);
+  redirect(`${BACK}#quotes`);
+}
+
+/** Switch a ready-made quote off (or back on). */
+export async function toggleQuoteAction(fd: FormData) {
+  await requireAdmin();
+  const id = str(fd, "id");
+  if (BUILTIN_QUOTES.some((q) => q.id === id)) {
+    await updateTgState((s) => {
+      s.quotes.off = s.quotes.off.includes(id) ? s.quotes.off.filter((x) => x !== id) : [...s.quotes.off, id];
+    });
+  }
+  revalidatePath(BACK);
+  redirect(`${BACK}#quotes`);
 }

@@ -831,3 +831,70 @@ The weakest point was the admin panel: one password was the whole door, and a st
 - the ZIP limit, and another address still downloading.
 
 All earlier suites still pass.
+
+## 21. Automatic channel posts with specimen posters and quotes (2026-10-11)
+
+**What it does.** The bot now posts the site's fonts to the Telegram channel by itself, one family per post, the way type foundries post. Each post is an album of 1080×1350 pictures (4:5, the largest Telegram shows in a feed), rendered by the site from the font file:
+1. **Iqtibos:** a quote set in the font, as large as it fits, with the font's own quotation mark, the author and the font's name.
+2. **Muqova:** "Aa", the name, category, styles, scripts and designer.
+3. **Harflar:** the Latin alphabet, the Uzbek letters (oʻ gʻ sh ch ʼ and ў қ ғ ҳ), Cyrillic and figures. A sign the font lacks is left out rather than drawn as a box.
+4. **Matn:** a headline, a paragraph and three text sizes.
+5. **Uslublar:** each style in its own cut. Only for families with 3+ styles.
+
+The caption carries the details. An album can't have buttons, so the caption ends with a link to the font page, tagged `utm_source=telegram`. Each family gets one of four colour schemes, the same on all its pictures.
+
+**Quotes.** 51 ready-made ones: Uzbek proverbs, plus lines by Alisher Navoiy, Abdulla Avloniy and Bobur, chosen only where the attribution is certain. Each quote has a mood, matched to the font's category:
+- script → kindness;
+- serif → wisdom;
+- display → drive, life and kindness;
+- sans → life, drive and wisdom;
+- slab and monospace → two moods each;
+- symbol fonts get no quote.
+
+How a quote is chosen:
+- The choice is deterministic, so the preview is exactly what gets posted.
+- It moves on after every post: the last 40 used quotes are not repeated, and the admin's own quotes go first.
+- Cyrillic-only fonts get the quote transliterated to Uzbek Cyrillic.
+- A font without ʻ or — gets the nearest sign it has.
+- A quote the font can't draw is never used.
+
+How the text is laid out:
+- The size is fitted by measuring the actual glyphs (fontkit).
+- Lines are balanced, and a dash stays with the word before it.
+- Line spacing comes from the ink of the text itself, so tall script faces don't collide.
+
+**Schedule and safety.**
+- Autopost is on by default: daily at 09:00 Tashkent, from the existing daily cron. It can be every 2 or 3 days, weekly, or off.
+- Queue order: new families (14 days) first, then the most downloaded. Families already posted to the connected channel never repeat.
+- One scheduled post per day even if the cron fires twice: the first run claims the day.
+- If Telegram refuses the album (400), the family goes out as the single card with a button. If Telegram can't be reached, nothing is sent and the family stays first in the queue.
+- If Telegram doesn't answer in time, the album may still have gone out. The family is set aside and never resent, and the admins are asked to check the channel; one press brings it back. The channel post runs first in the daily cron, well inside the 60-second limit.
+- The admins get a message with a link to the post and the name of the next family.
+- Fonts the renderer can't read (variable fonts, WOFF2-only) go out as the single card.
+- Posters read only that family's font file, cached per family and version. They don't depend on the bot's daily list of drawable fonts, and a re-uploaded font is seen at once.
+
+**Admin (Telegram page).**
+- "Avtomatik postlar" shows:
+  - the switch and the frequency;
+  - the next run and the last post;
+  - the next family's album preview;
+  - the queue with "skip" (and "bring back");
+  - "post the next one now".
+- "Rasmdagi iqtiboslar":
+  - add your own quote (with author and mood; o' is turned into oʻ);
+  - remove your own quotes;
+  - switch any ready-made quote off or on.
+- The manual post page shows the album and lets the admin pick another quote, suitable ones listed first.
+- Poster URLs are public, but they only render published families and known quotes, never arbitrary text. They are rate-limited and cached for a week on the CDN.
+
+**Verification:**
+- Posters were rendered and checked by eye for sans, serif, mono, script (Pacifico), display (Lobster, Bebas Neue), a Latin-only Thai face (Loma) and a Cyrillic-only case.
+- A new suite of 50 checks passes:
+  - the poster route: bad input, unknown quote, styles picture;
+  - the scheduled run: album order, every picture fetched as PNG by the fake Telegram, the same quote on each, a quote that suits the font, the caption and its link, the admin's message, remembered state;
+  - no second post the same day; "busy" when the day is already claimed; the next family with a different quote; every-3-days; off;
+  - album refused → single card, with the quote not counted as used;
+  - network failure → nothing sent;
+  - no answer in time → the family set aside, the admin warned, the next run moves on;
+  - the admin UI: queue preview loads, skip and restore, add, switch-off and remove quotes, your own quote used first, manual post with a chosen quote, "post now";
+  - axe light and dark.

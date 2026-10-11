@@ -8,10 +8,17 @@ import Notice from "@/components/admin/Notice";
 import SubmitButton from "@/components/SubmitButton";
 import ConfirmButton from "@/components/ConfirmButton";
 import {
-  chooseChannelAction, clearChannelAction, createAdminLinkAction, removeTgAdminAction, setWebhookAction, testAdminsAction,
+  addQuoteAction, chooseChannelAction, clearChannelAction, createAdminLinkAction, postNextNowAction, removeQuoteAction, removeTgAdminAction,
+  saveAutopostAction, setWebhookAction, skipAutopostAction, testAdminsAction, toggleQuoteAction, unskipAutopostAction,
 } from "@/app/admin/telegramActions";
+import { autopostQueue, nextRun } from "@/lib/tgAutopost";
+import { posterAlbum } from "@/lib/fontPoster";
+import { AUTHOR_MAX, BUILTIN_QUOTES, MOODS, MOOD_LABEL, QUOTE_MAX } from "@/lib/quotes";
 
 export const metadata = { title: "Admin — Telegram" };
+export const maxDuration = 60; // "post now" sends an album of rendered posters
+
+const EVERY_LABEL: Record<number, string> = { 1: "Har kuni", 2: "2 kunda bir", 3: "3 kunda bir", 7: "Haftada bir" };
 
 const OK: Record<string, string> = {
   webhook: "Webhook oʻrnatildi: bot endi saytga ulandi.",
@@ -19,6 +26,9 @@ const OK: Record<string, string> = {
   removed: "Admin Telegrami uzildi.",
   channel: "Kanal ulandi. Endi shrift va ishlarni kanalga yuborishingiz mumkin.",
   cleared: "Kanal uzildi.",
+  auto: "Avtomatik postlar sozlamasi saqlandi.",
+  autoposted: "Navbatdagi shrift kanalga yuborildi ✓",
+  quote: "Iqtibos qoʻshildi. Keyingi postlarda birinchi navbatda ishlatiladi.",
 };
 const ERR: Record<string, string> = {
   env: "Vercel’da TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_USERNAME va TELEGRAM_WEBHOOK_SECRET sozlanmagan.",
@@ -26,6 +36,12 @@ const ERR: Record<string, string> = {
   channel: "Kanal nomini @kanal_nomi koʻrinishida yozing.",
   notadmin: "Bot bu kanalda admin emas yoki post yozish huquqi yoʻq. Kanal sozlamalarida botni admin qiling va “Post messages” huquqini bering.",
   noadmins: "Hali birorta admin Telegrami ulanmagan.",
+  autoempty: "Navbatda shrift qolmagan: hamma shriftlar kanalga chiqqan yoki oʻtkazib yuborilgan.",
+  channelfirst: "Avval kanalni ulang.",
+  autosend: "Telegram postni qabul qilmadi. Birozdan keyin qayta urinib koʻring.",
+  autounsure: "Telegram vaqtida javob bermadi: post kanalga chiqqan boʻlishi mumkin. Kanalni tekshiring; shrift navbatdan chetga olindi, chiqmagan boʻlsa “Oʻtkazilganlarni qaytarish”ni bosing.",
+  qempty: "Iqtibos matnini yozing.",
+  qmood: "Iqtibos mavzusini tanlang.",
 };
 
 type WebhookInfo = { url: string; pending_update_count: number; last_error_message?: string; last_error_date?: number };
@@ -35,13 +51,18 @@ export default async function TelegramAdmin({ searchParams }: { searchParams: Pr
   const enabled = botEnabled();
   const bot = botUsername();
   const expected = `${SITE_URL}/api/telegram/webhook`;
-  const [state, info, linked, subscribed, posts] = await Promise.all([
+  const [state, info, linked, subscribed, posts, queue] = await Promise.all([
     getTgState(),
     enabled ? tg<WebhookInfo>("getWebhookInfo") : Promise.resolve(null),
     db.user.count({ where: { telegramId: { not: null } } }),
     db.user.count({ where: { tgNotify: true, telegramId: { not: null } } }),
     db.tgPost.findMany({ orderBy: { postedAt: "desc" }, take: 10 }),
+    enabled ? autopostQueue(5) : Promise.resolve([]),
   ]);
+  const auto = state.autopost;
+  const quotes = state.quotes;
+  const upcoming = nextRun(auto);
+  const preview = queue[0]?.drawable ? (await posterAlbum(queue[0].slug))?.urls ?? null : null;
   const hook = info?.ok ? info.result : null;
   const hookOk = !!hook && hook.url === expected;
   const nonce = state.adminNonce && state.adminNonce.exp > Date.now() ? state.adminNonce : null;
@@ -163,6 +184,138 @@ export default async function TelegramAdmin({ searchParams }: { searchParams: Pr
               <input id="tg-channel" type="text" name="channel" placeholder="@kanal_nomi" required maxLength={64} />
               <SubmitButton className="btn btn-sm" pendingLabel="Tekshirilmoqda…">{state.channel ? "Boshqa kanalga almashtirish" : "Kanalni ulash"}</SubmitButton>
             </form>
+          </section>
+
+          <section className="adm-card adm-pad" id="auto" aria-labelledby="h-auto">
+            <h2 className="adm-h2" id="h-auto">4. Avtomatik postlar</h2>
+            <p className="adm-text">
+              Bot saytdagi shriftlarni kanalga oʻzi joylaydi: har birini 4–5 ta rasmli albom qilib (shu shriftda terilgan iqtibos, muqova,
+              harflar, matn, uslublar), tagida saytga havola bilan. Ertalab soat 9:00 da, navbat boʻyicha: avval yangi shriftlar.
+            </p>
+            <form action={saveAutopostAction} className="adm-tg-auto">
+              <label className="check"><input type="checkbox" name="on" defaultChecked={auto.on} /> Yoqilgan</label>
+              <label htmlFor="auto-every" className="sr-only">Qanchalik tez-tez</label>
+              <select id="auto-every" name="every" className="sel" defaultValue={String(auto.every)}>
+                {Object.entries(EVERY_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+              <SubmitButton className="btn btn-sm" pendingLabel="…">Saqlash</SubmitButton>
+            </form>
+            <p className="adm-meta">
+              {!state.channel
+                ? "Kanal ulanmaguncha post chiqmaydi."
+                : auto.on
+                  ? `Keyingi post: ${upcoming ? formatDateTime(upcoming) : "—"}${queue[0] ? ` · ${queue[0].name}` : ""}.`
+                  : "Oʻchirilgan: post faqat “Hozir yuborish” bilan chiqadi."}
+              {auto.lastAt ? ` Oxirgisi: ${formatDateTime(auto.lastAt)}.` : ""}
+            </p>
+            {preview && (
+              <div className="adm-tg-album" aria-label={`${queue[0].name}: kanaldagi rasmlar`}>
+                {preview.map((u, i) => <img key={u} src={u.replace(/^https?:\/\/[^/]+/, "")} alt={`${i + 1}-rasm`} loading="lazy" />)}
+              </div>
+            )}
+            {queue.length > 0 ? (
+              <ol className="adm-tg-list adm-tg-queue">
+                {queue.map((q) => (
+                  <li key={q.slug}>
+                    <span>
+                      <Link href={`/admin/telegram/post?font=${encodeURIComponent(q.slug)}`} className="link">{q.name}</Link>
+                      {q.isNew && <span className="tag tag-new" style={{ marginLeft: 8 }}>Yangi</span>}
+                      {!q.drawable && <span className="adm-meta"> · rasmlarsiz (bitta karta bilan)</span>}
+                    </span>
+                    <form action={skipAutopostAction}>
+                      <input type="hidden" name="slug" value={q.slug} />
+                      <SubmitButton className="chip" pendingLabel="…">Oʻtkazib yuborish</SubmitButton>
+                    </form>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="adm-text">Navbat boʻsh: hamma shriftlar kanalga chiqqan. Yangi shrift qoʻshilsa, avtomatik davom etadi.</p>
+            )}
+            <div className="adm-tg-link">
+              <form action={postNextNowAction}>
+                <SubmitButton className="btn btn-accent btn-sm" pendingLabel="Yuborilmoqda…" disabled={!state.channel || queue.length === 0}>Navbatdagisini hozir yuborish</SubmitButton>
+              </form>
+              {auto.skip.length > 0 && (
+                <form action={unskipAutopostAction}>
+                  <SubmitButton className="btn btn-sm" pendingLabel="…">{`Oʻtkazilganlarni qaytarish (${auto.skip.length})`}</SubmitButton>
+                </form>
+              )}
+            </div>
+          </section>
+
+          <section className="adm-card adm-pad" id="quotes" aria-labelledby="h-quotes">
+            <h2 className="adm-h2" id="h-quotes">Rasmdagi iqtiboslar</h2>
+            <p className="adm-text">
+              Albomning birinchi rasmi: shu shriftda terilgan iqtibos. Mavzu shrift turiga qarab tanlanadi: qoʻlyozma shriftga mehr,
+              serifga hikmat, display shriftga gʻayrat, sans-serifga hayot haqidagi gaplar. Oxirgi 40 ta postdagisi takrorlanmaydi,
+              siz qoʻshganlar birinchi navbatda ishlatiladi. Kirill shriftlarda iqtibos kirillda chiqadi.
+            </p>
+            <form action={addQuoteAction} className="adm-quote-form">
+              <div className="field">
+                <label htmlFor="quote-text">Iqtibos</label>
+                <textarea id="quote-text" name="text" rows={3} maxLength={QUOTE_MAX} required placeholder="Masalan: Ilm — aql chirogʻi." />
+              </div>
+              <div className="adm-quote-row">
+                <div className="field">
+                  <label htmlFor="quote-author">Muallif (ixtiyoriy)</label>
+                  <input id="quote-author" name="author" type="text" maxLength={AUTHOR_MAX} placeholder="Xalq maqoli" />
+                </div>
+                <div className="field">
+                  <label htmlFor="quote-mood">Mavzu</label>
+                  <select id="quote-mood" name="mood" className="sel" defaultValue="hikmat">
+                    {MOODS.map((m) => <option key={m} value={m}>{MOOD_LABEL[m]}</option>)}
+                  </select>
+                </div>
+              </div>
+              <SubmitButton className="btn btn-sm" pendingLabel="…">Iqtibos qoʻshish</SubmitButton>
+            </form>
+            {quotes.custom.length > 0 && (
+              <>
+                <h3 className="adm-h3">Siz qoʻshganlar ({quotes.custom.length})</h3>
+                <ul className="adm-quote-list">
+                  {quotes.custom.map((q) => (
+                    <li key={q.id}>
+                      <span>
+                        <q>{q.text}</q>
+                        <span className="adm-meta"> {q.author ? `— ${q.author} · ` : "· "}{MOOD_LABEL[q.mood]}</span>
+                      </span>
+                      <form action={removeQuoteAction}>
+                        <input type="hidden" name="id" value={q.id} />
+                        <ConfirmButton message="Bu iqtibos oʻchirilsinmi?">Oʻchirish</ConfirmButton>
+                      </form>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            <details className="adm-quote-builtin">
+              <summary>
+                Tayyor iqtiboslar ({BUILTIN_QUOTES.length}{quotes.off.length ? `, ${quotes.off.length} tasi oʻchirilgan` : ""})
+              </summary>
+              {MOODS.map((m) => (
+                <div key={m}>
+                  <h3 className="adm-h3">{MOOD_LABEL[m]}</h3>
+                  <ul className="adm-quote-list">
+                    {BUILTIN_QUOTES.filter((q) => q.mood === m).map((q) => {
+                      const off = quotes.off.includes(q.id);
+                      return (
+                        <li key={q.id} className={off ? "is-off" : undefined}>
+                          <span>
+                            <q>{q.text}</q>
+                            <span className="adm-meta"> — {q.author}{off ? " · oʻchirilgan" : ""}</span>
+                          </span>
+                          <form action={toggleQuoteAction}>
+                            <input type="hidden" name="id" value={q.id} />
+                            <SubmitButton className="chip" pendingLabel="…">{off ? "Yoqish" : "Oʻchirish"}</SubmitButton>
+                          </form>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ))}
+            </details>
           </section>
 
           <section className="adm-card adm-pad" aria-labelledby="h-digest">

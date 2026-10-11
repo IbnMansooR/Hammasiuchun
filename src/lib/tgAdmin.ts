@@ -240,6 +240,7 @@ const REASON: Record<string, string> = {
   nochannel: "Kanal ulanmagan: admin paneldagi Telegram sahifasida ulang.",
   notadmin: "Bot kanalda admin emas yoki post yozish huquqi yoʻq.",
   send: "Telegram postni qabul qilmadi. Birozdan keyin qayta bosing.",
+  unsure: "Telegram vaqtida javob bermadi: avval kanalni tekshiring, post chiqqan boʻlishi mumkin.",
 };
 
 export async function handleDigestCallback(q: CallbackQuery): Promise<void> {

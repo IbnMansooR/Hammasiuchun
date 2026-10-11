@@ -4,8 +4,10 @@ import { db } from "./db";
 import { CATEGORY_LABEL } from "./fonts";
 import { LICENSE_LABEL, PUBLIC_FAMILY } from "./license";
 import { SITE_URL } from "./site";
-import { absoluteImage, esc, sendPhotoOrText, siteLink, type Keyboard, type TgMessage } from "./telegram";
-import { getTgState } from "./tgState";
+import { absoluteImage, esc, sendAlbum, sendPhotoOrText, siteLink, type Keyboard, type TgMessage } from "./telegram";
+import { posterAlbum } from "./fontPoster";
+import { getTgState, updateTgState } from "./tgState";
+import { rememberQuote } from "./quotes";
 import { splitTags } from "./works";
 import { TZ_OFFSET_MS, tashkentDay } from "./analytics";
 import { formatDate } from "./format";
@@ -18,6 +20,10 @@ export type PostDraft = {
   ref: string;
   title: string;
   image: string | null;
+  /** Font posts: the specimen posters, sent as one album instead of `image` + buttons. */
+  album?: string[] | null;
+  /** The quote the album leads with (lib/quotes), remembered once posted so the next one differs. */
+  quote?: string | null;
   caption: string; // plain text; the first line is set in bold when sent
   keyboard: Keyboard;
   backHref: string;
@@ -25,9 +31,11 @@ export type PostDraft = {
 
 const tag = (s: string) => `#${s.toLowerCase().replace(/[^a-z0-9ʻʼа-яёўқғҳ]+/gi, "")}`;
 
-export async function fontDraft(slug: string): Promise<PostDraft | null> {
+/** `quote`: the admin's pick for the first poster (otherwise one that suits the font is chosen). */
+export async function fontDraft(slug: string, quote?: string | null): Promise<PostDraft | null> {
   const f = await db.family.findFirst({ where: { ...PUBLIC_FAMILY, slug } });
   if (!f) return null;
+  const album = await posterAlbum(f.slug, quote);
   const scripts = [f.hasLatin && "Lotin", f.hasCyrillic && "Kirill"].filter(Boolean).join(" + ");
   const lines = [
     f.name,
@@ -44,6 +52,8 @@ export async function fontDraft(slug: string): Promise<PostDraft | null> {
     ref: f.slug,
     title: f.name,
     image: `${SITE_URL}/api/tg-image/font/${encodeURIComponent(f.slug)}`,
+    album: album?.urls ?? null,
+    quote: album?.quote ?? null,
     caption: lines.join("\n"),
     keyboard: [[{ text: "Koʻrish va yuklab olish", url: siteLink(`/fonts/${f.slug}`, "channel") }]],
     backHref: `/admin/fonts/${f.slug}`,
@@ -149,15 +159,41 @@ export async function digestDraft(now = new Date()): Promise<PostDraft | null> {
 
 /* ---------------- sending ---------------- */
 
-export type PostResult = { ok: true; messageId: number; chatId: string; username: string | null } | { ok: false; reason: "nochannel" | "notadmin" | "send" };
+export type PostResult = { ok: true; messageId: number; chatId: string; username: string | null } | { ok: false; reason: "nochannel" | "notadmin" | "send" | "unsure" };
 
 /** Publish a draft (with the admin's caption) to the connected channel and log it. */
+/** An album can't have buttons, so its caption ends with the links instead. */
+export function albumCaptionHtml(plain: string, keyboard: Keyboard): string {
+  const links = ["", ...keyboard.flat().filter((b) => b.url).map((b) => `👉 <a href="${esc(b.url!)}">${esc(b.text)}</a>`)].join("\n");
+  // Telegram's limit is 1024 characters: shorten the text (never the links, never mid-tag).
+  let text = plain.trim();
+  while (text.length > 0 && captionHtml(text).length + links.length > 1024) text = text.slice(0, -40).trimEnd() + "…";
+  return captionHtml(text) + links;
+}
+
 export async function postDraft(draft: PostDraft, caption: string, silent = false): Promise<PostResult> {
   const { channel } = await getTgState();
   if (!channel) return { ok: false, reason: "nochannel" };
-  const r = await sendPhotoOrText(channel.id, draft.image, captionHtml(caption), draft.keyboard, { disable_notification: silent });
-  if (!r.ok) return { ok: false, reason: r.code === 403 || /not enough rights|chat not found|kicked/i.test(r.description) ? "notadmin" : "send" };
-  const messageId = (r.result as TgMessage).message_id;
+  const extra = { disable_notification: silent };
+  const notAdmin = (d: string, code: number) => code === 403 || /not enough rights|chat not found|kicked/i.test(d);
+  let messageId: number | null = null;
+  if (draft.album && draft.album.length >= 2) {
+    const a = await sendAlbum(channel.id, draft.album, albumCaptionHtml(caption, draft.keyboard), extra);
+    if (a.ok) {
+      messageId = a.result[0]?.message_id ?? null;
+      const q = draft.quote;
+      if (q) await updateTgState((s) => rememberQuote(s.quotes, q)).catch(() => null);
+    }
+    else if (notAdmin(a.description, a.code)) return { ok: false, reason: "notadmin" };
+    // Telegram refused it (a picture it couldn't fetch): fall back to the single card. Not on a
+    // timeout: the album may still have gone out ("unsure"), and a second post would be a duplicate.
+    else if (a.code !== 400) return { ok: false, reason: a.timeout ? "unsure" : "send" };
+  }
+  if (messageId === null) {
+    const r = await sendPhotoOrText(channel.id, draft.image, captionHtml(caption), draft.keyboard, extra);
+    if (!r.ok) return { ok: false, reason: notAdmin(r.description, r.code) ? "notadmin" : "send" };
+    messageId = (r.result as TgMessage).message_id;
+  }
   await db.tgPost.create({ data: { kind: draft.kind, ref: draft.ref, chatId: channel.id, messageId, caption } });
   return { ok: true, messageId, chatId: channel.id, username: channel.username };
 }
