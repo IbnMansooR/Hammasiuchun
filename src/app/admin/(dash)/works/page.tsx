@@ -38,7 +38,7 @@ export default async function WorksAdmin({ searchParams }: { searchParams: Promi
           <h2 className="adm-h2" id="h-pending">Koʻrib chiqish kutilmoqda · {pending.length}</h2>
           <ul className="adm-works">
             {pending.map((w) => (
-              <li key={w.id} className="adm-card">
+              <li key={w.id} id={`w${w.id}`} className="adm-card">
                 <Link href={`/admin/works/${w.id}`} className="adm-work-cover" aria-label={`${w.title} — koʻrish`}>
                   {w.coverImage ? <img src={w.coverImage} alt="" loading="lazy" /> : <IconImage />}
                 </Link>
@@ -85,7 +85,7 @@ export default async function WorksAdmin({ searchParams }: { searchParams: Promi
           {rest.map((w) => {
             const n = splitLines(w.images).length;
             return (
-              <li key={w.id} className="adm-card">
+              <li key={w.id} id={`w${w.id}`} className="adm-card">
                 <Link href={`/admin/works/${w.id}`} className="adm-work-cover" aria-label={`${w.title} — tahrirlash`}>
                   {w.coverImage ? <img src={w.coverImage} alt="" loading="lazy" /> : <IconImage />}
                 </Link>
@@ -111,6 +111,9 @@ export default async function WorksAdmin({ searchParams }: { searchParams: Promi
                       <input type="hidden" name="field" value="isFeatured" />
                       <button className="chip">{w.isFeatured ? "Tanlanganlardan olish" : "Tanlangan qilish"}</button>
                     </form>
+                    {w.isPublished && w.status === "approved" && (
+                      <Link href={`/admin/telegram/post?work=${w.id}`} className="chip">Telegram kanalga</Link>
+                    )}
                     <form action={deleteWorkAction}>
                       <input type="hidden" name="id" value={w.id} />
                       <ConfirmButton className="chip chip-danger" message={`“${w.title}” oʻchirilsinmi? Rasmlar “Rasmlar” boʻlimida qoladi.`}>Oʻchirish</ConfirmButton>

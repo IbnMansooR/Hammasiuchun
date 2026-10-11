@@ -1,0 +1,119 @@
+"use server";
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import { db } from "@/lib/db";
+import { requireAdmin } from "@/lib/adminGuard";
+import { SITE_URL } from "@/lib/site";
+import { botEnabled, botToken, sendMessage, sendPhotoOrText, tg, type TgMessage } from "@/lib/telegram";
+import { LINK_TTL_MS, getTgState, linkCode, updateTgState, type TgChannel } from "@/lib/tgState";
+import { CAPTION_MAX, captionHtml, fontDraft, workDraft } from "@/lib/tgPosts";
+
+const BACK = "/admin/telegram";
+const str = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
+const fail = (code: string, back = BACK): never => redirect(`${back}${back.includes("?") ? "&" : "?"}error=${code}`);
+
+const botId = () => botToken().split(":")[0];
+
+/** The bot must be an admin of the channel with the right to post. */
+async function checkChannel(chatId: string): Promise<TgChannel | null> {
+  const chat = await tg<{ id: number; type: string; title?: string; username?: string }>("getChat", { chat_id: chatId });
+  if (!chat.ok || chat.result.type !== "channel") return null;
+  const me = await tg<{ status: string; can_post_messages?: boolean }>("getChatMember", { chat_id: chat.result.id, user_id: Number(botId()) });
+  if (!me.ok || me.result.status !== "administrator" || me.result.can_post_messages === false) return null;
+  return { id: String(chat.result.id), title: (chat.result.title ?? "").slice(0, 120), username: chat.result.username ?? null };
+}
+
+export async function setWebhookAction() {
+  await requireAdmin();
+  if (!botEnabled() || !process.env.TELEGRAM_WEBHOOK_SECRET) fail("env");
+  const r = await tg("setWebhook", {
+    url: `${SITE_URL}/api/telegram/webhook`,
+    secret_token: process.env.TELEGRAM_WEBHOOK_SECRET,
+    allowed_updates: ["message", "callback_query", "my_chat_member"],
+    max_connections: 10,
+  });
+  if (!r.ok) fail("webhook");
+  await tg("setMyCommands", {
+    commands: [
+      { command: "start", description: "Boshlash / xabarlarni yoqish" },
+      { command: "stop", description: "Telegram xabarlarini oʻchirish" },
+    ],
+  });
+  redirect(`${BACK}?ok=webhook`);
+}
+
+export async function createAdminLinkAction() {
+  await requireAdmin();
+  await updateTgState((s) => {
+    s.adminNonce = { code: linkCode(), exp: Date.now() + LINK_TTL_MS };
+  });
+  redirect(`${BACK}?ok=link#admins`);
+}
+
+export async function removeTgAdminAction(fd: FormData) {
+  await requireAdmin();
+  const chatId = str(fd, "chatId");
+  await updateTgState((s) => {
+    s.admins = s.admins.filter((a) => a.chatId !== chatId);
+  });
+  redirect(`${BACK}?ok=removed#admins`);
+}
+
+export async function testAdminsAction() {
+  await requireAdmin();
+  const { admins } = await getTgState();
+  if (!admins.length) fail("noadmins");
+  let sent = 0;
+  for (const a of admins) if ((await sendMessage(a.chatId, "🔔 Sinov xabari: Feekr boti ishlayapti.")).ok) sent++;
+  redirect(`${BACK}?ok=test&n=${sent}#admins`);
+}
+
+export async function chooseChannelAction(fd: FormData) {
+  await requireAdmin();
+  let raw = str(fd, "channel");
+  if (/^https?:\/\/t\.me\//i.test(raw)) raw = `@${raw.replace(/^https?:\/\/t\.me\//i, "").split(/[/?#]/)[0]}`;
+  if (/^[A-Za-z][A-Za-z0-9_]{3,31}$/.test(raw)) raw = `@${raw}`;
+  if (!/^(@[A-Za-z][A-Za-z0-9_]{3,31}|-100\d{5,15})$/.test(raw)) fail("channel");
+  const ch = await checkChannel(raw);
+  if (!ch) fail("notadmin");
+  await updateTgState((s) => {
+    s.channel = ch;
+    s.candidates = [...s.candidates.filter((c) => c.id !== ch!.id), ch!];
+  });
+  redirect(`${BACK}?ok=channel#channel`);
+}
+
+export async function clearChannelAction() {
+  await requireAdmin();
+  await updateTgState((s) => {
+    s.channel = null;
+  });
+  redirect(`${BACK}?ok=cleared#channel`);
+}
+
+export async function postToChannelAction(fd: FormData) {
+  await requireAdmin();
+  const kind = str(fd, "kind");
+  const ref = str(fd, "ref");
+  const back = `${BACK}/post?${kind === "work" ? "work" : "font"}=${encodeURIComponent(ref)}`;
+  const draft = kind === "work" ? await workDraft(Number(ref)) : kind === "font" ? await fontDraft(ref) : null;
+  if (!draft) fail("gone", back);
+  const caption = str(fd, "caption");
+  if (!caption) fail("empty", back);
+  if (caption.length > CAPTION_MAX) fail("long", back);
+
+  const { channel } = await getTgState();
+  if (!channel) fail("nochannel", back);
+  const r = await sendPhotoOrText(channel!.id, draft!.image, captionHtml(caption), draft!.keyboard, {
+    disable_notification: fd.get("silent") === "on",
+  });
+  if (!r.ok) {
+    if (r.code === 403 || /not enough rights|chat not found|kicked/i.test(r.description)) fail("notadmin", back);
+    fail("send", back);
+  }
+  await db.tgPost.create({
+    data: { kind: draft!.kind, ref: draft!.ref, chatId: channel!.id, messageId: (r as { result: TgMessage }).result.message_id, caption },
+  });
+  revalidatePath(BACK);
+  redirect(`${back}&ok=posted`);
+}

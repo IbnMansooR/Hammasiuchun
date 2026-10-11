@@ -669,3 +669,37 @@ The same migration also enables Row Level Security on all 15 public tables. Befo
 - Switching a banner off removes it at once (the cache is tagged). Not-yet-started and expired banners do not show.
 
 **Verification** (local production build, Postgres 16): 99 checks pass for this stage: submission, pending invisibility, approve and reject with notifications, limits and abuse cases, upload guards, ad creation and validation, scheduling, impressions and clicks, and axe in light and dark on the new pages plus phone layout. The earlier suites (68 + 38 + 69) still pass. Locally, uploaded images are not shown by `next start` because files added to `public/` after the build are not served; on production they are served from the public Supabase `uploads` bucket.
+
+## 16. Telegram bot: channel, member messages, admin moderation (2026-10-11)
+
+The bot (@feekrfont_bot) runs inside the site: Telegram posts every update to `/api/telegram/webhook` (checked against a secret header), so no separate server is needed. Everything is set up once from **Admin → Telegram**; the chosen channel and the admins' chats are stored in a `Setting` row, so nothing needs a redeploy.
+
+**Channel.**
+- When the bot is made an admin of a channel, the site sees it and offers it on the Telegram page. Nothing is chosen automatically, because anyone could add the bot to their own channel. A channel can also be connected by `@name`; the site checks that the bot can post there.
+- "Telegram kanalga" on a public font and on an approved work opens a draft: the picture (the font's Open Graph card from a stable `/api/tg-image/font/[slug]` address, or the work's cover), an editable caption and the button. The caption is escaped and its first line is set in bold. A silent option is available, the page warns if the item was posted before, and every post is logged in a new `TgPost` table.
+- Buttons lead back with `utm_source=telegram&utm_medium=channel`, so channel visits show up as Telegram in the statistics.
+
+**Members.**
+- "Telegramni ulash" in the account opens a one-time link to the bot (15 minutes, single use, stored on the user). It refuses a Telegram that is already on another account and an account already tied to another Telegram, because a linked Telegram can also sign in.
+- Personal messages and news are copied to Telegram for members who turned it on (`User.tgNotify`, off by default; Start in the bot or the account switch turns it on). The copies are sent after the response, about 25 a second. Someone who blocks the bot is switched off automatically (403, or the block event). `/stop` turns the copies off.
+- The login widget now asks for permission to message. It is shown only when Telegram confirms the bot's domain is this site; before `/setdomain` it would show "Bot domain invalid".
+
+**Admin.**
+- A one-time link from Admin → Telegram connects the admin's private chat.
+- A new member work arrives there with the cover and ✅ / ❌ buttons. ❌ offers four preset reasons; another reason can be written on the site. Approving or rejecting runs the same code as the admin panel and notifies the member.
+- The buttons only work for a connected admin in their own private chat. A second press reports "already".
+- Vercel Cron calls `/api/cron/daily` at 04:00 UTC (09:00 Tashkent). The admin gets yesterday's visitors (with the change on the day before), views, downloads, ♡, new members, top sources, top downloads and the number of works waiting. The route needs `CRON_SECRET`.
+
+**Verification:** local production build with a fake Telegram API that records every call and downloads photos the way Telegram does; 74 checks pass:
+- webhook secret;
+- connecting the webhook, an admin and a channel;
+- font and work posts, including escaping, the image actually loading and the utm tags;
+- one-time links, the duplicate-account guards and approve/reject from buttons, including strangers, wrong chats, repeats and deleted works;
+- broadcast copies, blocked bot, `/start` and `/stop`, ignored groups;
+- the daily report figures against seeded hits, cron auth, losing the channel, and the Telegram API being down.
+
+The earlier suites still pass.
+
+Found and fixed while testing:
+- A work whose cover had a site-relative path would have been posted without its picture.
+- An unreachable photo now falls back to the same text and buttons as a plain message.

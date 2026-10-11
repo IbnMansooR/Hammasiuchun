@@ -16,6 +16,7 @@ export default function TelegramLogin({ bot }: { bot: string }) {
     s.setAttribute("data-radius", "21");
     s.setAttribute("data-userpic", "false");
     s.setAttribute("data-auth-url", "/api/auth/telegram");
+    s.setAttribute("data-request-access", "write"); // lets the bot send the copies of site messages the person turns on
     el.appendChild(s);
     return () => { el.textContent = ""; };
   }, [bot]);

@@ -1,11 +1,10 @@
 "use server";
 import { redirect } from "next/navigation";
-import { revalidatePath, revalidateTag } from "next/cache";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/adminGuard";
 import { slugify, shortHash } from "@/lib/fontmeta";
-import { WORKS_TAG, splitLines, splitTags, isSafeImageUrl } from "@/lib/works";
-import crypto from "node:crypto";
+import { splitLines, splitTags, isSafeImageUrl } from "@/lib/works";
+import { approveWork, publishedNote, rejectWork, revalidateWorks, tellSubmitter } from "@/lib/workModeration";
 
 function str(fd: FormData, k: string): string {
   return String(fd.get(k) ?? "").trim();
@@ -19,21 +18,6 @@ function httpsOrNull(raw: string): string | null {
   } catch {
     return null;
   }
-}
-
-function revalidateWorks(slugs: string[], fonts: string[]) {
-  revalidateTag(WORKS_TAG);
-  revalidatePath("/dizaynerlar");
-  for (const s of slugs) revalidatePath(`/dizaynerlar/${s}`);
-  for (const f of fonts) revalidatePath(`/fonts/${f}`);
-  revalidatePath("/");
-  revalidatePath("/admin/works");
-}
-
-/** A personal message from the admin to the person who sent the work. It ignores the news opt-out. */
-async function tellSubmitter(userId: number | null, title: string, body: string, link?: string) {
-  if (!userId || !(await db.user.findUnique({ where: { id: userId }, select: { id: true } }))) return;
-  await db.notification.create({ data: { userId, batch: crypto.randomUUID(), title, body, link: link ?? null } });
 }
 
 export async function saveWorkAction(fd: FormData) {
@@ -90,7 +74,7 @@ export async function saveWorkAction(fd: FormData) {
     if (clash && clash.id !== id) data.slug = `${data.slug}-${shortHash(String(id))}`;
     await db.work.update({ where: { id }, data });
     if (existing.kind === "member" && existing.status !== "approved" && published) {
-      await tellSubmitter(existing.submittedById, "Ishingiz chop etildi", `“${data.title}” “Dizaynerlar” boʻlimida koʻrinadi.`, `/dizaynerlar/${data.slug}`);
+      await tellSubmitter(existing.submittedById, publishedNote(data));
     }
   } else {
     if (await db.work.findUnique({ where: { slug: data.slug } })) data.slug = `${data.slug}-${Date.now().toString(36)}`;
@@ -131,14 +115,7 @@ export async function approveWorkAction(fd: FormData) {
   await requireAdmin();
   const id = Number(fd.get("id"));
   if (!Number.isInteger(id) || id <= 0) return;
-  const w = await db.work.findUnique({ where: { id } });
-  if (!w || (w.status === "approved" && w.isPublished)) return;
-  await db.work.update({
-    where: { id },
-    data: { status: "approved", isPublished: true, rejectReason: null, publishedAt: w.publishedAt ?? new Date() },
-  });
-  await tellSubmitter(w.submittedById, "Ishingiz chop etildi", `“${w.title}” “Dizaynerlar” boʻlimida koʻrinadi.`, `/dizaynerlar/${w.slug}`);
-  revalidateWorks([w.slug], splitTags(w.fonts));
+  if ((await approveWork(id)) !== "done") return;
   redirect("/admin/works?ok=approved");
 }
 
@@ -146,16 +123,6 @@ export async function rejectWorkAction(fd: FormData) {
   await requireAdmin();
   const id = Number(fd.get("id"));
   if (!Number.isInteger(id) || id <= 0) return;
-  const reason = str(fd, "reason").slice(0, 300);
-  const w = await db.work.findUnique({ where: { id } });
-  if (!w) return;
-  await db.work.update({ where: { id }, data: { status: "rejected", isPublished: false, rejectReason: reason || null } });
-  await tellSubmitter(
-    w.submittedById,
-    "Ishingiz qabul qilinmadi",
-    reason ? `“${w.title}”: ${reason}` : `“${w.title}” hozircha chop etilmadi. Savollar boʻlsa, yordam boʻlimiga yozing.`,
-    "/account/ishlarim",
-  );
-  revalidateWorks([w.slug], splitTags(w.fonts));
+  if ((await rejectWork(id, str(fd, "reason").slice(0, 300))) === "missing") return;
   redirect("/admin/works?ok=rejected");
 }

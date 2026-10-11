@@ -40,7 +40,7 @@ export default async function DashLayout({ children }: { children: React.ReactNo
         { href: "/admin/orders", label: "Buyurtmalar", badge: newOrders },
       ],
     },
-    { label: "Tizim", items: [{ href: "/admin/settings", label: "Sozlamalar" }] },
+    { label: "Tizim", items: [{ href: "/admin/telegram", label: "Telegram" }, { href: "/admin/settings", label: "Sozlamalar" }] },
   ];
 
   return (

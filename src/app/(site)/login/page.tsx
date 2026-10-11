@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/userAuth";
 import { userLoginAction } from "../account/actions";
 import { googleEnabled } from "@/lib/googleAuth";
 import { smsEnabled } from "@/lib/eskiz";
-import { telegramEnabled, telegramBot } from "@/lib/telegramAuth";
+import { telegramLoginBot } from "@/lib/telegramAuth";
 import { mailEnabled } from "@/lib/mailer";
 import SubmitButton from "@/components/SubmitButton";
 import AuthTabs from "@/components/AuthTabs";
@@ -64,7 +64,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             Google orqali kirishda xatolik yuz berdi. Qaytadan urinib koʻring.
           </div>
         )}
-        <AuthTabs emailForm={emailForm} googleEnabled={googleEnabled} smsEnabled={smsEnabled} telegramBot={telegramEnabled ? telegramBot : null} />
+        <AuthTabs emailForm={emailForm} googleEnabled={googleEnabled} smsEnabled={smsEnabled} telegramBot={await telegramLoginBot()} />
         {mailEnabled && (
           <p className="auth-foot" style={{ marginTop: 14 }}>
             <Link href="/forgot">Parolni unutdingizmi?</Link>

@@ -1,11 +1,13 @@
 "use server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { db } from "@/lib/db";
 import { PUBLIC_FAMILY } from "@/lib/license";
 import { getCurrentUser } from "@/lib/userAuth";
 import { hit, isLocked } from "@/lib/rateLimit";
 import { normalizeUrl, splitLines, splitTags, uniqueWorkSlug } from "@/lib/works";
+import { notifyAdminsNewWork } from "@/lib/tgAdmin";
 
 const MAX_IMAGES = 8;
 const MAX_PENDING = 5;
@@ -48,7 +50,7 @@ export async function submitWorkAction(fd: FormData): Promise<SubmitResult> {
     ? (await db.family.findMany({ where: { ...PUBLIC_FAMILY, slug: { in: asked } }, select: { slug: true } })).map((f) => f.slug)
     : [];
 
-  await db.work.create({
+  const work = await db.work.create({
     data: {
       slug: await uniqueWorkSlug(title),
       title,
@@ -66,6 +68,7 @@ export async function submitWorkAction(fd: FormData): Promise<SubmitResult> {
     },
   });
   await hit(key, 5, DAY); // at most five submissions a day
+  after(() => notifyAdminsNewWork(work.id)); // ✅/❌ buttons in the admin's Telegram
   revalidatePath("/admin/works");
   redirect("/dizaynerlar/yuborish?sent=1");
 }

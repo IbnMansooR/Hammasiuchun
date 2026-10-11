@@ -675,6 +675,10 @@ select.sel { width: auto; height: 34px; padding: 0 32px 0 14px; border-radius: 9
 .auth-fine { margin: 14px 0 0; text-align: center; font-size: 13px; color: var(--muted); }
 .pref { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: -28px 0 40px; }
 .pref-ok { font-size: 13px; color: var(--accent); font-weight: 500; }
+.tg-pref { max-width: 60ch; margin: 0 0 40px; padding: 18px 20px; border: 1px solid var(--line); border-radius: var(--r); display: grid; gap: 10px; justify-items: start; }
+.tg-pref h2 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
+.tg-pref p { margin: 0; color: var(--fg-2); font-size: 14.5px; }
+.tg-pref .tg-hint { color: var(--fg); }
 .wish-note { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin: 0 0 28px; padding: 16px 20px; border: 1px solid var(--line); border-radius: var(--r); background: var(--subtle); }
 .wish-note p { margin: 0; max-width: 62ch; font-size: 14.5px; line-height: 1.45; color: var(--fg-2); }
 .wish-note b { color: var(--fg); }
@@ -927,6 +931,19 @@ section.adm-card + section.adm-card, .stat-grid + section.adm-card { margin-top:
 .adm-ad-cell { display: flex; align-items: center; gap: 12px; min-width: 220px; }
 .adm-ad-cell img { width: 112px; aspect-ratio: 4 / 1; object-fit: cover; border-radius: 6px; background: var(--subtle); flex: none; }
 .adm-ad-cell strong { font-weight: 600; }
+.adm-tg-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 18px; font-size: 13px; }
+.adm-tg-list { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 8px; }
+.adm-tg-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-sm); font-size: 14px; }
+.adm-tg-list .adm-meta { display: inline; margin-left: 6px; }
+.adm-tg-link { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.adm-tg-form { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.adm-tg-form input { flex: 1 1 200px; max-width: 320px; }
+.adm-steps { padding-left: 20px; display: grid; gap: 6px; }
+.adm-tg-compose { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.adm-tg-preview img { display: block; width: 100%; border-radius: var(--r); border: 1px solid var(--line); background: var(--subtle); }
+.adm-tg-preview .adm-blank { border: 1px dashed var(--line); border-radius: var(--r); padding: 48px 16px; }
+.adm-tg-buttons { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+@media (max-width: 860px) { .adm-tg-compose { grid-template-columns: minmax(0, 1fr); } }
 .adm-ad-form { max-width: 760px; display: grid; gap: 16px; }
 .adm-act-wrap { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; min-width: 150px; white-space: normal; }
 .adm-act-wrap form { display: inline-block; }

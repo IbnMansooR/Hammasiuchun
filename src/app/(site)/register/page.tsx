@@ -5,7 +5,7 @@ import { registerAction } from "../account/actions";
 import SubmitButton from "@/components/SubmitButton";
 import { googleEnabled } from "@/lib/googleAuth";
 import { smsEnabled } from "@/lib/eskiz";
-import { telegramEnabled, telegramBot } from "@/lib/telegramAuth";
+import { telegramLoginBot } from "@/lib/telegramAuth";
 import TelegramLogin from "@/components/TelegramLogin";
 import { IconBell, IconHeart, IconImage } from "@/components/Icons";
 
@@ -21,7 +21,7 @@ const ERRORS: Record<string, string> = {
 export default async function RegisterPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   if (await getCurrentUser()) redirect("/account");
   const { error } = await searchParams;
-  const bot = telegramEnabled ? telegramBot : null;
+  const bot = await telegramLoginBot();
 
   return (
     <div className="container auth">

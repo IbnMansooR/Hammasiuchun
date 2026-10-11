@@ -12,6 +12,8 @@ import { signResetToken, verifyResetToken } from "@/lib/resetToken";
 import { SITE_URL } from "@/lib/site";
 import { formatDate } from "@/lib/format";
 import { recordServerHit } from "@/lib/analytics";
+import { botEnabled, botUsername, sendMessage } from "@/lib/telegram";
+import { LINK_TTL_MS, linkCode } from "@/lib/tgState";
 
 function str(fd: FormData, k: string): string {
   return String(fd.get(k) ?? "").trim();
@@ -188,4 +190,32 @@ export async function setNotifyNewsAction(fd: FormData) {
   await db.user.update({ where: { id: user.id }, data: { notifyNews: fd.get("news") === "on" } });
   revalidatePath("/account");
   redirect("/account?saved=news");
+}
+
+/* ---------------- Telegram ---------------- */
+/** One-time deep link: pressing Start in the bot attaches this Telegram to the signed-in account. */
+export async function connectTelegramAction() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (!botEnabled()) redirect("/account");
+  const code = linkCode();
+  await db.user.update({ where: { id: user.id }, data: { tgLinkCode: code, tgLinkExp: new Date(Date.now() + LINK_TTL_MS) } });
+  redirect(`https://t.me/${botUsername()}?start=l_${code}`);
+}
+
+export async function setTgNotifyAction(fd: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const row = await db.user.findUnique({ where: { id: user.id }, select: { telegramId: true } });
+  if (!row?.telegramId) redirect("/account");
+  if (fd.get("on") === "1") {
+    // Telegram only lets a bot write to someone who has opened it; a test message tells us.
+    const r = await sendMessage(row.telegramId, "✅ Telegram xabarlari yoqildi. Oʻchirish: /stop");
+    if (!r.ok) redirect("/account?tg=start");
+    await db.user.update({ where: { id: user.id }, data: { tgNotify: true } });
+  } else {
+    await db.user.update({ where: { id: user.id }, data: { tgNotify: false } });
+  }
+  revalidatePath("/account");
+  redirect("/account?saved=tg");
 }

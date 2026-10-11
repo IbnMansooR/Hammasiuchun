@@ -1,9 +1,9 @@
 "use server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import crypto from "node:crypto";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/adminGuard";
+import { notifyUser, notifyUsers } from "@/lib/notify";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -59,13 +59,9 @@ export async function liftRestrictionAction(fd: FormData) {
   if (!id) redirect("/admin/users");
   await db.user.update({ where: { id }, data: { blockedAt: null, blockedUntil: null, blockReason: null } });
   if (fd.get("notify") === "on") {
-    await db.notification.create({
-      data: {
-        userId: id,
-        batch: crypto.randomUUID(),
-        title: "Hisobingiz qayta faollashtirildi",
-        body: "Cheklov olib tashlandi — Feekr’dan yana toʻliq foydalanishingiz mumkin.",
-      },
+    await notifyUser(id, {
+      title: "Hisobingiz qayta faollashtirildi",
+      body: "Cheklov olib tashlandi — Feekr’dan yana toʻliq foydalanishingiz mumkin.",
     });
   }
   revalidatePath("/admin/users");
@@ -118,12 +114,7 @@ export async function sendNotificationAction(fd: FormData) {
   }
   if (ids.length === 0) redirect(`${back}?error=empty`);
 
-  const batch = crypto.randomUUID();
-  for (let i = 0; i < ids.length; i += 1000) {
-    await db.notification.createMany({
-      data: ids.slice(i, i + 1000).map((userId) => ({ userId, batch, title, body, link })),
-    });
-  }
+  await notifyUsers(ids, { title, body, link });
   revalidatePath("/admin/notifications");
   revalidatePath(back);
   redirect(`${back}?ok=sent&n=${ids.length}`);

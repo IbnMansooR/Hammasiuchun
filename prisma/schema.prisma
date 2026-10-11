@@ -187,6 +187,11 @@ model User {
   notifyNews       Boolean        @default(true)
   telegramId       String?        @unique
   telegramUsername String?
+  // Copies of personal messages and news in Telegram. Off until the person turns it on (or presses Start in the bot).
+  tgNotify         Boolean        @default(false)
+  // One-time code behind the "connect Telegram" deep link (t.me/<bot>?start=l_<code>); expires after 15 minutes.
+  tgLinkCode       String?        @unique
+  tgLinkExp        DateTime?
   orders           Order[]
   purchases        Purchase[]
   notifications    Notification[]
@@ -333,4 +338,18 @@ model Ad {
   updatedAt  DateTime  @updatedAt
 
   @@index([placement, isActive])
+}
+
+/// A post the bot published to the Telegram channel (one row per send).
+model TgPost {
+  id        Int      @id @default(autoincrement())
+  kind      String // font | work
+  ref       String // font slug or work id
+  chatId    String
+  messageId Int
+  caption   String
+  postedAt  DateTime @default(now())
+
+  @@index([kind, ref])
+  @@index([postedAt])
 }

@@ -1,0 +1,86 @@
+// Thin client for the Telegram Bot API (https://core.telegram.org/bots/api).
+// Every call returns { ok, result } or { ok: false, code, description } and never throws:
+// a Telegram outage must not break a page, a server action or the webhook.
+import { SITE_URL } from "./site";
+
+const API = (process.env.TELEGRAM_API_BASE || "https://api.telegram.org").replace(/\/$/, ""); // overridable for local tests
+
+export const botToken = () => process.env.TELEGRAM_BOT_TOKEN ?? "";
+export const botUsername = () => (process.env.TELEGRAM_BOT_USERNAME ?? "").replace(/^@/, "");
+export const botEnabled = () => !!(botToken() && botUsername());
+
+export type TgResult<T> = { ok: true; result: T } | { ok: false; code: number; description: string };
+
+export type TgMessage = { message_id: number; chat: { id: number; type: string } };
+export type InlineButton = { text: string; url?: string; callback_data?: string };
+export type Keyboard = InlineButton[][];
+
+export async function tg<T = unknown>(method: string, params: Record<string, unknown> = {}): Promise<TgResult<T>> {
+  const token = botToken();
+  if (!token) return { ok: false, code: 0, description: "bot token is not set" };
+  try {
+    const res = await fetch(`${API}/bot${token}/${method}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(params),
+      signal: AbortSignal.timeout(method === "sendPhoto" ? 25_000 : 10_000),
+      cache: "no-store",
+    });
+    const data = (await res.json().catch(() => null)) as { ok?: boolean; result?: T; error_code?: number; description?: string } | null;
+    if (data?.ok) return { ok: true, result: data.result as T };
+    return { ok: false, code: data?.error_code ?? res.status, description: (data?.description ?? `HTTP ${res.status}`).slice(0, 200) };
+  } catch (e) {
+    return { ok: false, code: 0, description: e instanceof Error && e.name === "TimeoutError" ? "Telegram javob bermadi" : "Telegram bilan aloqa yoʻq" };
+  }
+}
+
+/** Escape text for parse_mode=HTML. */
+export const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/** Absolute site link, tagged so the visit is credited to Telegram in the statistics. */
+export function siteLink(path: string, medium: "channel" | "bot" = "bot"): string {
+  const u = new URL(path.startsWith("http") ? path : `${SITE_URL}${path.startsWith("/") ? "" : "/"}${path}`);
+  if (u.origin === new URL(SITE_URL).origin) {
+    u.searchParams.set("utm_source", "telegram");
+    u.searchParams.set("utm_medium", medium);
+  }
+  return u.toString();
+}
+
+/** Image URLs Telegram can fetch: absolute https (site-relative paths are made absolute). */
+export function absoluteImage(src: string | null | undefined): string | null {
+  if (!src) return null;
+  if (src.startsWith("/")) return `${SITE_URL}${src}`;
+  return /^https:\/\//.test(src) ? src : null;
+}
+
+export function sendMessage(chatId: string | number, html: string, keyboard?: Keyboard, extra: Record<string, unknown> = {}) {
+  return tg<TgMessage>("sendMessage", {
+    chat_id: chatId,
+    text: html,
+    parse_mode: "HTML",
+    link_preview_options: { is_disabled: true },
+    ...(keyboard ? { reply_markup: { inline_keyboard: keyboard } } : {}),
+    ...extra,
+  });
+}
+
+/** A photo with a caption; if Telegram can't fetch the image, the same text goes out as a plain message. */
+export async function sendPhotoOrText(chatId: string | number, photo: string | null, html: string, keyboard?: Keyboard, extra: Record<string, unknown> = {}) {
+  if (photo) {
+    const r = await tg<TgMessage>("sendPhoto", {
+      chat_id: chatId,
+      photo,
+      caption: html,
+      parse_mode: "HTML",
+      ...(keyboard ? { reply_markup: { inline_keyboard: keyboard } } : {}),
+      ...extra,
+    });
+    // 400 "wrong file identifier/HTTP URL specified", "failed to get HTTP URL content", …
+    if (r.ok || r.code !== 400 || !/url|file|photo|image/i.test(r.description)) return r;
+  }
+  return sendMessage(chatId, html, keyboard, extra);
+}
+
+/** Telegram allows ~30 messages a second overall; stay under it for bulk sends. */
+export const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));

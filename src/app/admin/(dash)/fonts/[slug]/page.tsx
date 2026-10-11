@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { cssFamily, fontFaceCSS, previewStyle, CATEGORIES, CATEGORY_LABEL } from "@/lib/fonts";
 import { saveFamilyAction } from "../../../actions";
 import { LICENSE_CLASSES, LICENSE_LABEL, isPublicFamily, isRedistributable } from "@/lib/license";
+import { formatDateTime } from "@/lib/format";
 
 export const metadata = { title: "Admin — Shriftni tahrirlash" };
 
@@ -14,6 +15,7 @@ export default async function EditFont({
   const { saved, uploaded, error } = await searchParams;
   const f = await db.family.findUnique({ where: { slug }, include: { styles: { orderBy: [{ italic: "asc" }, { weight: "asc" }] } } });
   if (!f) notFound();
+  const lastPost = await db.tgPost.findFirst({ where: { kind: "font", ref: slug }, orderBy: { postedAt: "desc" }, select: { postedAt: true } });
 
   const styles = f.styles.map((s) => ({ style: s.style, weight: s.weight, italic: s.italic }));
   const faceCSS = fontFaceCSS(slug, styles);
@@ -50,6 +52,13 @@ export default async function EditFont({
             : "Saytda koʻrinmaydi: \"Chop etilgan\" belgisi oʻchirilgan."}
         {f.copyright && <div style={{ fontSize: 12.5, marginTop: 6, opacity: 0.85 }}>Fayldagi yozuv: {f.copyright}</div>}
       </div>
+
+      {isPublicFamily(f) && (
+        <div className="adm-tg-row">
+          <Link href={`/admin/telegram/post?font=${encodeURIComponent(slug)}`} className="btn btn-sm">Telegram kanalga yuborish</Link>
+          <span className="muted">{lastPost ? `Oxirgi marta ${formatDateTime(lastPost.postedAt)} da yuborilgan` : "Kanalga hali yuborilmagan"}</span>
+        </div>
+      )}
 
       <div style={{ border: "1px solid var(--line)", borderRadius: 14, padding: "24px 20px", marginBottom: 24, overflow: "hidden" }}>
         <div style={{ fontFamily: `"${cssFamily(slug)}", var(--font)`, fontWeight: pv?.weight ?? 400, fontSize: 54, lineHeight: 1.1, whiteSpace: "nowrap" }}>
