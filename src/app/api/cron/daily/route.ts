@@ -3,10 +3,13 @@
 import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { botEnabled } from "@/lib/telegram";
-import { sendDailyReport } from "@/lib/tgAdmin";
+import { sendDailyReport, sendDigestDraft } from "@/lib/tgAdmin";
+import { sampleFonts } from "@/lib/fontSamples";
+import { TZ_OFFSET_MS } from "@/lib/analytics";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 function authorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET ?? "";
@@ -18,5 +21,11 @@ function authorized(req: NextRequest): boolean {
 export async function GET(req: NextRequest) {
   if (!authorized(req)) return new NextResponse(null, { status: 401 });
   if (!botEnabled()) return NextResponse.json({ sent: 0, reason: "bot not configured" });
-  return NextResponse.json(await sendDailyReport());
+  const report = await sendDailyReport();
+  // Fridays (Tashkent): the weekly digest draft, for the admin to publish with one press.
+  const friday = new Date(Date.now() + TZ_OFFSET_MS).getUTCDay() === 5 || req.nextUrl.searchParams.get("digest") === "1";
+  const digest = friday ? await sendDigestDraft() : null;
+  // Keep the bot's font list warm so the first sample of the day is quick.
+  const fonts = (await sampleFonts().catch(() => [])).length;
+  return NextResponse.json({ ...report, digest, fonts });
 }

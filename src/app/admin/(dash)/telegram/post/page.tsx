@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
 import { botEnabled } from "@/lib/telegram";
 import { getTgState } from "@/lib/tgState";
-import { CAPTION_MAX, fontDraft, workDraft } from "@/lib/tgPosts";
+import { CAPTION_MAX, digestDraft, fontDraft, workDraft } from "@/lib/tgPosts";
 import Notice from "@/components/admin/Notice";
 import SubmitButton from "@/components/SubmitButton";
 import { postToChannelAction } from "@/app/admin/telegramActions";
@@ -20,9 +20,11 @@ const ERR: Record<string, string> = {
   gone: "Bu shrift yoki ish saytda koʻrinmaydi, shuning uchun yuborib boʻlmaydi.",
 };
 
-export default async function TelegramPost({ searchParams }: { searchParams: Promise<{ font?: string; work?: string; ok?: string; error?: string }> }) {
-  const { font, work, ok, error } = await searchParams;
-  const draft = font ? await fontDraft(font) : work && /^\d{1,9}$/.test(work) ? await workDraft(Number(work)) : null;
+export default async function TelegramPost({ searchParams }: { searchParams: Promise<{ font?: string; work?: string; digest?: string; ok?: string; error?: string }> }) {
+  const { font, work, digest, ok, error } = await searchParams;
+  const draft = digest
+    ? await digestDraft()
+    : font ? await fontDraft(font) : work && /^\d{1,9}$/.test(work) ? await workDraft(Number(work)) : null;
   if (!draft) notFound();
   const [{ channel }, history] = await Promise.all([
     getTgState(),
@@ -35,7 +37,7 @@ export default async function TelegramPost({ searchParams }: { searchParams: Pro
       <div className="adm-head">
         <div>
           <h1>Kanalga yuborish</h1>
-          <p className="adm-sub">{draft.kind === "font" ? "Shrift" : "Ish"}: {draft.title}</p>
+          <p className="adm-sub">{draft.kind === "digest" ? "Haftalik dayjest (oxirgi 7 kun)" : `${draft.kind === "font" ? "Shrift" : "Ish"}: ${draft.title}`}</p>
         </div>
         <Link href={draft.backHref} className="btn btn-sm">Orqaga</Link>
       </div>
@@ -48,7 +50,7 @@ export default async function TelegramPost({ searchParams }: { searchParams: Pro
         </Notice>
       )}
       {history.length > 0 && (
-        <Notice tone="warn">Bu {draft.kind === "font" ? "shrift" : "ish"} avval yuborilgan: {history.map((h) => formatDateTime(h.postedAt)).join(", ")}.</Notice>
+        <Notice tone="warn">Bu {draft.kind === "font" ? "shrift" : draft.kind === "digest" ? "bugungi dayjest" : "ish"} avval yuborilgan: {history.map((h) => formatDateTime(h.postedAt)).join(", ")}.</Notice>
       )}
 
       <div className="adm-tg-compose">

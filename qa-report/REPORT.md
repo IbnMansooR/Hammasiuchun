@@ -703,3 +703,26 @@ The earlier suites still pass.
 Found and fixed while testing:
 - A work whose cover had a site-relative path would have been posted without its picture.
 - An unreachable photo now falls back to the same text and buttons as a plain message.
+
+## 17. Telegram bot, phase 2: text samples, Uzbek letters, inline search, weekly digest (2026-10-11)
+
+**Text samples.** Any plain text sent to the bot (up to 60 characters) comes back as a picture: the text set in four of our fonts, with a button to each font. The button opens the font page with the same text in the tester (`?t=`). "Keyingi / Oldingi" page through the rest by editing the same message.
+- Only fonts that can draw every character of the text are offered. The list of families, with the characters each covers and whether the renderer can draw it, is built once a day from the font files; the daily cron keeps it warm.
+- Uzbek: `o'` `g'` typed with any apostrophe are shown as `oʻ` `gʻ` (U+02BB), and an apostrophe inside a word becomes `ʼ` (U+02BC). The caption says so. Fonts without these signs, or without `ў қ ғ ҳ` for Cyrillic text, are left out. Characters none of our fonts have (emoji, other scripts) are named in the reply.
+- The picture comes from `/api/tg-image/sample`, which renders only URLs the bot signed (HMAC over mode, text and fonts); a changed text or font list gets 403. A soft limit of 12 samples a minute per chat stops flooding.
+- `/harflar` explains the Uzbek signs and says how many fonts have them. `/help` lists what the bot does.
+
+**Inline search.** In any chat, `@feekrfont_bot <name>` lists matching fonts (most downloaded first). Picking one sends a card with the font page's preview and a button tagged `utm_medium=inline`. It needs inline mode switched on in @BotFather (`/setinline`).
+
+**Weekly digest.** On Fridays the cron sends the admins a draft: the week's most downloaded fonts (topped up with all-time favourites in a quiet week), new fonts and new works, with a picture of each font's name set in that font. "📣 Kanalga yuborish" publishes it to the channel once (a second press says it was already sent). The same draft can be edited and sent from Admin → Telegram → "Dayjestni koʻrish".
+
+**Verification:** 39 new checks with the fake Telegram API, using real TTF/OTF fonts (DejaVu, Liberation and Loma, a Latin-only font without `ʻ`). They cover:
+- the picture renders and the font order is right;
+- paging edits the same message;
+- `o'` becomes `oʻ` and Loma is left out;
+- the Cyrillic filter, emoji, stripped markup and the signed URL (tampering returns 403);
+- the flood brake, `/harflar`, `/help` and inline results (found, none, empty query);
+- the digest: figures, picture, publish once, strangers refused, compose page;
+- the `?t=` tester.
+
+The phase 1 suite (74) still passes.

@@ -2,21 +2,25 @@
 // back in a header). Handled: /start with a deep-link payload (connect a member or an admin),
 // /stop, the bot being added to / removed from a channel, and the admin's ✅/❌ buttons.
 import crypto from "node:crypto";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { db } from "@/lib/db";
-import { botEnabled, esc, sendMessage, siteLink, type Keyboard } from "@/lib/telegram";
+import { botEnabled, botUsername, esc, sendMessage, siteLink, type Keyboard } from "@/lib/telegram";
 import { getTgState, updateTgState, type TgChannel } from "@/lib/tgState";
-import { handleAdminCallback } from "@/lib/tgAdmin";
+import { handleAdminCallback, handleDigestCallback } from "@/lib/tgAdmin";
+import { handleSampleCallback, sendSample, sendUzbekLetters } from "@/lib/tgSamples";
+import { handleInlineQuery } from "@/lib/tgInline";
 import { SITE_URL } from "@/lib/site";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60; // the first call of the day also builds the font list
 
 type From = { id: number; first_name?: string; last_name?: string; username?: string; is_bot?: boolean };
 type Chat = { id: number; type: string; title?: string; username?: string };
 type Update = {
   message?: { message_id: number; from?: From; chat: Chat; text?: string };
-  callback_query?: { id: string; from: From; data?: string; message?: { message_id: number; chat: Chat } };
+  callback_query?: { id: string; from: From; data?: string; message?: { message_id: number; chat: Chat; caption?: string } };
+  inline_query?: { id: string; from: From; query: string };
   my_chat_member?: { chat: Chat; from: From; new_chat_member: { status: string } };
 };
 
@@ -37,7 +41,11 @@ export async function POST(req: NextRequest) {
   const update = (await req.json().catch(() => null)) as Update | null;
   if (!update) return ok();
   try {
-    if (update.callback_query) await handleAdminCallback(update.callback_query);
+    const cb = update.callback_query;
+    if (cb?.data?.startsWith("s:")) after(() => handleSampleCallback(cb).catch(() => {})); // re-renders a picture: answer Telegram first
+    else if (cb?.data?.startsWith("d:")) await handleDigestCallback(cb);
+    else if (cb) await handleAdminCallback(cb);
+    else if (update.inline_query) await handleInlineQuery(update.inline_query);
     else if (update.my_chat_member) await onMembership(update.my_chat_member);
     else if (update.message?.chat.type === "private" && update.message.from && !update.message.from.is_bot) {
       await onPrivateMessage(update.message.from, update.message.text ?? "");
@@ -58,6 +66,14 @@ async function onPrivateMessage(from: From, text: string) {
 
   if (cmd === "/start" && payload.startsWith("l_")) return linkMember(from, payload.slice(2));
   if (cmd === "/start" && payload.startsWith("a_")) return linkAdmin(from, payload.slice(2));
+
+  if (cmd === "/harflar") return sendUzbekLetters(chatId);
+  if (cmd === "/help") return sendWelcome(chatId);
+  // Plain text: show it in our fonts. Rendering takes a few seconds, so Telegram gets its answer first.
+  if (!text.trim().startsWith("/")) {
+    if (text.trim()) after(() => sendSample(chatId, text).catch(() => {}));
+    return;
+  }
 
   const member = await db.user.findUnique({ where: { telegramId: chatId }, select: { id: true, tgNotify: true } });
 
@@ -85,8 +101,10 @@ async function sendWelcome(chatId: string) {
   const lines = [
     "Salom! Men <b>Feekr</b> botiman: feekrfont.uz dagi bepul shriftlar.",
     "",
-    "• Saytga <b>Telegram orqali</b> kirsangiz, bir bosishda hisob ochiladi.",
-    "• Kabinetda “Telegramni ulash”ni bossangiz, shaxsiy xabarlar va yangi shriftlar shu yerga keladi.",
+    "✍️ Menga istalgan matn yozing (60 belgigacha): uni shriftlarimizda rasm qilib qaytaraman.",
+    "🔤 /harflar: oʻzbek harflari (oʻ gʻ ʼ, ў қ ғ ҳ) qaysi shriftlarda bor.",
+    `🔎 Istalgan chatda <code>@${esc(botUsername())} nomi</code> deb yozib, shriftni doʻstingizga yuboring.`,
+    "🔔 Kabinetda “Telegramni ulash”ni bossangiz, shaxsiy xabarlar va yangi shriftlar shu yerga keladi.",
   ];
   if (channel?.username) lines.push(`• Yangi shriftlar kanali: @${esc(channel.username)}`);
   const keyboard: Keyboard = [

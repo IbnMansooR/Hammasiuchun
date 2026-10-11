@@ -38,7 +38,7 @@ export async function tg<T = unknown>(method: string, params: Record<string, unk
 export const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 /** Absolute site link, tagged so the visit is credited to Telegram in the statistics. */
-export function siteLink(path: string, medium: "channel" | "bot" = "bot"): string {
+export function siteLink(path: string, medium: "channel" | "bot" | "inline" = "bot"): string {
   const u = new URL(path.startsWith("http") ? path : `${SITE_URL}${path.startsWith("/") ? "" : "/"}${path}`);
   if (u.origin === new URL(SITE_URL).origin) {
     u.searchParams.set("utm_source", "telegram");

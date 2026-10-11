@@ -33,6 +33,12 @@ export function WorkbenchProvider({ cuts, name, children }: { cuts: Cut[]; name:
   const [text, setText] = useState(name);
   const [weight, setWeight] = useState(() => defaultWeightOf(cuts));
   const [italic, setItalic] = useState(() => !cuts.some((c) => !c.italic));
+  // ?t=… (the Telegram bot links here with the person's own text) fills the tester after load,
+  // so the page itself stays cacheable.
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("t")?.replace(/\s+/g, " ").trim().slice(0, 100);
+    if (t) setText(t);
+  }, []);
   const value = useMemo(() => ({ text, setText, weight, setWeight, italic, setItalic }), [text, weight, italic]);
   return <WorkbenchCtx.Provider value={value}>{children}</WorkbenchCtx.Provider>;
 }

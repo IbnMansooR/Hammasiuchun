@@ -4,13 +4,17 @@ import { db } from "./db";
 import { CATEGORY_LABEL } from "./fonts";
 import { LICENSE_LABEL, PUBLIC_FAMILY } from "./license";
 import { SITE_URL } from "./site";
-import { absoluteImage, esc, siteLink, type Keyboard } from "./telegram";
+import { absoluteImage, esc, sendPhotoOrText, siteLink, type Keyboard, type TgMessage } from "./telegram";
+import { getTgState } from "./tgState";
 import { splitTags } from "./works";
+import { TZ_OFFSET_MS, tashkentDay } from "./analytics";
+import { formatDate } from "./format";
+import { sampleFonts, sampleImageUrl } from "./fontSamples";
 
 export const CAPTION_MAX = 1000; // Telegram's photo caption limit is 1024 characters
 
 export type PostDraft = {
-  kind: "font" | "work";
+  kind: "font" | "work" | "digest";
   ref: string;
   title: string;
   image: string | null;
@@ -80,4 +84,80 @@ export async function workDraft(id: number): Promise<PostDraft | null> {
 export function captionHtml(plain: string): string {
   const [first, ...rest] = plain.replace(/\r\n/g, "\n").trim().split("\n");
   return [`<b>${esc(first)}</b>`, ...rest.map(esc)].join("\n");
+}
+
+/* ---------------- weekly digest ---------------- */
+
+const DAY = 24 * 60 * 60 * 1000;
+const shortDate = (d: Date) => formatDate(new Date(d.getTime() + TZ_OFFSET_MS)).replace(/, \d{4}$/, "");
+
+/** The last seven days: most downloaded fonts (topped up with all-time favourites when the
+ * week was quiet), new fonts and new works. ref = the Tashkent date it was made for. */
+export async function digestDraft(now = new Date()): Promise<PostDraft | null> {
+  const since = new Date(now.getTime() - 7 * DAY);
+  const week = await db.$queryRaw<{ slug: string; n: number }[]>`
+    SELECT meta AS slug, COUNT(*)::int AS n FROM "Hit"
+    WHERE "at" >= ${since} AND name = 'download' AND meta IS NOT NULL GROUP BY meta ORDER BY n DESC LIMIT 20`;
+  const pub = await db.family.findMany({
+    where: PUBLIC_FAMILY,
+    orderBy: [{ downloads: "desc" }, { name: "asc" }],
+    select: { slug: true, name: true, createdAt: true },
+  });
+  if (pub.length === 0) return null;
+  const bySlug = new Map(pub.map((f) => [f.slug, f]));
+  const top: { slug: string; name: string; n: number }[] = [];
+  for (const w of week) {
+    const f = bySlug.get(w.slug);
+    if (f && top.length < 5) top.push({ slug: f.slug, name: f.name, n: w.n });
+  }
+  for (const f of pub) {
+    if (top.length >= 5) break;
+    if (!top.some((t) => t.slug === f.slug)) top.push({ slug: f.slug, name: f.name, n: 0 });
+  }
+  const fresh = pub.filter((f) => f.createdAt >= since).slice(0, 3);
+  const works = await db.work.findMany({
+    where: { isPublished: true, status: "approved", publishedAt: { gte: since } },
+    orderBy: { publishedAt: "desc" },
+    take: 3,
+    select: { title: true },
+  });
+
+  const lines = [
+    `Haftaning shriftlari · ${shortDate(since)} – ${shortDate(now)}`,
+    "",
+    ...top.map((t, i) => `${i + 1}. ${t.name}${t.n ? ` · ${t.n} marta yuklandi` : ""}`),
+  ];
+  if (fresh.length) lines.push("", `Yangi: ${fresh.map((f) => f.name).join(", ")}`);
+  if (works.length) lines.push("", `Dizaynerlar boʻlimida: ${works.map((w) => `“${w.title}”`).join(", ")}`);
+  lines.push("", "Hammasi bepul: feekrfont.uz", "#haftalik #shrift #bepulshrift");
+
+  // The picture: each font's name set in that font (only fonts the renderer can draw).
+  const drawable = new Set((await sampleFonts()).map((f) => f.slug));
+  const pictured = top.filter((t) => drawable.has(t.slug)).slice(0, 4).map((t) => t.slug);
+  const keyboard: Keyboard = top.slice(0, 4).map((t, i) => [{ text: `${i + 1}. ${t.name}`, url: siteLink(`/fonts/${t.slug}`, "channel") }]);
+  keyboard.push([{ text: "Barcha shriftlar", url: siteLink("/fonts", "channel") }]);
+  return {
+    kind: "digest",
+    ref: tashkentDay(now),
+    title: "Haftalik dayjest",
+    image: pictured.length ? sampleImageUrl("names", "", pictured) : null,
+    caption: lines.join("\n"),
+    keyboard,
+    backHref: "/admin/telegram",
+  };
+}
+
+/* ---------------- sending ---------------- */
+
+export type PostResult = { ok: true; messageId: number; chatId: string; username: string | null } | { ok: false; reason: "nochannel" | "notadmin" | "send" };
+
+/** Publish a draft (with the admin's caption) to the connected channel and log it. */
+export async function postDraft(draft: PostDraft, caption: string, silent = false): Promise<PostResult> {
+  const { channel } = await getTgState();
+  if (!channel) return { ok: false, reason: "nochannel" };
+  const r = await sendPhotoOrText(channel.id, draft.image, captionHtml(caption), draft.keyboard, { disable_notification: silent });
+  if (!r.ok) return { ok: false, reason: r.code === 403 || /not enough rights|chat not found|kicked/i.test(r.description) ? "notadmin" : "send" };
+  const messageId = (r.result as TgMessage).message_id;
+  await db.tgPost.create({ data: { kind: draft.kind, ref: draft.ref, chatId: channel.id, messageId, caption } });
+  return { ok: true, messageId, chatId: channel.id, username: channel.username };
 }

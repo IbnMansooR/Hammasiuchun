@@ -6,7 +6,8 @@ import { SITE_URL } from "./site";
 import { formatDate, formatNumber } from "./format";
 import { TZ_OFFSET_MS, tashkentDay } from "./analytics";
 import { absoluteImage, esc, pause, sendMessage, sendPhotoOrText, siteLink, tg, type Keyboard } from "./telegram";
-import { getTgState, isTgAdmin } from "./tgState";
+import { getTgState, isTgAdmin, type TgState } from "./tgState";
+import { captionHtml, digestDraft, postDraft } from "./tgPosts";
 import { approveWork, rejectWork } from "./workModeration";
 import { splitLines, splitTags } from "./works";
 
@@ -82,13 +83,18 @@ const setKeyboard = (q: CallbackQuery, keyboard: Keyboard) =>
     ? tg("editMessageReplyMarkup", { chat_id: q.message.chat.id, message_id: q.message.message_id, reply_markup: { inline_keyboard: keyboard } })
     : Promise.resolve(null);
 
-export async function handleAdminCallback(q: CallbackQuery): Promise<void> {
+/** Only a connected admin, pressing a button in their own private chat with the bot. */
+async function adminPress(q: CallbackQuery): Promise<TgState | null> {
   const state = await getTgState();
-  // Only a connected admin, pressing a button in their own private chat with the bot.
   if (!isTgAdmin(state, q.from.id) || q.message?.chat.type !== "private" || String(q.message.chat.id) !== String(q.from.id)) {
     await answer(q.id, "Bu tugma faqat Feekr admini uchun.", true);
-    return;
+    return null;
   }
+  return state;
+}
+
+export async function handleAdminCallback(q: CallbackQuery): Promise<void> {
+  if (!(await adminPress(q))) return;
   const m = /^w:([arxbn]):(\d{1,9})(?::(\d))?$/.exec(q.data ?? "");
   if (!m) {
     await answer(q.id, "");
@@ -207,4 +213,60 @@ export async function sendDailyReport(): Promise<{ sent: number }> {
     await pause(40);
   }
   return { sent };
+}
+
+/* ---------------- weekly digest ---------------- */
+
+/** Fridays: the digest draft goes to the admins first; one press publishes it to the channel. */
+export async function sendDigestDraft(): Promise<{ sent: number }> {
+  const state = await getTgState();
+  if (state.admins.length === 0) return { sent: 0 };
+  const draft = await digestDraft();
+  if (!draft) return { sent: 0 };
+  const html = `📰 <b>Haftalik dayjest qoralamasi</b>\nKanalga shu holicha yuboraymi?\n\n${captionHtml(draft.caption.slice(0, 850))}`;
+  const keyboard: Keyboard = [
+    [{ text: "📣 Kanalga yuborish", callback_data: `d:p:${draft.ref}` }],
+    [{ text: "✏️ Saytda tahrirlab yuborish", url: adminUrl("/admin/telegram/post?digest=1") }],
+  ];
+  let sent = 0;
+  for (const a of state.admins) {
+    if ((await sendPhotoOrText(a.chatId, draft.image, html, keyboard)).ok) sent++;
+    await pause(40);
+  }
+  return { sent };
+}
+
+const REASON: Record<string, string> = {
+  nochannel: "Kanal ulanmagan: admin paneldagi Telegram sahifasida ulang.",
+  notadmin: "Bot kanalda admin emas yoki post yozish huquqi yoʻq.",
+  send: "Telegram postni qabul qilmadi. Birozdan keyin qayta bosing.",
+};
+
+export async function handleDigestCallback(q: CallbackQuery): Promise<void> {
+  if (!(await adminPress(q))) return;
+  const ref = /^d:p:(\d{4}-\d{2}-\d{2})$/.exec(q.data ?? "")?.[1];
+  if (!ref) {
+    await answer(q.id, "");
+    return;
+  }
+  const done = await db.tgPost.findFirst({ where: { kind: "digest", ref } });
+  if (done) {
+    await setKeyboard(q, [[{ text: "✅ Kanalga yuborilgan", callback_data: "w:n:0" }]]);
+    await answer(q.id, "Bu dayjest allaqachon yuborilgan.");
+    return;
+  }
+  const draft = await digestDraft();
+  if (!draft) {
+    await answer(q.id, "Dayjest uchun maʼlumot yoʻq.", true);
+    return;
+  }
+  draft.ref = ref; // keep the button's date, so a second press is recognised even after midnight
+  const r = await postDraft(draft, draft.caption);
+  if (!r.ok) {
+    await answer(q.id, REASON[r.reason], true);
+    return;
+  }
+  const link = r.username ? `https://t.me/${r.username}/${r.messageId}` : adminUrl("/admin/telegram");
+  await setKeyboard(q, [[{ text: "✅ Kanalga yuborildi · koʻrish", url: link }]]);
+  await answer(q.id, "Kanalga yuborildi.");
 }

@@ -165,6 +165,15 @@ export default async function TelegramAdmin({ searchParams }: { searchParams: Pr
             </form>
           </section>
 
+          <section className="adm-card adm-pad" aria-labelledby="h-digest">
+            <h2 className="adm-h2" id="h-digest">Haftalik dayjest</h2>
+            <p className="adm-text">
+              Har juma ertalab haftaning eng koʻp yuklangan shriftlari, yangi shriftlar va ishlardan post qoralamasi Telegramingizga keladi.
+              “Kanalga yuborish”ni bossangiz, kanalga chiqadi. Istalgan payt shu yerdan ham koʻrib, tahrirlab yuborishingiz mumkin.
+            </p>
+            <Link href="/admin/telegram/post?digest=1" className="btn btn-sm">Dayjestni koʻrish</Link>
+          </section>
+
           <section className="adm-card" aria-labelledby="h-posts">
             <h2 className="adm-h2 adm-pad-top" id="h-posts">Kanalga soʻnggi postlar</h2>
             {posts.length ? (
@@ -172,12 +181,13 @@ export default async function TelegramAdmin({ searchParams }: { searchParams: Pr
                 <thead><tr><th>Nima</th><th>Qachon</th><th><span className="sr-only">Havola</span></th></tr></thead>
                 <tbody>
                   {posts.map((p) => {
-                    const title = p.kind === "font" ? fontNames.get(p.ref) ?? p.ref : workTitles.get(p.ref) ?? `ish #${p.ref}`;
-                    const href = p.kind === "font" ? `/admin/telegram/post?font=${encodeURIComponent(p.ref)}` : `/admin/telegram/post?work=${p.ref}`;
+                    const title = p.kind === "font" ? fontNames.get(p.ref) ?? p.ref : p.kind === "digest" ? p.ref : workTitles.get(p.ref) ?? `ish #${p.ref}`;
+                    const href = p.kind === "font" ? `/admin/telegram/post?font=${encodeURIComponent(p.ref)}` : p.kind === "digest" ? "/admin/telegram/post?digest=1" : `/admin/telegram/post?work=${p.ref}`;
+                    const label = p.kind === "font" ? "Shrift" : p.kind === "digest" ? "Dayjest" : "Ish";
                     const pub = state.channel?.id === p.chatId && state.channel.username ? `https://t.me/${state.channel.username}/${p.messageId}` : null;
                     return (
                       <tr key={p.id}>
-                        <td><Link href={href} className="link">{p.kind === "font" ? "Shrift" : "Ish"}: {title}</Link></td>
+                        <td><Link href={href} className="link">{label}: {title}</Link></td>
                         <td>{formatDateTime(p.postedAt)}</td>
                         <td>{pub && <a href={pub} target="_blank" rel="noopener" className="link">Telegramda ↗</a>}</td>
                       </tr>
