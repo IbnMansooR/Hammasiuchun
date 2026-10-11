@@ -1,8 +1,10 @@
 "use server";
 import { redirect } from "next/navigation";
 import { revalidatePath, revalidateTag } from "next/cache";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { after } from "next/server";
 import crypto from "node:crypto";
+import bcrypt from "bcryptjs";
 import path from "node:path";
 import * as wawoff2 from "wawoff2";
 import { db } from "@/lib/db";
@@ -14,6 +16,11 @@ import { cleanVerification } from "@/lib/seo";
 import { sniffImageFamily, EXT_FAMILY } from "@/lib/imagesniff";
 import { LICENSE_CLASSES } from "@/lib/license";
 import { CATALOG_TAG } from "@/lib/stats";
+import { esc } from "@/lib/telegram";
+import {
+  CODE_TTL_S, MAX_CODE_TRIES, TWOFA_COOKIE, alertAdmins, codeHash, newCode, sameHash, sendCode, signPending,
+  twoFactorChats, verifyPending, weakPasswordReason, whereLine,
+} from "@/lib/adminSecurity";
 
 const IMAGE_EXT = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"]);
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -33,12 +40,16 @@ function bool(fd: FormData, k: string): boolean {
   return v === "on" || v === "true" || v === "1";
 }
 
-/* ---------------- auth (DB-backed throttling) ---------------- */
+/* ---------------- auth (DB-backed throttling + Telegram second step) ---------------- */
 // Persisted in the LoginAttempt table rather than an in-memory Map: this app
 // deploys to Vercel serverless, where a module-level Map does not survive
 // across separate function instances, so an in-memory lockout is unreliable.
-const MAX_FAILS = 8;
+const MAX_FAILS = 8; // per IP
 const LOCK_MS = 15 * 60 * 1000;
+// Per username too, so many addresses can't share the guessing. Wider limit: a lockout here
+// also stops the owner, but the second step (Telegram code) already blocks a stolen password.
+const MAX_USER_FAILS = 20;
+const USER_LOCK_MS = 60 * 60 * 1000;
 
 async function clientKey(): Promise<string> {
   const h = await headers();
@@ -46,30 +57,134 @@ async function clientKey(): Promise<string> {
   return fwd.split(",")[0].trim() || h.get("x-real-ip") || "unknown";
 }
 
-export async function loginAction(fd: FormData) {
-  const key = await clientKey();
+/** Count a failure; true when this one locked the key. */
+async function countFailure(key: string, max: number, lockMs: number): Promise<boolean> {
   const now = new Date();
   const a = await db.loginAttempt.findUnique({ where: { key } });
-  if (a?.lockedUntil && a.lockedUntil > now) redirect("/admin/login?error=locked");
-
-  const username = str(fd, "username");
-  const password = str(fd, "password");
-  if (await verifyCredentials(username, password)) {
-    if (a) await db.loginAttempt.delete({ where: { key } }).catch(() => {});
-    await createSession(username);
-    redirect("/admin");
-  }
-  // record failure + small delay to blunt brute force
   const stale = !!(a?.lockedUntil && a.lockedUntil <= now);
   const count = (stale || !a ? 0 : a.count) + 1;
-  const lockedUntil = count >= MAX_FAILS ? new Date(now.getTime() + LOCK_MS) : null;
+  const lockedUntil = count >= max ? new Date(now.getTime() + lockMs) : null;
   await db.loginAttempt.upsert({
     where: { key },
     update: { count: lockedUntil ? 0 : count, lockedUntil },
     create: { key, count: lockedUntil ? 0 : count, lockedUntil },
   });
+  return !!lockedUntil;
+}
+
+const locked = async (key: string) => {
+  const a = await db.loginAttempt.findUnique({ where: { key } });
+  return !!(a?.lockedUntil && a.lockedUntil > new Date());
+};
+
+async function setPendingCookie(token: string | null) {
+  const store = await cookies();
+  if (!token) { store.delete({ name: TWOFA_COOKIE, path: "/admin" }); return; }
+  store.set(TWOFA_COOKIE, token, {
+    httpOnly: true, sameSite: "strict", secure: process.env.NODE_ENV === "production", path: "/admin", maxAge: CODE_TTL_S,
+  });
+}
+
+async function signedIn(username: string, passwordHash: string, how: string) {
+  await createSession(username, passwordHash);
+  const where = await whereLine();
+  after(() => alertAdmins(`✅ Admin panelga kirildi (${how}).\n${where}\n\nSiz boʻlmasangiz, darhol parolni almashtiring: Admin → Sozlamalar → Xavfsizlik.`).catch(() => {}));
+}
+
+export async function loginAction(fd: FormData) {
+  const ipKey = await clientKey();
+  if (await locked(ipKey)) redirect("/admin/login?error=locked");
+
+  const username = str(fd, "username").slice(0, 100);
+  const password = str(fd, "password").slice(0, 200);
+  const userKey = `alogin-u:${username.toLowerCase()}`;
+  if (username && (await locked(userKey))) redirect("/admin/login?error=locked");
+
+  const admin = await verifyCredentials(username, password);
+  if (admin) {
+    await db.loginAttempt.deleteMany({ where: { key: { in: [ipKey, userKey] } } }).catch(() => {});
+    const chats = await twoFactorChats();
+    if (!chats.length) {
+      await signedIn(admin.username, admin.passwordHash, "faqat parol bilan");
+      redirect("/admin");
+    }
+    // Second step: a one-time code in the admin's Telegram.
+    const { code, jti } = newCode();
+    if (!(await sendCode(chats, code))) redirect("/admin/login?error=tgsend");
+    await setPendingCookie(await signPending({ u: admin.username, h: codeHash(jti, code), jti }));
+    redirect("/admin/login?step=code");
+  }
+
+  // record failure + small delay to blunt brute force
+  const ipLocked = await countFailure(ipKey, MAX_FAILS, LOCK_MS);
+  const userLocked = username ? await countFailure(userKey, MAX_USER_FAILS, USER_LOCK_MS) : false;
+  if (ipLocked || userLocked) {
+    const where = await whereLine();
+    const what = userLocked
+      ? `“${esc(username)}” loginiga ${MAX_USER_FAILS} marta notoʻgʻri parol kiritildi. Bu login 1 soatga yopildi.`
+      : `Bitta manzildan ${MAX_FAILS} marta notoʻgʻri parol kiritildi. Bu manzil 15 daqiqaga bloklandi.`;
+    after(() => alertAdmins(`⚠️ Admin panelga kirishga urinish. ${what}\n${where}`).catch(() => {}));
+  }
   await new Promise((r) => setTimeout(r, 400));
   redirect("/admin/login?error=1");
+}
+
+/** Second step: the code from Telegram. */
+export async function verifyAdminCodeAction(fd: FormData) {
+  const store = await cookies();
+  const pending = await verifyPending(store.get(TWOFA_COOKIE)?.value);
+  if (!pending) redirect("/admin/login?error=expired");
+  const key = `2fa:${pending.jti}`;
+  if (await locked(key)) {
+    await setPendingCookie(null);
+    redirect("/admin/login?error=expired");
+  }
+  const code = str(fd, "code").replace(/\D/g, "");
+  if (code.length !== 6 || !sameHash(codeHash(pending.jti, code), pending.h)) {
+    if (await countFailure(key, MAX_CODE_TRIES, CODE_TTL_S * 1000)) {
+      await setPendingCookie(null);
+      const where = await whereLine();
+      after(() => alertAdmins(`⚠️ Admin kirish kodi ${MAX_CODE_TRIES} marta notoʻgʻri kiritildi, kod bekor qilindi. Parol toʻgʻri kiritilgan edi: siz boʻlmasangiz, parolni almashtiring.\n${where}`).catch(() => {}));
+      redirect("/admin/login?error=expired");
+    }
+    await new Promise((r) => setTimeout(r, 400));
+    redirect("/admin/login?step=code&error=code");
+  }
+  // One use only: burn this code before signing in.
+  await countFailure(key, 1, CODE_TTL_S * 1000);
+  await setPendingCookie(null);
+  const admin = await db.admin.findUnique({ where: { username: pending.u }, select: { username: true, passwordHash: true } });
+  if (!admin) redirect("/admin/login?error=1");
+  await signedIn(admin.username, admin.passwordHash, "parol + Telegram kodi");
+  redirect("/admin");
+}
+
+/** Change the admin password. Every other device is signed out (their tokens carry the old fingerprint). */
+export async function changeAdminPasswordAction(fd: FormData) {
+  const s = await assertAdmin();
+  const back = (e: string) => redirect(`/admin/settings?pw=${e}#security`);
+  const key = `apw:${s.username.toLowerCase()}`;
+  if (await locked(key)) back("locked");
+  // Trimmed like the login form, so the new password always works there.
+  const current = str(fd, "current");
+  const next = str(fd, "next");
+  const repeat = str(fd, "repeat");
+  const admin = await verifyCredentials(s.username, current.slice(0, 200));
+  if (!admin) {
+    await countFailure(key, 5, LOCK_MS);
+    back("current");
+  }
+  if (next !== repeat) back("repeat");
+  if (next === current) back("same");
+  const weak = weakPasswordReason(next, s.username);
+  if (weak) back(weak);
+  const passwordHash = await bcrypt.hash(next, 12);
+  await db.admin.update({ where: { username: s.username }, data: { passwordHash } });
+  await db.loginAttempt.deleteMany({ where: { key } }).catch(() => {});
+  await createSession(s.username, passwordHash);
+  const where = await whereLine();
+  after(() => alertAdmins(`🔑 Admin paroli almashtirildi. Boshqa barcha qurilmalardagi kirishlar bekor qilindi.\n${where}`).catch(() => {}));
+  redirect("/admin/settings?pw=ok#security");
 }
 
 export async function logoutAction() {

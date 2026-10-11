@@ -779,3 +779,55 @@ All earlier suites still pass.
 - no page or hydration errors.
 
 All earlier suites and the accessibility check (now including Russian pages, light and dark) still pass.
+
+## 20. Security hardening (2026-10-11)
+
+**Audit.** Reviewed in order: admin and member sign-in, sessions, every server action and API route, uploads, Markdown rendering, headers, the database's public API and dependencies.
+- Every admin action and admin API checks the session.
+- Member text is escaped before Markdown rendering.
+- No secrets are in the git history.
+- Storage buckets for fonts are private.
+
+The weakest point was the admin panel: one password was the whole door, and a stolen session stayed valid for 7 days whatever happened.
+
+**What changed.**
+- **Two-step admin sign-in.**
+  - **When it applies:** as long as an admin Telegram is connected (Admin → Telegram). The correct password alone no longer opens the panel.
+  - **The code:** a 6-digit code goes to the admin's Telegram with the IP and device of the attempt. It is valid for 5 minutes, works once, and is cancelled after 5 wrong tries.
+  - **What the browser holds meanwhile:** a signed, httpOnly, `SameSite=Strict` cookie limited to `/admin`. Only an HMAC of the code is stored.
+  - **If Telegram can't be reached:** the panel stays closed rather than falling back to the password.
+  - **Way out:** if the admin's Telegram is lost, setting `ADMIN_2FA=off` in Vercel switches the second step off.
+- **Alerts in the admin's Telegram:**
+  - every sign-in (with how it happened);
+  - an address locked after 8 wrong passwords;
+  - the login locked after 20 wrong passwords from any number of addresses (new: guessing spread over many addresses used to be unlimited);
+  - 5 wrong codes;
+  - a password change.
+- **Sessions follow the password.** The admin session token now carries a fingerprint of the password hash and its type. A token from before this change, a token whose admin was deleted, and every session issued before a password change are refused. A member's token can never open the admin panel.
+- **Password change** in Admin → Sozlamalar → Xavfsizlik.
+  - It asks for the current password (5 wrong tries lock it for 15 minutes).
+  - The new password must have at least 12 characters, must not contain the login and must not be a well-known one.
+  - It signs out every other device and sends an alert.
+  - The section also says whether two-step sign-in is on.
+- **Database public API.** The anon and authenticated roles had every privilege on every table. Row Level Security already denied them all rows, but the grants included `TRUNCATE`, which RLS does not cover. All privileges are now revoked, including default privileges for future tables. With the public key, `/rest/v1/User` now answers `permission denied`. The site uses its own database role and is unaffected (checked live).
+- **Soft limits on heavy endpoints**, counted per address per server instance:
+  - ZIP downloads: 30 per 10 minutes;
+  - single cuts: 120;
+  - web fonts: 1,200;
+  - Telegram pictures: 300.
+
+  Above the limit the answer is 429 with `Retry-After`. Normal use is far below these numbers.
+- **Headers:** `Cross-Origin-Opener-Policy: same-origin-allow-popups` (the Telegram login popup keeps working), `X-Permitted-Cross-Domain-Policies: none`, and `usb=()` added to the permissions policy.
+- **`/.well-known/security.txt`** (RFC 9116). It takes its contacts from the settings and has a rolling one-year expiry.
+- **Dependencies:** `source-map-js` updated. What remains (`postcss` inside Next.js, `deepmerge-ts` inside the Prisma CLI) only processes this project's own files at build time; the fixes need major upgrades (Next 16, Prisma 7), planned separately.
+
+**Verification:** a new suite of 37 checks passes:
+- headers, `security.txt` and the noindex login page;
+- password-only sign-in when no Telegram is linked;
+- old, forged and member tokens refused;
+- the code step: the code arrives with the IP; admin pages stay closed; a wrong code; cookie flags; the right code; the sign-in alert; a used code can't be replayed; 5 wrong codes cancel it; Telegram unreachable;
+- the per-login lockout across addresses and the per-address lockout, with their alerts;
+- the password change: every rule; the other device is signed out while this one stays in; the old password fails and the new one works;
+- the ZIP limit, and another address still downloading.
+
+All earlier suites still pass.

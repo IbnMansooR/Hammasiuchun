@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { db } from "@/lib/db";
 import { isRedistributable } from "@/lib/license";
 import { readFont } from "@/lib/storage";
+import { overLimit, tooManyRequests } from "@/lib/softLimit";
 
 export const runtime = "nodejs";
 
@@ -14,9 +15,10 @@ const MIME: Record<string, string> = {
 // Every published family is free: any single cut can be downloaded, as long as
 // the family's licence allows Feekr to redistribute it.
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ slug: string; style: string }> },
 ) {
+  if (overLimit("cut", req.headers, 120, 10 * 60_000)) return tooManyRequests(600);
   const { slug: rawSlug, style: rawStyle } = await params;
   const slug = rawSlug.replace(/[^a-z0-9-]/gi, "").toLowerCase();
   const style = rawStyle.replace(/[^A-Za-z0-9]/g, "");

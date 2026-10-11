@@ -1,5 +1,7 @@
 import { getSiteSettings } from "@/lib/settings";
-import { saveSearchVerificationAction, saveSettingsAction } from "../../actions";
+import Link from "next/link";
+import { changeAdminPasswordAction, saveSearchVerificationAction, saveSettingsAction } from "../../actions";
+import { MIN_ADMIN_PASSWORD, adminChats } from "@/lib/adminSecurity";
 import { SITE_URL } from "@/lib/site";
 import { googleEnabled } from "@/lib/googleAuth";
 import { smsEnabled } from "@/lib/eskiz";
@@ -15,9 +17,21 @@ function StatusBadge({ label, on }: { label: string; on: boolean }) {
   );
 }
 
-export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ saved?: string; error?: string }> }) {
-  const { saved, error } = await searchParams;
-  const s = await getSiteSettings();
+const PW_ERRORS: Record<string, string> = {
+  current: "Hozirgi parol notoʻgʻri.",
+  locked: "Juda koʻp notoʻgʻri urinish. 15 daqiqadan soʻng qayta urining.",
+  repeat: "Yangi parol va takrori bir xil emas.",
+  same: "Yangi parol eskisidan farq qilishi kerak.",
+  short: `Yangi parol kamida ${MIN_ADMIN_PASSWORD} ta belgidan iborat boʻlsin.`,
+  long: "Parol juda uzun.",
+  username: "Parol ichida login boʻlmasin.",
+  common: "Bu parolni topish oson. Boshqasini tanlang.",
+};
+
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ saved?: string; error?: string; pw?: string }> }) {
+  const { saved, error, pw } = await searchParams;
+  const [s, chats] = await Promise.all([getSiteSettings(), adminChats()]);
+  const twoFactorOff = process.env.ADMIN_2FA === "off";
 
   return (
     <>
@@ -113,6 +127,43 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           Sitemap bu yerga yozilmaydi. Sayt tasdiqlangach, uni Google Search Console (“Sitemaps” boʻlimi) va Yandex Webmaster
           (“Индексирование → Файлы Sitemap”) ichida qoʻshing: <code>{SITE_URL}/sitemap.xml</code>
         </p>
+      </section>
+
+      <section id="security" className="adm-card adm-pad" aria-labelledby="h-security" style={{ maxWidth: 640, marginTop: 22 }}>
+        <h2 id="h-security" style={{ fontSize: 20, margin: "0 0 8px" }}>Xavfsizlik</h2>
+        {chats.length > 0 && !twoFactorOff ? (
+          <p className="adm-notice adm-notice-ok" role="status" style={{ marginTop: 0 }}>
+            ✓ Ikki bosqichli kirish yoqilgan: parol toʻgʻri boʻlsa ham, kirish uchun admin Telegramiga kelgan kod kerak ({chats.length} ta Telegram).
+            Har bir kirish va shubhali urinish haqida Telegramga xabar keladi.
+          </p>
+        ) : (
+          <p className="adm-notice adm-notice-error" role="alert" style={{ marginTop: 0 }}>
+            {twoFactorOff
+              ? "Ikki bosqichli kirish Vercel’da ADMIN_2FA=off bilan oʻchirilgan. Hozir panelga faqat parol bilan kiriladi."
+              : <>Ikki bosqichli kirish yoqilmagan: panelga faqat parol bilan kiriladi. <Link href="/admin/telegram#admins" className="link">Telegramingizni ulang</Link>, shunda har kirishda Telegramga kod keladi.</>}
+          </p>
+        )}
+        <h3 style={{ fontSize: 16, margin: "18px 0 8px" }}>Parolni almashtirish</h3>
+        <p className="muted" style={{ fontSize: 13.5, marginTop: 0 }}>
+          Kamida {MIN_ADMIN_PASSWORD} ta belgi. Almashtirgach, boshqa barcha qurilmalardagi kirishlar bekor boʻladi.
+        </p>
+        {pw === "ok" && <div className="adm-notice adm-notice-ok" role="status">Parol almashtirildi. Boshqa qurilmalardan chiqildi.</div>}
+        {pw && pw !== "ok" && <div className="adm-notice adm-notice-error" role="alert">{PW_ERRORS[pw] ?? "Xatolik yuz berdi."}</div>}
+        <form action={changeAdminPasswordAction}>
+          <div className="field">
+            <label htmlFor="pw-current">Hozirgi parol</label>
+            <input id="pw-current" type="password" name="current" autoComplete="current-password" required />
+          </div>
+          <div className="field">
+            <label htmlFor="pw-next">Yangi parol</label>
+            <input id="pw-next" type="password" name="next" autoComplete="new-password" minLength={MIN_ADMIN_PASSWORD} required />
+          </div>
+          <div className="field">
+            <label htmlFor="pw-repeat">Yangi parol (takror)</label>
+            <input id="pw-repeat" type="password" name="repeat" autoComplete="new-password" minLength={MIN_ADMIN_PASSWORD} required />
+          </div>
+          <SubmitButton pendingLabel="Saqlanmoqda…">Parolni almashtirish</SubmitButton>
+        </form>
       </section>
     </>
   );

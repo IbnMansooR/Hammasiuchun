@@ -4,6 +4,7 @@ import { readFont, readWebfont, writeWebfont } from "@/lib/storage";
 import * as wawoff2 from "wawoff2";
 import subsetFont from "subset-font";
 import * as fontkit from "fontkit";
+import { overLimit, tooManyRequests } from "@/lib/softLimit";
 
 export const runtime = "nodejs";
 
@@ -50,9 +51,11 @@ function ok(buf: Buffer) {
 }
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ slug: string; style: string }> },
 ) {
+  // The CDN serves repeat requests; a catalog page needs ~24 fonts, so this only trips on scripts.
+  if (overLimit("webfont", req.headers, 1200, 10 * 60_000)) return tooManyRequests(120);
   const { slug: rawSlug, style: rawStyle } = await params;
   const slug = rawSlug.replace(/[^a-z0-9-]/gi, "").toLowerCase();
   const style = rawStyle.replace(/[^A-Za-z0-9]/g, "");
