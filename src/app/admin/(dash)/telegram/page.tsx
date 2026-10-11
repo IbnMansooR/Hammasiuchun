@@ -10,11 +10,14 @@ import ConfirmButton from "@/components/ConfirmButton";
 import {
   addQuoteAction, chooseBaseAction, chooseChannelAction, clearBaseAction, clearChannelAction, createAdminLinkAction, postNextNowAction, removeQuoteAction, removeTgAdminAction,
   saveAutopostAction, setWebhookAction, skipAutopostAction, testAdminsAction, toggleQuoteAction, unskipAutopostAction,
+  decideScoutAction, saveScoutAction, scoutNowAction,
 } from "@/app/admin/telegramActions";
 import { autopostQueue, nextRun, postsPerWeek } from "@/lib/tgAutopost";
 import { AUTOPOST_MAX_TIMES } from "@/lib/tgState";
 import { posterAlbum } from "@/lib/fontPoster";
 import { AUTHOR_MAX, BUILTIN_QUOTES, MOODS, MOOD_LABEL, QUOTE_MAX } from "@/lib/quotes";
+import { SCOUT_PER_DAY, getScout, previewUrl } from "@/lib/fontScout";
+import { gfPage } from "@/lib/googleFonts";
 
 export const metadata = { title: "Admin — Telegram" };
 export const maxDuration = 60; // "post now" sends an album of rendered posters
@@ -34,6 +37,9 @@ const OK: Record<string, string> = {
   auto: "Avtomatik postlar sozlamasi saqlandi.",
   autoposted: "Navbatdagi shrift kanalga yuborildi ✓",
   quote: "Iqtibos qoʻshildi. Keyingi postlarda birinchi navbatda ishlatiladi.",
+  scout: "Yangi shrift takliflari sozlamasi saqlandi.",
+  scoutrejected: "Taklif rad etildi: bu shrift boshqa taklif qilinmaydi.",
+  scoutadded: "Shrift saytga qoʻshildi va kanal navbatiga tushdi ✓",
 };
 const ERR: Record<string, string> = {
   env: "Vercel’da TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_USERNAME va TELEGRAM_WEBHOOK_SECRET sozlanmagan.",
@@ -54,22 +60,30 @@ const ERR: Record<string, string> = {
   basefile: "Shrift faylini fayl kanaliga yuklab boʻlmadi, post yuborilmadi. Bot u yerda admin ekanini tekshiring.",
   qempty: "Iqtibos matnini yozing.",
   qmood: "Iqtibos mavzusini tanlang.",
+  scouttime: "Vaqtni SS:DD koʻrinishida kiriting (masalan 11:00).",
+  scoutcount: "Kuniga 1 tadan 5 tagacha taklif tanlang.",
+  scoutfull: "Koʻrib chiqilmagan takliflar koʻp (15 ta). Avval ularni qoʻshing yoki rad eting.",
+  scoutnone: "Hozir yangi taklif topilmadi: Google Fonts javob bermadi yoki mos shrift qolmadi. Keyinroq urinib koʻring.",
+  scoutgone: "Bu taklif allaqachon koʻrib chiqilgan.",
+  scoutfiles: "Google shrift fayllarini bermadi. Taklif roʻyxatda qoldi, keyinroq qayta urinib koʻring.",
+  scoutlicence: "Shrift faylida ochiq litsenziya topilmadi, saytga qoʻshilmadi.",
 };
 
 type WebhookInfo = { url: string; pending_update_count: number; last_error_message?: string; last_error_date?: number };
 
-export default async function TelegramAdmin({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string; n?: string }> }) {
-  const { ok, error, n } = await searchParams;
+export default async function TelegramAdmin({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string; n?: string; slug?: string }> }) {
+  const { ok, error, n, slug } = await searchParams;
   const enabled = botEnabled();
   const bot = botUsername();
   const expected = `${SITE_URL}/api/telegram/webhook`;
-  const [state, info, linked, subscribed, posts, waiting] = await Promise.all([
+  const [state, info, linked, subscribed, posts, waiting, scout] = await Promise.all([
     getTgState(),
     enabled ? tg<WebhookInfo>("getWebhookInfo") : Promise.resolve(null),
     db.user.count({ where: { telegramId: { not: null } } }),
     db.user.count({ where: { tgNotify: true, telegramId: { not: null } } }),
     db.tgPost.findMany({ where: { kind: { not: "file" } }, orderBy: { postedAt: "desc" }, take: 10 }),
     enabled ? autopostQueue(5) : Promise.resolve({ items: [], total: 0 }),
+    getScout(),
   ]);
   const queue = waiting.items;
   const auto = state.autopost;
@@ -103,6 +117,8 @@ export default async function TelegramAdmin({ searchParams }: { searchParams: Pr
       </div>
 
       {ok === "test" && <Notice>Sinov xabari yuborildi: {n ?? 0} ta adminga.</Notice>}
+      {ok === "scoutsent" && <Notice>{`${n ?? 0} ta yangi shrift taklif qilindi: pastdagi roʻyxatda va Telegramingizda.`}</Notice>}
+      {ok === "scoutadded" && slug && /^[a-z0-9-]+$/.test(slug) && <Notice><Link href={`/fonts/${slug}`} className="link">Saytda koʻrish ↗</Link></Notice>}
       {ok && OK[ok] && <Notice>{OK[ok]}</Notice>}
       {error && <Notice tone="error">{ERR[error] ?? "Xatolik yuz berdi."}</Notice>}
 
@@ -304,6 +320,69 @@ export default async function TelegramAdmin({ searchParams }: { searchParams: Pr
                 </form>
               )}
             </div>
+          </section>
+
+          <section className="adm-card adm-pad" id="scout" aria-labelledby="h-scout">
+            <h2 className="adm-h2" id="h-scout">5. Yangi shriftlar (Google Fonts)</h2>
+            <p className="adm-text">
+              Bot har kuni Google Fonts’dan saytda yoʻq bepul shriftlarni topib, sizga Telegramda rasmi bilan yuboradi: avval oʻzbekcha
+              harflari (oʻ gʻ, ў қ ғ ҳ) borlarini. “✅ Saytga qoʻshish”ni bossangiz, shrift barcha uslublari va oʻzbekcha tavsifi bilan
+              saytga qoʻshiladi va kanal navbatiga tushadi. Faqat OFL va Apache litsenziyali shriftlar: ularni tarqatish ruxsat etilgan.
+            </p>
+            <form action={saveScoutAction} className="adm-tg-auto-form">
+              <label className="check"><input type="checkbox" name="on" defaultChecked={scout.on} /> Yoqilgan</label>
+              <label className="adm-tg-scout-field">
+                <span>Kuniga</span>
+                <select name="perDay" className="sel" defaultValue={String(scout.perDay)}>
+                  {SCOUT_PER_DAY.map((k) => <option key={k} value={k}>{`${k} ta taklif`}</option>)}
+                </select>
+              </label>
+              <label className="adm-tg-scout-field">
+                <span>Vaqti (Toshkent)</span>
+                <input type="time" name="time" defaultValue={scout.time} required />
+              </label>
+              <SubmitButton className="btn btn-sm" pendingLabel="…">Saqlash</SubmitButton>
+            </form>
+            <p className="adm-meta">
+              {state.admins.length === 0
+                ? "Telegramingiz ulanmagan: takliflar faqat shu yerda chiqadi (“Hozir taklif olish”)."
+                : scout.on ? `Har kuni ${scout.time} da ${scout.perDay} ta taklif Telegramingizga keladi.` : "Oʻchirilgan: taklif faqat “Hozir taklif olish” bilan."}
+              {scout.imported.length > 0 ? ` Shu yoʻl bilan qoʻshilgan: ${scout.imported.length} ta.` : ""}
+              {scout.rejected.length > 0 ? ` Rad etilgan yoki mos kelmagan: ${scout.rejected.length} ta.` : ""}
+            </p>
+            {scout.pending.length > 0 ? (
+              <ul className="adm-scout-list">
+                {scout.pending.map((p) => (
+                  <li key={p.id} className="adm-scout-item">
+                    <img src={previewUrl(p.family).replace(/^https?:\/\/[^/]+/, "")} alt={`${p.family}: namuna`} loading="lazy" width={600} height={380} />
+                    <div className="adm-scout-info">
+                      <strong>{p.family}</strong>
+                      <span className="adm-meta">
+                        {`${p.cov.cyrillic ? "Lotin + Kirill" : "Lotin"} · oʻ gʻ ${p.cov.uzLatin ? "✓" : "—"} · ў қ ғ ҳ ${p.cov.uzCyrillic ? "✓" : "—"} · ${formatDateTime(p.at)}`}
+                      </span>
+                      <div className="adm-tg-link">
+                        <form action={decideScoutAction}>
+                          <input type="hidden" name="id" value={p.id} />
+                          <input type="hidden" name="do" value="add" />
+                          <SubmitButton className="btn btn-accent btn-sm" pendingLabel="Qoʻshilmoqda…">✅ Saytga qoʻshish</SubmitButton>
+                        </form>
+                        <form action={decideScoutAction}>
+                          <input type="hidden" name="id" value={p.id} />
+                          <input type="hidden" name="do" value="reject" />
+                          <SubmitButton className="btn btn-sm" pendingLabel="…">❌ Kerak emas</SubmitButton>
+                        </form>
+                        <a href={gfPage(p.family)} target="_blank" rel="noopener" className="link">Google Fonts ↗</a>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="adm-text">Koʻrib chiqilmagan taklif yoʻq.</p>
+            )}
+            <form action={scoutNowAction}>
+              <SubmitButton className="btn btn-sm" pendingLabel="Qidirilmoqda…">Hozir taklif olish</SubmitButton>
+            </form>
           </section>
 
           <section className="adm-card adm-pad" id="quotes" aria-labelledby="h-quotes">

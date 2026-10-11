@@ -9,6 +9,7 @@ import { getTgState, updateTgState, type TgChannel } from "@/lib/tgState";
 import { handleAdminCallback, handleDigestCallback } from "@/lib/tgAdmin";
 import { handleSampleCallback, sendSample, sendUzbekLetters } from "@/lib/tgSamples";
 import { handleInlineQuery } from "@/lib/tgInline";
+import { handleScoutCallback } from "@/lib/fontScout";
 import { SITE_URL } from "@/lib/site";
 
 export const runtime = "nodejs";
@@ -44,6 +45,7 @@ export async function POST(req: NextRequest) {
     const cb = update.callback_query;
     if (cb?.data?.startsWith("s:")) after(() => handleSampleCallback(cb).catch(() => {})); // re-renders a picture: answer Telegram first
     else if (cb?.data?.startsWith("d:")) await handleDigestCallback(cb);
+    else if (cb?.data?.startsWith("gf:")) after(() => handleScoutCallback(cb).catch(() => {})); // adding a font takes a while
     else if (cb) await handleAdminCallback(cb);
     else if (update.inline_query) await handleInlineQuery(update.inline_query);
     else if (update.my_chat_member) await onMembership(update.my_chat_member);

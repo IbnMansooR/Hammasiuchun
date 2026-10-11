@@ -971,3 +971,49 @@ Defaults: 09:00 and 20:00, every day. Times must be at least 30 minutes apart, m
 - the daily cron fallback;
 - the form: 10-minute gap and no days refused with their messages; times saved sorted, days saved; posts per week and queue length shown;
 - the quote form's empty-text error now showing.
+
+## 24. New fonts from Google Fonts, approved in Telegram (2026-10-11)
+
+**Request.** The bot finds free fonts elsewhere by itself and puts them, with their details, on the site and in the channel. Agreed: Google Fonts only (every family there is OFL or Apache, so it may be given away), one tap in Telegram to approve, and an Uzbek description from a template (no AI service, no API key).
+
+**How it works.**
+- Once a day at the set time (default 11:00 Tashkent, 3 suggestions), the same 5-minute `pg_cron` call as the autopost (§23) runs the scout. It never runs in the same call as a channel post, so the two can't run past the 60-second limit together. Each day is claimed once (`scout:<date>`).
+- Candidates are Google's catalogue minus families the site already has (by name or slug, hidden ones included), minus earlier offers. Noto, colour and non-Latin families are skipped. Families with Cyrillic come first. The likeliest few are then checked on their real regular file:
+  - the licence written in the file (OFL or Apache, else refused for good);
+  - which Uzbek letters it actually draws.
+
+  Both alphabets with oʻ gʻ and ў қ ғ ҳ rank first.
+- Each admin gets a picture of the font (name, "Oʻzbekiston", the alphabets, the Uzbek letters) with **✅ Saytga qoʻshish**, **❌ Kerak emas** and a Google Fonts link. The picture is drawn from the font's outlines with fontkit, so fonts the image renderer can't read (it doesn't support some lookup tables, e.g. in Lato 2) still get a picture. Its URL is signed, so nobody else can make the server fetch and draw fonts.
+- **✅** downloads every style (static TTF, up to 18) and saves them like an admin upload. It creates the family as published, free and new, with:
+  - licence class from the file;
+  - designers, category, scripts and glyph count;
+  - a tagline and description from the template: use, styles ("Regular dan Bold gacha, kursivlari bilan"), scripts, the Uzbek letters only if really there, designers, licence, "Manba: Google Fonts".
+
+  The admin's buttons turn into "✅ Saytga qoʻshildi · koʻrish". The family is first in the channel queue (new fonts first).
+- **❌** never offers that family again. Offers nobody answers expire after 14 days; at most 15 wait at a time.
+- Admin → Telegram → **5. Yangi shriftlar (Google Fonts)** has:
+  - the switch, suggestions per day (1–5) and the time;
+  - **Hozir taklif olish** (works without a Telegram admin too);
+  - the waiting offers, with their pictures and the same ✅ / ❌.
+
+**Safety.**
+- Taking an offer is a compare-and-swap on its settings row. A double tap, or two admins at once, can't add a family twice or lose a decision.
+- Only a connected admin, in their own chat with the bot, can press the buttons.
+- When Google doesn't answer, the offer stays and its buttons come back. Fonts already on the site are never added again.
+
+**Also fixed:** a red "Uzish"/"Oʻchirish" chip under the mouse now gets a soft red background. Its text contrast in dark mode no longer depends on the neutral hover colour.
+
+**Verification:** new suite `e2e-scout`, 62 checks, all passing, against a stand-in for Google Fonts. The stand-in serves real OFL fonts (Lato, PT Sans, Liberation), a GPL font, a family whose file is missing, and one already on the site. Checks:
+- the signed picture (403 without a signature or with another's, 404 for an unknown family, PNG for Lato);
+- the plain user agent;
+- not due, due (3 offers, Uzbek-ready first), the same day again;
+- GPL refused silently; a missing file not refused;
+- a non-admin press refused;
+- ❌; ✅ (Lato published, 2 styles, OFL, Latin + Cyrillic, designer, template texts, page, catalogue, ZIP, web font);
+- a second press; no licence in the file; Google down (offer kept, buttons back); already on the site;
+- expiry, the cap of 15, no admin, switched off;
+- the new family posted first by the autopost;
+- the admin section: list, pictures, ✅ (Liberation Serif, 4 styles), ❌, "now" with nothing left and with a new family, settings saved;
+- mobile width, axe light and dark.
+
+Real Google Fonts files were checked as well (Roboto, Inter, Montserrat, Open Sans, Nunito, Raleway, Rubik, Google Sans). Each gave static TTFs, OFL found in the file, Uzbek letters detected, and outlines that fontkit draws.

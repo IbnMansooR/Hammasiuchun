@@ -68,23 +68,23 @@ export async function notifyAdminsNewWork(workId: number): Promise<void> {
   }
 }
 
-type CallbackQuery = {
+export type CallbackQuery = {
   id: string;
   from: { id: number };
   data?: string;
   message?: { message_id: number; chat: { id: number; type: string } };
 };
 
-const answer = (id: string, text: string, alert = false) =>
+export const answer = (id: string, text: string, alert = false) =>
   tg("answerCallbackQuery", { callback_query_id: id, text: text.slice(0, 190), show_alert: alert });
 
-const setKeyboard = (q: CallbackQuery, keyboard: Keyboard) =>
+export const setKeyboard = (q: CallbackQuery, keyboard: Keyboard) =>
   q.message
     ? tg("editMessageReplyMarkup", { chat_id: q.message.chat.id, message_id: q.message.message_id, reply_markup: { inline_keyboard: keyboard } })
     : Promise.resolve(null);
 
 /** Only a connected admin, pressing a button in their own private chat with the bot. */
-async function adminPress(q: CallbackQuery): Promise<TgState | null> {
+export async function adminPress(q: CallbackQuery): Promise<TgState | null> {
   const state = await getTgState();
   if (!isTgAdmin(state, q.from.id) || q.message?.chat.type !== "private" || String(q.message.chat.id) !== String(q.from.id)) {
     await answer(q.id, "Bu tugma faqat Feekr admini uchun.", true);

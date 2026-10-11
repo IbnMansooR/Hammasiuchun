@@ -10,6 +10,7 @@ import { runAutopost } from "@/lib/tgAutopost";
 import { CAPTION_MAX, digestDraft, fontDraft, postDraft, workDraft } from "@/lib/tgPosts";
 import { AUTHOR_MAX, BUILTIN_QUOTES, MOODS, cleanQuote, isQuoteId, type Mood } from "@/lib/quotes";
 import { uzbekize } from "@/lib/fontSamples";
+import { SCOUT_PER_DAY, decide, runScout, updateScout } from "@/lib/fontScout";
 
 const BACK = "/admin/telegram";
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
@@ -238,4 +239,46 @@ export async function toggleQuoteAction(fd: FormData) {
   }
   revalidatePath(BACK);
   redirect(`${BACK}#quotes`);
+}
+
+/* ---------------- new fonts from Google Fonts ---------------- */
+
+const SBACK = `${BACK}#scout`;
+
+/** The switch, how many suggestions a day and when (Tashkent). */
+export async function saveScoutAction(fd: FormData) {
+  await requireAdmin();
+  const time = str(fd, "time");
+  const perDay = Number(str(fd, "perDay"));
+  if (!isClock(time)) fail("scouttime", SBACK);
+  if (!SCOUT_PER_DAY.includes(perDay)) fail("scoutcount", SBACK);
+  await updateScout((s) => {
+    s.on = fd.get("on") === "on";
+    s.time = time;
+    s.perDay = perDay;
+  });
+  revalidatePath(BACK);
+  redirect(`${BACK}?ok=scout#scout`);
+}
+
+/** Suggestions now, whatever the time (also shown here when no admin has Telegram connected). */
+export async function scoutNowAction() {
+  await requireAdmin();
+  const r = await runScout({ force: true }).catch(() => ({ sent: 0, reason: "none" as const }));
+  revalidatePath(BACK);
+  if (!r.sent) fail(r.reason === "full" ? "scoutfull" : "scoutnone", SBACK);
+  redirect(`${BACK}?ok=scoutsent&n=${r.sent}#scout`);
+}
+
+export async function decideScoutAction(fd: FormData) {
+  await requireAdmin();
+  const id = str(fd, "id");
+  const approve = str(fd, "do") === "add";
+  if (!/^[0-9a-f]{8}$/.test(id)) fail("scoutgone", SBACK);
+  const { family, result } = await decide(id, approve);
+  revalidatePath(BACK);
+  if (!family) fail("scoutgone", SBACK);
+  if (!approve) redirect(`${BACK}?ok=scoutrejected#scout`);
+  if (result && !result.ok && result.reason !== "exists") fail(`scout${result.reason}`, SBACK);
+  redirect(`${BACK}?ok=scoutadded${result?.ok ? `&slug=${result.slug}` : ""}#scout`);
 }
