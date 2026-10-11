@@ -11,14 +11,17 @@ import {
   addQuoteAction, chooseBaseAction, chooseChannelAction, clearBaseAction, clearChannelAction, createAdminLinkAction, postNextNowAction, removeQuoteAction, removeTgAdminAction,
   saveAutopostAction, setWebhookAction, skipAutopostAction, testAdminsAction, toggleQuoteAction, unskipAutopostAction,
 } from "@/app/admin/telegramActions";
-import { autopostQueue, nextRun } from "@/lib/tgAutopost";
+import { autopostQueue, nextRun, postsPerWeek } from "@/lib/tgAutopost";
+import { AUTOPOST_MAX_TIMES } from "@/lib/tgState";
 import { posterAlbum } from "@/lib/fontPoster";
 import { AUTHOR_MAX, BUILTIN_QUOTES, MOODS, MOOD_LABEL, QUOTE_MAX } from "@/lib/quotes";
 
 export const metadata = { title: "Admin — Telegram" };
 export const maxDuration = 60; // "post now" sends an album of rendered posters
 
-const EVERY_LABEL: Record<number, string> = { 1: "Har kuni", 2: "2 kunda bir", 3: "3 kunda bir", 7: "Haftada bir" };
+const DAY_LABEL: [number, string, string][] = [
+  [1, "Du", "Dushanba"], [2, "Se", "Seshanba"], [3, "Ch", "Chorshanba"], [4, "Pa", "Payshanba"], [5, "Ju", "Juma"], [6, "Sh", "Shanba"], [7, "Ya", "Yakshanba"],
+];
 
 const OK: Record<string, string> = {
   webhook: "Webhook oʻrnatildi: bot endi saytga ulandi.",
@@ -40,6 +43,10 @@ const ERR: Record<string, string> = {
   noadmins: "Hali birorta admin Telegrami ulanmagan.",
   autoempty: "Navbatda shrift qolmagan: hamma shriftlar kanalga chiqqan yoki oʻtkazib yuborilgan.",
   channelfirst: "Avval kanalni ulang.",
+  autotime: "Vaqtni SS:DD koʻrinishida kiriting (masalan 09:00). Kuniga 4 tagacha.",
+  autonotime: "Kamida bitta post vaqtini kiriting.",
+  autogap: "Post vaqtlari orasi kamida 30 daqiqa boʻlsin.",
+  autodays: "Kamida bitta kunni tanlang.",
   autosend: "Telegram postni qabul qilmadi. Birozdan keyin qayta urinib koʻring.",
   autounsure: "Telegram vaqtida javob bermadi: post kanalga chiqqan boʻlishi mumkin. Kanalni tekshiring; shrift navbatdan chetga olindi, chiqmagan boʻlsa “Oʻtkazilganlarni qaytarish”ni bosing.",
   basenotadmin: "Bot bu kanalda admin emas yoki post yozish huquqi yoʻq. Fayl kanalida ham botni admin qiling.",
@@ -56,17 +63,20 @@ export default async function TelegramAdmin({ searchParams }: { searchParams: Pr
   const enabled = botEnabled();
   const bot = botUsername();
   const expected = `${SITE_URL}/api/telegram/webhook`;
-  const [state, info, linked, subscribed, posts, queue] = await Promise.all([
+  const [state, info, linked, subscribed, posts, waiting] = await Promise.all([
     getTgState(),
     enabled ? tg<WebhookInfo>("getWebhookInfo") : Promise.resolve(null),
     db.user.count({ where: { telegramId: { not: null } } }),
     db.user.count({ where: { tgNotify: true, telegramId: { not: null } } }),
     db.tgPost.findMany({ where: { kind: { not: "file" } }, orderBy: { postedAt: "desc" }, take: 10 }),
-    enabled ? autopostQueue(5) : Promise.resolve([]),
+    enabled ? autopostQueue(5) : Promise.resolve({ items: [], total: 0 }),
   ]);
+  const queue = waiting.items;
   const auto = state.autopost;
   const quotes = state.quotes;
   const upcoming = nextRun(auto);
+  const perWeek = postsPerWeek(auto);
+  const lastsDays = perWeek ? Math.ceil((waiting.total / perWeek) * 7) : 0;
   const preview = queue[0]?.drawable ? (await posterAlbum(queue[0].slug))?.urls ?? null : null;
   const hook = info?.ok ? info.result : null;
   const hookOk = !!hook && hook.url === expected;
@@ -229,23 +239,36 @@ export default async function TelegramAdmin({ searchParams }: { searchParams: Pr
             <h2 className="adm-h2" id="h-auto">4. Avtomatik postlar</h2>
             <p className="adm-text">
               Bot saytdagi shriftlarni kanalga oʻzi joylaydi: har birini 4–5 ta rasmli albom qilib (shu shriftda terilgan iqtibos, muqova,
-              harflar, matn, uslublar), tagida saytga havola bilan. Ertalab soat 9:00 da, navbat boʻyicha: avval yangi shriftlar.
+              harflar, matn, uslublar), tagida havolalar bilan. Siz belgilagan vaqtlarda, navbat boʻyicha: avval yangi shriftlar.
             </p>
-            <form action={saveAutopostAction} className="adm-tg-auto">
+            <form action={saveAutopostAction} className="adm-tg-auto-form">
               <label className="check"><input type="checkbox" name="on" defaultChecked={auto.on} /> Yoqilgan</label>
-              <label htmlFor="auto-every" className="sr-only">Qanchalik tez-tez</label>
-              <select id="auto-every" name="every" className="sel" defaultValue={String(auto.every)}>
-                {Object.entries(EVERY_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
+              <fieldset className="adm-tg-times">
+                <legend>Post vaqtlari (Toshkent vaqti)</legend>
+                {Array.from({ length: AUTOPOST_MAX_TIMES }, (_, i) => (
+                  <input key={i} type="time" name="time" defaultValue={auto.times[i] ?? ""} aria-label={`${i + 1}-post vaqti`} />
+                ))}
+                <span className="adm-meta">Kuniga 4 tagacha; keraksizini boʻsh qoldiring. Post belgilangan vaqtdan 5 daqiqa ichida chiqadi.</span>
+              </fieldset>
+              <fieldset className="adm-tg-days">
+                <legend>Kunlar</legend>
+                {DAY_LABEL.map(([n, short, full]) => (
+                  <label key={n} className="adm-tg-day" title={full}>
+                    <input type="checkbox" name="day" value={n} defaultChecked={auto.days.includes(n)} />
+                    <span>{short}</span>
+                  </label>
+                ))}
+              </fieldset>
               <SubmitButton className="btn btn-sm" pendingLabel="…">Saqlash</SubmitButton>
             </form>
             <p className="adm-meta">
               {!state.channel
                 ? "Kanal ulanmaguncha post chiqmaydi."
                 : auto.on
-                  ? `Keyingi post: ${upcoming ? formatDateTime(upcoming) : "—"}${queue[0] ? ` · ${queue[0].name}` : ""}.`
+                  ? `Keyingi post: ${upcoming ? formatDateTime(upcoming) : "—"}${queue[0] ? ` · ${queue[0].name}` : ""}. Haftasiga ${perWeek} ta post.`
                   : "Oʻchirilgan: post faqat “Hozir yuborish” bilan chiqadi."}
               {auto.lastAt ? ` Oxirgisi: ${formatDateTime(auto.lastAt)}.` : ""}
+              {state.channel && auto.on && waiting.total > 0 ? ` Navbatda ${waiting.total} ta shrift: taxminan ${lastsDays} kunga yetadi.` : ""}
             </p>
             {preview && (
               <div className="adm-tg-album" aria-label={`${queue[0].name}: kanaldagi rasmlar`}>

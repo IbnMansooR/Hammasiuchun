@@ -1,7 +1,7 @@
 // Vercel Cron (vercel.json) calls this once a day at 04:00 UTC = 09:00 Tashkent.
-// Vercel sends "Authorization: Bearer $CRON_SECRET"; anything else is refused.
-import crypto from "node:crypto";
+// Vercel sends "Authorization: Bearer $CRON_SECRET" (lib/cronAuth); anything else is refused.
 import { NextRequest, NextResponse } from "next/server";
+import { cronAuthorized } from "@/lib/cronAuth";
 import { botEnabled } from "@/lib/telegram";
 import { sendDailyReport, sendDigestDraft } from "@/lib/tgAdmin";
 import { sampleFonts } from "@/lib/fontSamples";
@@ -15,13 +15,6 @@ import { runAutopost } from "@/lib/tgAutopost";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
-
-function authorized(req: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET ?? "";
-  const given = req.headers.get("authorization") ?? "";
-  const want = `Bearer ${secret}`;
-  return !!secret && given.length === want.length && crypto.timingSafeEqual(Buffer.from(given), Buffer.from(want));
-}
 
 /** Pages that changed since yesterday (or every public page with ?indexnow=all), for IndexNow. */
 async function changedPaths(all: boolean): Promise<string[]> {
@@ -39,9 +32,9 @@ async function changedPaths(all: boolean): Promise<string[]> {
 }
 
 export async function GET(req: NextRequest) {
-  if (!authorized(req)) return new NextResponse(null, { status: 401 });
-  // The channel post first: an album of rendered posters is the slowest step and must finish
-  // well inside the time limit (a cut-off send could be repeated tomorrow).
+  if (!(await cronAuthorized(req))) return new NextResponse(null, { status: 401 });
+  // A due channel post first (the 5-minute pg_cron normally takes it; this is the fallback): an
+  // album of rendered posters is the slowest step and must finish well inside the time limit.
   const autopost = botEnabled() ? await runAutopost().catch(() => ({ posted: null, reason: "send" as const })) : null;
   const indexnow = await submitIndexNow(await changedPaths(req.nextUrl.searchParams.get("indexnow") === "all")).catch(() => null);
   if (!botEnabled()) return NextResponse.json({ sent: 0, reason: "bot not configured", indexnow });

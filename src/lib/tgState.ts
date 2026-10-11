@@ -8,8 +8,12 @@ import { readQuoteState, type QuoteState } from "./quotes";
 export type TgChannel = { id: string; title: string; username: string | null };
 export type TgAdmin = { chatId: string; name: string; at: string };
 /** Automatic font posts to the channel (lib/tgAutopost). */
-export type TgAutopost = { on: boolean; every: number; lastAt: string | null; skip: string[] };
-export const AUTOPOST_EVERY = [1, 2, 3, 7] as const; // days between posts
+/** times: "HH:MM" in Tashkent, days: ISO weekdays (1 = Monday). */
+export type TgAutopost = { on: boolean; times: string[]; days: number[]; lastAt: string | null; skip: string[] };
+export const AUTOPOST_MAX_TIMES = 4;
+export const AUTOPOST_MIN_GAP = 30; // minutes between two post times
+export const ALL_DAYS = [1, 2, 3, 4, 5, 6, 7];
+export const isClock = (s: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(s);
 export type TgState = {
   channel: TgChannel | null;
   /** The file channel: each posted font's ZIP is kept there, and channel posts link to it (lib/tgFiles). */
@@ -22,14 +26,19 @@ export type TgState = {
 };
 
 const KEY = "telegram";
-const AUTOPOST_DEFAULT: TgAutopost = { on: true, every: 1, lastAt: null, skip: [] };
+const AUTOPOST_DEFAULT: TgAutopost = { on: true, times: ["09:00", "20:00"], days: ALL_DAYS, lastAt: null, skip: [] };
 const empty = (): TgState => ({ channel: null, base: null, candidates: [], admins: [], adminNonce: null, autopost: { ...AUTOPOST_DEFAULT }, quotes: readQuoteState(null) });
 
 function readAutopost(v: unknown): TgAutopost {
   const a = (v && typeof v === "object" ? v : {}) as Partial<TgAutopost>;
   return {
     on: typeof a.on === "boolean" ? a.on : AUTOPOST_DEFAULT.on,
-    every: (AUTOPOST_EVERY as readonly number[]).includes(Number(a.every)) ? Number(a.every) : AUTOPOST_DEFAULT.every,
+    times: Array.isArray(a.times) && a.times.some((t) => typeof t === "string" && isClock(t))
+      ? [...new Set(a.times.filter((t): t is string => typeof t === "string" && isClock(t)))].sort().slice(0, AUTOPOST_MAX_TIMES)
+      : [...AUTOPOST_DEFAULT.times],
+    days: Array.isArray(a.days) && a.days.some((d) => ALL_DAYS.includes(Number(d)))
+      ? [...new Set(a.days.map(Number).filter((d) => ALL_DAYS.includes(d)))].sort()
+      : [...ALL_DAYS],
     lastAt: typeof a.lastAt === "string" ? a.lastAt : null,
     skip: Array.isArray(a.skip) ? a.skip.filter((s): s is string => typeof s === "string").slice(0, 500) : [],
   };

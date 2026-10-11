@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/adminGuard";
 import { SITE_URL } from "@/lib/site";
 import { botEnabled, botToken, sendMessage, tg } from "@/lib/telegram";
-import { AUTOPOST_EVERY, LINK_TTL_MS, getTgState, linkCode, updateTgState, type TgChannel } from "@/lib/tgState";
+import { ALL_DAYS, AUTOPOST_MAX_TIMES, AUTOPOST_MIN_GAP, LINK_TTL_MS, isClock, getTgState, linkCode, updateTgState, type TgChannel } from "@/lib/tgState";
 import { runAutopost } from "@/lib/tgAutopost";
 import { CAPTION_MAX, digestDraft, fontDraft, postDraft, workDraft } from "@/lib/tgPosts";
 import { AUTHOR_MAX, BUILTIN_QUOTES, MOODS, cleanQuote, isQuoteId, type Mood } from "@/lib/quotes";
@@ -13,7 +13,11 @@ import { uzbekize } from "@/lib/fontSamples";
 
 const BACK = "/admin/telegram";
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
-const fail = (code: string, back = BACK): never => redirect(`${back}${back.includes("?") ? "&" : "?"}error=${code}`);
+/** Back to `back` with ?error=code (an #anchor stays last, or the browser would drop the query). */
+const fail = (code: string, back = BACK): never => {
+  const [path, hash] = back.split("#");
+  return redirect(`${path}${path.includes("?") ? "&" : "?"}error=${code}${hash ? `#${hash}` : ""}`);
+};
 
 const botId = () => botToken().split(":")[0];
 
@@ -146,12 +150,25 @@ export async function postToChannelAction(fd: FormData) {
 
 /* ---------------- automatic font posts ---------------- */
 
+/** The switch, the post times (Tashkent, up to 4 a day) and the weekdays. */
 export async function saveAutopostAction(fd: FormData) {
   await requireAdmin();
-  const every = Number(fd.get("every"));
+  const back = `${BACK}#auto`;
+  const raw = fd.getAll("time").map((v) => String(v).trim()).filter(Boolean);
+  if (raw.some((t) => !isClock(t))) fail("autotime", back);
+  const times = [...new Set(raw)].sort();
+  if (times.length === 0) fail("autonotime", back);
+  if (times.length > AUTOPOST_MAX_TIMES) fail("autotime", back);
+  // Far enough apart, midnight included (23:50 and 00:10 are 20 minutes apart).
+  const mins = times.map((t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3)));
+  const gaps = mins.map((m, i) => (i ? m - mins[i - 1] : m + 1440 - mins[mins.length - 1]));
+  if (mins.length > 1 && Math.min(...gaps) < AUTOPOST_MIN_GAP) fail("autogap", back);
+  const days = [...new Set(fd.getAll("day").map(Number).filter((d) => ALL_DAYS.includes(d)))].sort();
+  if (days.length === 0) fail("autodays", back);
   await updateTgState((s) => {
     s.autopost.on = fd.get("on") === "on";
-    if ((AUTOPOST_EVERY as readonly number[]).includes(every)) s.autopost.every = every;
+    s.autopost.times = times;
+    s.autopost.days = days;
   });
   revalidatePath(BACK);
   redirect(`${BACK}?ok=auto#auto`);

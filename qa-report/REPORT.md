@@ -935,3 +935,39 @@ How the text is laid out:
 - titles built from taglines, with or without the font's name, and descriptions with Markdown.
 
 The fake Telegram API now accepts file uploads, which are saved so the test can open the ZIP. Uploads send their text in the query string, because multipart encoding would turn the caption's line breaks into CRLF; a test checks this.
+
+## 23. Channel post times: two a day, at the times the admin sets (2026-10-11)
+
+**Request.** Two posts a day, with a setting for the times.
+
+**Why a second scheduler.** The site is on Vercel's Hobby plan, where a cron job runs at most once a day and can start anywhere within its hour. So exact times need another clock. The database has one: Supabase's `pg_cron` (with `pg_net`) calls `/api/cron/autopost` every 5 minutes. The call is cheap when nothing is due. The daily Vercel cron calls the same code as a fallback.
+
+**Auth without moving a secret.** The 5-minute job sends a token that the database generates and keeps in the `Setting` table (`cron-token`). The site reads the same row, so the token never leaves the database and never had to be copied anywhere. `CRON_SECRET` keeps working for Vercel. Both cron routes now share `lib/cronAuth.ts`.
+
+**Setting.** Admin → Telegram → "Avtomatik postlar":
+- up to 4 post times (Tashkent);
+- the weekdays (Du … Ya);
+- the switch.
+
+Defaults: 09:00 and 20:00, every day. Times must be at least 30 minutes apart, midnight included. The section shows the next post, posts per week, and how many days the queue lasts.
+
+**Rules.**
+- Each time is claimed once (`autopost:<date>@<time>`), so overlapping calls never post twice.
+- A time missed by an outage still goes out up to 2 hours late, never later.
+- A time that comes within 30 minutes of another font post (e.g. "post now" just before) is let pass.
+- One post per call, so two late times don't arrive back to back.
+
+**Also fixed:**
+- **Lost error messages.** Error redirects in the Telegram admin put `?error=` after an `#anchor`, where the browser drops it. Errors from the quote form, and the new schedule form, were invisible; they now show.
+- **Time field validation.** A 5-minute `step` on the time fields anchored to the current value, so the browser could refuse a valid time like 10:00. Any minute is now accepted.
+
+**Verification:** the autopost suite has 83 checks, all passing. New checks:
+- the 5-minute endpoint: no token or a wrong token is refused; the database's token works, on the daily cron too;
+- a post time coming;
+- the same time again (busy);
+- a second time right after a post (let pass, and it doesn't come back);
+- the next time posting the next family;
+- a time later today, one missed by more than 2 hours, today not among the days, switched off;
+- the daily cron fallback;
+- the form: 10-minute gap and no days refused with their messages; times saved sorted, days saved; posts per week and queue length shown;
+- the quote form's empty-text error now showing.

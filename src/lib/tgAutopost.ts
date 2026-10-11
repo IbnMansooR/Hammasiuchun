@@ -1,5 +1,7 @@
-// The bot posts the site's fonts to the channel by itself: one family at a time, in an order
-// the admin can see and change, as an album of specimen posters (lib/fontPoster).
+// The bot posts the site's fonts to the channel by itself: one family at a time, at the times
+// the admin sets (Tashkent), in an order the admin can see and change, as an album of specimen
+// posters (lib/fontPoster). The database's pg_cron calls /api/cron/autopost every 5 minutes; the
+// daily Vercel cron calls it too, as a fallback.
 import { db } from "./db";
 import { PUBLIC_FAMILY } from "./license";
 import { getTgState, updateTgState, type TgAutopost } from "./tgState";
@@ -15,9 +17,9 @@ const NEW_FOR = 14 * DAY;
 export type QueueItem = { slug: string; name: string; drawable: boolean; isNew: boolean };
 
 /** Families not yet posted to the connected channel (and not skipped): new ones first, then the
- * most downloaded. Whether each can have posters is checked for the returned ones only (one font
- * file each): the catalogue has thousands of families. */
-export async function autopostQueue(limit = 5): Promise<QueueItem[]> {
+ * most downloaded. Whether each can have posters is checked for the first `limit` only (one font
+ * file each). `total` is the whole queue. */
+export async function autopostQueue(limit = 5): Promise<{ items: QueueItem[]; total: number }> {
   const state = await getTgState();
   const posted = new Set(
     state.channel
@@ -27,49 +29,86 @@ export async function autopostQueue(limit = 5): Promise<QueueItem[]> {
   const skip = new Set(state.autopost.skip);
   const fams = await db.family.findMany({ where: PUBLIC_FAMILY, select: { slug: true, name: true, createdAt: true, downloads: true, popularity: true } });
   const now = Date.now();
-  const head = fams
+  const waiting = fams
     .filter((f) => !posted.has(f.slug) && !skip.has(f.slug))
     .map((f) => ({ ...f, isNew: now - f.createdAt.getTime() < NEW_FOR }))
     .sort((a, b) =>
       Number(b.isNew) - Number(a.isNew) ||
       (a.isNew && b.isNew ? b.createdAt.getTime() - a.createdAt.getTime() : 0) ||
-      b.downloads - a.downloads || b.popularity - a.popularity || a.name.localeCompare(b.name))
-    .slice(0, limit);
+      b.downloads - a.downloads || b.popularity - a.popularity || a.name.localeCompare(b.name));
+  const head = waiting.slice(0, limit);
   const drawable = await Promise.all(head.map((f) => familySample(f.slug).then(Boolean, () => false)));
-  return head.map(({ slug, name, isNew }, i) => ({ slug, name, drawable: drawable[i], isNew }));
+  return { items: head.map(({ slug, name, isNew }, i) => ({ slug, name, drawable: drawable[i], isNew })), total: waiting.length };
 }
 
-/** The daily cron runs at 09:00 Tashkent; a few hours of slack absorbs its jitter. */
-export function isDue(a: TgAutopost, now = Date.now()): boolean {
-  return !a.lastAt || now - Date.parse(a.lastAt) >= a.every * DAY - 3 * 60 * 60 * 1000;
+/* ---------------- the schedule ---------------- */
+
+const GRACE = 2 * 60 * 60 * 1000; // a slot missed (an outage) still goes out up to 2 hours late…
+const RECENT = 30 * 60 * 1000; // …but never within 30 minutes of another font post
+
+const momentOf = (day: string, time: string) => Date.parse(`${day}T${time}:00+05:00`); // Tashkent is UTC+5
+const shiftDay = (day: string, n: number) => tashkentDay(new Date(Date.parse(`${day}T12:00:00+05:00`) + n * DAY));
+const weekday = (day: string) => new Date(`${day}T12:00:00+05:00`).getUTCDay() || 7; // ISO: Monday 1 … Sunday 7
+
+export type Slot = { key: string; at: number };
+
+/** Post times that have come and are still within the grace period, oldest first (yesterday's
+ * late ones included). Each has a key, claimed once so a slot never posts twice. */
+export function dueSlots(a: TgAutopost, now = Date.now()): Slot[] {
+  const today = tashkentDay(new Date(now));
+  const out: Slot[] = [];
+  for (const day of [shiftDay(today, -1), today]) {
+    if (!a.days.includes(weekday(day))) continue;
+    for (const t of a.times) {
+      const at = momentOf(day, t);
+      if (at <= now && now - at < GRACE) out.push({ key: `autopost:${day}@${t}`, at });
+    }
+  }
+  return out.sort((x, y) => x.at - y.at);
 }
 
-/** When the next scheduled post goes out (approximately: the next 09:00 run that is due). */
+/** The next post time (for the admin page). */
 export function nextRun(a: TgAutopost, now = Date.now()): Date | null {
-  if (!a.on) return null;
-  const nineToday = Date.parse(`${tashkentDay(new Date(now))}T04:00:00Z`); // 09:00 Tashkent
-  for (let d = 0; d <= 8; d++) {
-    const t = nineToday + d * DAY;
-    if (t > now && isDue(a, t)) return new Date(t);
+  if (!a.on || a.times.length === 0) return null;
+  const today = tashkentDay(new Date(now));
+  for (let d = 0; d <= 7; d++) {
+    const day = shiftDay(today, d);
+    if (!a.days.includes(weekday(day))) continue;
+    for (const t of a.times) {
+      const at = momentOf(day, t);
+      if (at > now) return new Date(at);
+    }
   }
   return null;
 }
 
-export type AutopostResult = { posted: string | null; reason?: "off" | "nochannel" | "notdue" | "empty" | "busy" | "notadmin" | "send" | "unsure" | "basefile" | "gone" };
+/** Posts a week, for "the queue lasts about N days". */
+export const postsPerWeek = (a: TgAutopost) => a.times.length * a.days.length;
 
-/** Post the next family. `force` (the admin's "post now") ignores the switch and the schedule. */
+export type AutopostResult = { posted: string | null; reason?: "off" | "nochannel" | "notdue" | "empty" | "busy" | "recent" | "notadmin" | "send" | "unsure" | "basefile" | "gone" };
+
+/** Post the next family when a post time has come. `force` (the admin's "post now") ignores the
+ * switch and the schedule. */
 export async function runAutopost({ force = false } = {}): Promise<AutopostResult> {
   const state = await getTgState();
   if (!force && !state.autopost.on) return { posted: null, reason: "off" };
   if (!state.channel) return { posted: null, reason: "nochannel" };
-  if (!force && !isDue(state.autopost)) return { posted: null, reason: "notdue" };
-  const [next] = await autopostQueue(1);
-  if (!next) return { posted: null, reason: "empty" };
   if (!force) {
-    // One scheduled post a day, even if the cron fires twice: the first run claims the day.
-    const claimed = await db.loginAttempt.create({ data: { key: `autopost:${tashkentDay()}`, count: 1 } }).then(() => true, () => false);
+    const due = dueSlots(state.autopost);
+    if (due.length === 0) return { posted: null, reason: "notdue" };
+    // Each post time goes out once, however many crons call: the first call claims it.
+    let claimed = false;
+    for (const slot of due) {
+      claimed = await db.loginAttempt.create({ data: { key: slot.key, count: 1 } }).then(() => true, () => false);
+      if (claimed) break;
+    }
     if (!claimed) return { posted: null, reason: "busy" };
+    // Just posted (by hand, or a late slot catching up): let this time pass.
+    const recent = await db.tgPost.findFirst({ where: { kind: "font", chatId: state.channel.id, postedAt: { gte: new Date(Date.now() - RECENT) } }, select: { id: true } });
+    if (recent) return { posted: null, reason: "recent" };
   }
+  const { items: [next] } = await autopostQueue(1);
+  if (!next) return { posted: null, reason: "empty" };
   const draft = await fontDraft(next.slug);
   if (!draft) return { posted: null, reason: "gone" };
   const r = await postDraft(draft, draft.caption);
@@ -107,7 +146,7 @@ export async function runAutopost({ force = false } = {}): Promise<AutopostResul
   }
   await updateTgState((s) => { s.autopost.lastAt = new Date().toISOString(); });
 
-  const [following] = await autopostQueue(1);
+  const { items: [following] } = await autopostQueue(1);
   const link = r.username ? `https://t.me/${r.username}/${r.messageId}` : null;
   const html =
     `📣 Kanalga ${force ? "" : "avtomatik "}post chiqdi: <b>${esc(next.name)}</b>\n` +
