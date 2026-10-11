@@ -764,7 +764,7 @@ All earlier suites still pass.
   - Font pages are translated, including the generated description and the structured data.
   - The few admin-written taglines and descriptions are Uzbek, so Russian font pages use the generated Russian text instead.
   - Journal articles and designers' works are written once, in Uzbek. Their Russian pages have Russian menus but are `noindex`, point to the Uzbek original and are not in the sitemap. The journal says its articles are in Uzbek.
-- **Headings in Cyrillic.** The display font (Fraunces) has no Cyrillic, so Lora's Cyrillic is joined to "Feekr Display" by `unicode-range` and preloaded on Russian pages (OFL, `public/fonts/ui/OFL-Lora.txt`). On Russian pages, font cards and the tester show Russian sample text for fonts that have Cyrillic. The home headline rotates through Cyrillic fonts.
+- **Headings in Cyrillic.** The display font (Fraunces) has no Cyrillic, so Lora's Cyrillic is joined to "Feekr Display" by `unicode-range` and preloaded on Russian pages (OFL, `public/fonts/ui/OFL-Lora.txt`). On Russian pages, font cards and the tester show Russian sample text for fonts that have Cyrillic. The Russian headline ("Голос вашему бренду дают шрифты") ends, like the Uzbek one, with the word "fonts", and that word rotates through Cyrillic fonts.
 - **Not translated:** the admin panel, the Telegram bot, messages sent to members, and the licence file inside the ZIP.
 
 **Verification:** a new suite of 65 checks passes. It covers:
