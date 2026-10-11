@@ -9,6 +9,7 @@ import { TZ_OFFSET_MS } from "@/lib/analytics";
 import { db } from "@/lib/db";
 import { PUBLIC_FAMILY } from "@/lib/license";
 import { submitIndexNow } from "@/lib/indexnow";
+import { withLocale } from "@/i18n/config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,7 +33,8 @@ async function changedPaths(all: boolean): Promise<string[]> {
   if (fams.length) paths.push("/", "/fonts");
   if (works.length) paths.push("/dizaynerlar");
   if (all) paths.push("/", "/fonts", "/dizaynerlar", "/about", "/license", "/support", "/pairs", "/blog");
-  return paths;
+  // Translated pages have a Russian twin (works and the journal are Uzbek-only).
+  return [...paths, ...paths.filter((p) => !/^\/(dizaynerlar\/|blog)/.test(p)).map((p) => withLocale("ru", p))];
 }
 
 export async function GET(req: NextRequest) {
