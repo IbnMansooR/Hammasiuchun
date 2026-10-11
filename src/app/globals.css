@@ -931,6 +931,8 @@ section.adm-card + section.adm-card, .stat-grid + section.adm-card { margin-top:
 .adm-ad-cell { display: flex; align-items: center; gap: 12px; min-width: 220px; }
 .adm-ad-cell img { width: 112px; aspect-ratio: 4 / 1; object-fit: cover; border-radius: 6px; background: var(--subtle); flex: none; }
 .adm-ad-cell strong { font-weight: 600; }
+.adm-search-verify { max-width: 640px; margin-top: 28px; }
+.adm-search-verify .badge { margin-left: 6px; }
 .adm-tg-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 18px; font-size: 13px; }
 .adm-tg-list { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 8px; }
 .adm-tg-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-sm); font-size: 14px; }

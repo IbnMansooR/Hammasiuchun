@@ -2,9 +2,10 @@ import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { preload } from "react-dom";
 import { SITE_URL } from "@/lib/site";
+import { getSiteSettingsCached } from "@/lib/settings";
 import "./globals.css";
 
-export const metadata: Metadata = {
+const BASE_METADATA: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     default: "Feekr — Bepul shriftlar kutubxonasi",
@@ -26,6 +27,16 @@ export const metadata: Metadata = {
   },
   twitter: { card: "summary_large_image" },
 };
+
+// Search engine ownership tags come from Admin → Sozlamalar, so they can be added without a redeploy.
+export async function generateMetadata(): Promise<Metadata> {
+  const s = await getSiteSettingsCached().catch(() => null);
+  const verification = {
+    ...(s?.googleVerification ? { google: s.googleVerification } : {}),
+    ...(s?.yandexVerification ? { yandex: s.yandexVerification } : {}),
+  };
+  return Object.keys(verification).length ? { ...BASE_METADATA, verification } : BASE_METADATA;
+}
 
 export const viewport: Viewport = {
   themeColor: [

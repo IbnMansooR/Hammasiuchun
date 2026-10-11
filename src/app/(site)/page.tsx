@@ -17,10 +17,15 @@ import { PreviewText } from "@/components/PreviewProvider";
 import HeroRotator from "@/components/home/HeroRotator";
 import HeroTypebar from "@/components/home/HeroTypebar";
 import { IconArrow, IconArrowUR } from "@/components/Icons";
+import JsonLd from "@/components/JsonLd";
+import { siteJsonLd } from "@/lib/seo";
+import { getSiteSettingsCached } from "@/lib/settings";
+import { getTgState } from "@/lib/tgState";
 
 // Rendered per request (featured fonts are picked at random), but the data
 // behind it is cached for 5 minutes: the DB sits in another region.
 export const dynamic = "force-dynamic";
+export const metadata = { alternates: { canonical: "/" } };
 
 const getHomeData = unstable_cache(
   async () => {
@@ -57,10 +62,16 @@ function pick<T>(arr: T[], n: number): T[] {
 const TYPE_LABEL: Record<string, string> = { blog: "Blog", news: "Yangilik", article: "Maqola" };
 
 export default async function HomePage() {
-  const [{ newest, posts, families, styles, cyrillic, showcasePool, catCounts, catReps, pairings, downloads }, allWorks] = await Promise.all([
+  const [{ newest, posts, families, styles, cyrillic, showcasePool, catCounts, catReps, pairings, downloads }, allWorks, settings, tgState] = await Promise.all([
     getHomeData(),
     getPublishedWorks(),
+    getSiteSettingsCached().catch(() => null),
+    getTgState(),
   ]);
+  const sameAs = [
+    ...(settings?.socials ?? []).filter((s) => s.enabled && /^https:\/\//.test(s.url)).map((s) => s.url),
+    ...(tgState.channel?.username ? [`https://t.me/${tgState.channel.username}`] : []),
+  ];
   const works = allWorks.slice(0, 3);
 
   // One family per category gives the rotating headline its range of voices.
@@ -80,6 +91,7 @@ export default async function HomePage() {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: faceCSS }} />
+      <JsonLd data={siteJsonLd(sameAs)} />
 
       {/* Hero */}
       <section className="container hero">

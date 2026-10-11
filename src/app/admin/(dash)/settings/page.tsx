@@ -1,5 +1,6 @@
 import { getSiteSettings } from "@/lib/settings";
-import { saveSettingsAction } from "../../actions";
+import { saveSearchVerificationAction, saveSettingsAction } from "../../actions";
+import { SITE_URL } from "@/lib/site";
 import { googleEnabled } from "@/lib/googleAuth";
 import { smsEnabled } from "@/lib/eskiz";
 import SubmitButton from "@/components/SubmitButton";
@@ -14,8 +15,8 @@ function StatusBadge({ label, on }: { label: string; on: boolean }) {
   );
 }
 
-export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ saved?: string }> }) {
-  const { saved } = await searchParams;
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ saved?: string; error?: string }> }) {
+  const { saved, error } = await searchParams;
   const s = await getSiteSettings();
 
   return (
@@ -24,7 +25,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       <p className="muted" style={{ maxWidth: 640, marginTop: -12, marginBottom: 22 }}>
         Footer ijtimoiy havolalari va aloqa maʼlumotlari. Belgini olib tashlasangiz — havola saytda koʻrinmaydi.
       </p>
-      {saved && (
+      {saved && saved !== "search" && (
         <div className="adm-notice adm-notice-ok" role="status" style={{ maxWidth: 640 }}>
           Sozlamalar saqlandi.
         </div>
@@ -72,6 +73,30 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <SubmitButton>Saqlash</SubmitButton>
         </div>
       </form>
+
+      <section id="search" className="adm-card adm-pad adm-search-verify" aria-labelledby="h-search">
+        <h2 id="h-search" style={{ fontSize: 20, margin: "0 0 8px" }}>Qidiruv tizimlari</h2>
+        <p className="muted" style={{ fontSize: 13.5, marginTop: 0 }}>
+          Google va Yandex sayt sizniki ekanini tekshiradi. Ular bergan tasdiqlash kodini shu yerga qoʻying: kod saytning har bir sahifasiga
+          <code> &lt;meta&gt;</code> teg boʻlib qoʻshiladi. Butun tegni ham qoʻyishingiz mumkin, kodni oʻzim ajratib olaman.
+        </p>
+        {saved === "search" && <div className="adm-notice adm-notice-ok" role="status">Saqlandi. Endi Google / Yandex sahifasida “Tasdiqlash” tugmasini bosing.</div>}
+        {error === "verification" && <div className="adm-notice adm-notice-error" role="alert">Kod notoʻgʻri koʻrinadi. Google yoki Yandex bergan <code>content="…"</code> ichidagi qiymatni qoʻying.</div>}
+        <form action={saveSearchVerificationAction}>
+          <div className="field">
+            <label htmlFor="gsv">Google Search Console kodi {s.googleVerification && <span className="badge badge-free">✓ qoʻyilgan</span>}</label>
+            <input id="gsv" type="text" name="googleVerification" defaultValue={s.googleVerification} placeholder='masalan: <meta name="google-site-verification" content="…" />' />
+          </div>
+          <div className="field">
+            <label htmlFor="ysv">Yandex Webmaster kodi {s.yandexVerification && <span className="badge badge-free">✓ qoʻyilgan</span>}</label>
+            <input id="ysv" type="text" name="yandexVerification" defaultValue={s.yandexVerification} placeholder='masalan: <meta name="yandex-verification" content="…" />' />
+          </div>
+          <SubmitButton>Kodlarni saqlash</SubmitButton>
+        </form>
+        <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
+          Tasdiqlangandan keyin ikkala joyda ham sitemap qoʻshing: <code>{SITE_URL}/sitemap.xml</code>
+        </p>
+      </section>
     </>
   );
 }

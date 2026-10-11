@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { db, isBuildPhase } from "./db";
 
 export type SocialLink = { key: string; label: string; url: string; enabled: boolean };
@@ -5,6 +6,9 @@ export type SiteSettings = {
   socials: SocialLink[];
   contactEmail: string;
   contactTelegram: string;
+  // Search engine ownership checks (Google Search Console / Yandex Webmaster "HTML tag" method).
+  googleVerification: string;
+  yandexVerification: string;
 };
 
 // Defaults (used until an admin saves overrides).
@@ -17,6 +21,8 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   ],
   contactEmail: "jamaibnmansoor@gmail.com",
   contactTelegram: "https://t.me/Feekr_admin",
+  googleVerification: "",
+  yandexVerification: "",
 };
 
 const KEY = "site";
@@ -39,8 +45,15 @@ export async function getSiteSettings(): Promise<SiteSettings> {
     socials,
     contactEmail: saved.contactEmail || DEFAULT_SETTINGS.contactEmail,
     contactTelegram: saved.contactTelegram || DEFAULT_SETTINGS.contactTelegram,
+    googleVerification: typeof saved.googleVerification === "string" ? saved.googleVerification : "",
+    yandexVerification: typeof saved.yandexVerification === "string" ? saved.yandexVerification : "",
   };
 }
+
+export const SETTINGS_TAG = "site-settings";
+
+/** For the root layout's metadata (every page): cached, refreshed when the admin saves. */
+export const getSiteSettingsCached = unstable_cache(getSiteSettings, ["site-settings-v1"], { revalidate: 3600, tags: [SETTINGS_TAG] });
 
 export async function saveSiteSettings(s: SiteSettings): Promise<void> {
   await db.setting.upsert({

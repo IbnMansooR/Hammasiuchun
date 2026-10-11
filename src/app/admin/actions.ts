@@ -9,7 +9,8 @@ import { db } from "@/lib/db";
 import { getSession, verifyCredentials, createSession, destroySession } from "@/lib/auth";
 import { parseFontBuffer, slugify, safeFolder, shortHash, styleSlug as mkStyleSlug } from "@/lib/fontmeta";
 import { putUpload, deleteUpload, writeFont, writeWebfont } from "@/lib/storage";
-import { DEFAULT_SETTINGS, saveSiteSettings } from "@/lib/settings";
+import { DEFAULT_SETTINGS, SETTINGS_TAG, getSiteSettings, saveSiteSettings } from "@/lib/settings";
+import { cleanVerification } from "@/lib/seo";
 import { sniffImageFamily, EXT_FAMILY } from "@/lib/imagesniff";
 import { LICENSE_CLASSES } from "@/lib/license";
 import { CATALOG_TAG } from "@/lib/stats";
@@ -202,14 +203,32 @@ export async function saveSettingsAction(fd: FormData) {
     url: str(fd, `${d.key}_url`),
     enabled: bool(fd, `${d.key}_on`),
   }));
+  const current = await getSiteSettings();
   await saveSiteSettings({
+    ...current,
     socials,
     contactEmail: str(fd, "contactEmail") || DEFAULT_SETTINGS.contactEmail,
     contactTelegram: str(fd, "contactTelegram") || DEFAULT_SETTINGS.contactTelegram,
   });
+  revalidateTag(SETTINGS_TAG);
   revalidatePath("/", "layout"); // footer is in the shared layout
   revalidatePath("/support");
   redirect("/admin/settings?saved=1");
+}
+
+/** Google Search Console / Yandex Webmaster ownership codes, shown as <meta> tags on every page. */
+export async function saveSearchVerificationAction(fd: FormData) {
+  await assertAdmin();
+  const rawG = str(fd, "googleVerification");
+  const rawY = str(fd, "yandexVerification");
+  const google = cleanVerification(rawG);
+  const yandex = cleanVerification(rawY);
+  if ((rawG && !google) || (rawY && !yandex)) redirect("/admin/settings?error=verification#search");
+  const current = await getSiteSettings();
+  await saveSiteSettings({ ...current, googleVerification: google, yandexVerification: yandex });
+  revalidateTag(SETTINGS_TAG);
+  revalidatePath("/", "layout");
+  redirect("/admin/settings?saved=search#search");
 }
 
 /* ---------------- family metadata edit ---------------- */

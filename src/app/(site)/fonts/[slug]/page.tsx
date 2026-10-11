@@ -15,18 +15,28 @@ import FontCard from "@/components/FontCard";
 import WorkCard from "@/components/WorkCard";
 import { worksUsingFont } from "@/lib/works";
 import { IconArrow, IconChevron } from "@/components/Icons";
+import JsonLd from "@/components/JsonLd";
+import { fontJsonLd } from "@/lib/seo";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const f = await db.family.findUnique({ where: { slug }, select: { name: true, tagline: true, category: true, styleCount: true, isPublished: true, licenseClass: true } });
+  const f = await db.family.findUnique({ where: { slug }, select: { name: true, tagline: true, category: true, styleCount: true, hasCyrillic: true, isPublished: true, licenseClass: true } });
   // Don't leak unpublished/restricted family names via 404 metadata.
   return f && isPublicFamily(f)
     ? {
-        title: f.name,
-        description: f.tagline ?? `${f.name} — ${CATEGORY_LABEL[f.category] ?? f.category} shrift oilasi, ${f.styleCount} uslub. Bepul yuklab oling va oʻzbekcha matnda sinab koʻring.`,
+        // What people type: "<name> shrift", "shrift yuklab olish", "kirill shrift".
+        title: { absolute: `${f.name} shrifti — bepul yuklab olish | Feekr` },
+        description: fontDescription(f),
         alternates: { canonical: `/fonts/${slug}` },
       }
     : {};
+}
+
+function fontDescription(f: { name: string; tagline: string | null; category: string; styleCount: number; hasCyrillic: boolean }): string {
+  const cat = (CATEGORY_LABEL[f.category] ?? f.category).toLowerCase();
+  const scripts = f.hasCyrillic ? "lotin va kirill" : "lotin";
+  const base = `${f.name}: ${cat} shrift, ${f.styleCount} uslub, ${scripts} yozuvi. Bepul yuklab oling va oʻz matningizda sinab koʻring.`;
+  return f.tagline ? `${f.tagline.replace(/[.\s]+$/, "")}. ${base}` : base;
 }
 
 function autoAbout(f: {
@@ -101,6 +111,7 @@ export default async function FontDetail({ params }: { params: Promise<{ slug: s
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: faceCSS }} />
+      <JsonLd data={fontJsonLd(f, fontDescription(f))} />
 
       <div className="container">
         <nav className="crumbs" aria-label="Yoʻl">

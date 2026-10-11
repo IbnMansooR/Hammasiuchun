@@ -726,3 +726,27 @@ Found and fixed while testing:
 - the `?t=` tester.
 
 The phase 1 suite (74) still passes.
+
+## 18. Search engines: verification, structured data, IndexNow (2026-10-11)
+
+**Why.** In the first six days the statistics showed 74 visitors, almost all from Uzbekistan and almost all direct: one each came from Google and Yandex. The site was not being found in search, so this step comes before a second language.
+
+**What changed.**
+- **Ownership codes without a redeploy.** Admin → Sozlamalar has a "Qidiruv tizimlari" section for the Google Search Console and Yandex Webmaster codes ("HTML tag" method). The whole pasted `<meta>` tag is accepted and only the code is kept; anything else is refused. The codes become `google-site-verification` / `yandex-verification` meta tags on every page through the root layout's `generateMetadata`. Settings are cached and refreshed on save, and saving the other settings no longer drops fields it does not show.
+- **Canonical on the home page:** it was the only page without one.
+- **Structured data (JSON-LD):**
+  - The home page has `WebSite` with a sitelinks search box pointing to `/fonts?q=`, and `Organization` with the logo and the enabled social links plus the Telegram channel.
+  - Each font page has a 4-step `BreadcrumbList` and a `CreativeWork` with a free flag, the licence, the designer, an image and the date modified.
+  - `<` is escaped, so text from the database cannot close the script tag (tested with a hostile tagline).
+- **Font titles and descriptions** now match what people type: "<name> shrifti — bepul yuklab olish | Feekr". The description says the category, the style count and whether the font has Latin or Latin and Cyrillic.
+- **IndexNow** (Yandex, Bing and others). The key is served at `/<key>.txt`. The daily cron sends the public font and work pages that changed in the last day (plus `/` and `/fonts` when a font changed); `?indexnow=all` sends every public page once. It is never called from local or preview builds.
+
+**Verification:** 22 new checks pass:
+- the canonical tag;
+- JSON-LD content, including the hostile tagline staying inside one valid block and not running in the browser;
+- title and description;
+- codes from a pasted tag, a bare code, on every page, kept when other settings are saved, invalid codes refused, and clearing them;
+- the key file;
+- the IndexNow payload for changed pages and for `?indexnow=all`.
+
+All earlier suites still pass.
