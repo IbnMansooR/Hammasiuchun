@@ -82,6 +82,16 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         </p>
         {saved === "search" && <div className="adm-notice adm-notice-ok" role="status">Saqlandi. Endi Google / Yandex sahifasida “Tasdiqlash” tugmasini bosing.</div>}
         {error === "verification" && <div className="adm-notice adm-notice-error" role="alert">Kod notoʻgʻri koʻrinadi. Google yoki Yandex bergan <code>content="…"</code> ichidagi qiymatni qoʻying.</div>}
+        {error === "sitemap" && (
+          <div className="adm-notice adm-notice-error" role="alert">
+            Bu maydonlarga sitemap emas, Google va Yandex bergan <b>tasdiqlash kodi</b> qoʻyiladi. Sitemap Google Search Console va Yandex Webmaster ichida qoʻshiladi (pastda yozilgan).
+          </div>
+        )}
+        <ol className="muted" style={{ fontSize: 13.5, paddingLeft: 20, margin: "0 0 14px" }}>
+          <li><b>Google:</b> search.google.com/search-console → “URL prefix” → <code>{SITE_URL}</code> → “HTML tag” usulini tanlang va <code>&lt;meta name="google-site-verification" …&gt;</code> tegini nusxalang.</li>
+          <li><b>Yandex:</b> webmaster.yandex.ru → saytni qoʻshing → “Meta-тег” usulini tanlang va <code>&lt;meta name="yandex-verification" …&gt;</code> tegini nusxalang.</li>
+          <li>Tegni pastdagi maydonga qoʻyib saqlang, soʻng Google / Yandex sahifasida “Tasdiqlash” tugmasini bosing.</li>
+        </ol>
         <form action={saveSearchVerificationAction}>
           <div className="field">
             <label htmlFor="gsv">Google Search Console kodi {s.googleVerification && <span className="badge badge-free">✓ qoʻyilgan</span>}</label>
@@ -94,7 +104,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <SubmitButton>Kodlarni saqlash</SubmitButton>
         </form>
         <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>
-          Tasdiqlangandan keyin ikkala joyda ham sitemap qoʻshing: <code>{SITE_URL}/sitemap.xml</code>
+          Sitemap bu yerga yozilmaydi. Sayt tasdiqlangach, uni Google Search Console (“Sitemaps” boʻlimi) va Yandex Webmaster
+          (“Индексирование → Файлы Sitemap”) ichida qoʻshing: <code>{SITE_URL}/sitemap.xml</code>
         </p>
       </section>
     </>

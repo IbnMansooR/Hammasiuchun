@@ -221,6 +221,8 @@ export async function saveSearchVerificationAction(fd: FormData) {
   await assertAdmin();
   const rawG = str(fd, "googleVerification");
   const rawY = str(fd, "yandexVerification");
+  // An easy mix-up: the sitemap address goes into Google / Yandex, not here.
+  if ([rawG, rawY].some((v) => /sitemap|^https?:\/\//i.test(v))) redirect("/admin/settings?error=sitemap#search");
   const google = cleanVerification(rawG);
   const yandex = cleanVerification(rawY);
   if ((rawG && !google) || (rawY && !yandex)) redirect("/admin/settings?error=verification#search");
