@@ -73,19 +73,50 @@ export async function testAdminsAction() {
   redirect(`${BACK}?ok=test&n=${sent}#admins`);
 }
 
-export async function chooseChannelAction(fd: FormData) {
-  await requireAdmin();
-  let raw = str(fd, "channel");
+/** "@name", "name", "https://t.me/name" or a -100… id → what getChat takes, or null. */
+function channelRef(input: string): string | null {
+  let raw = input;
   if (/^https?:\/\/t\.me\//i.test(raw)) raw = `@${raw.replace(/^https?:\/\/t\.me\//i, "").split(/[/?#]/)[0]}`;
   if (/^[A-Za-z][A-Za-z0-9_]{3,31}$/.test(raw)) raw = `@${raw}`;
-  if (!/^(@[A-Za-z][A-Za-z0-9_]{3,31}|-100\d{5,15})$/.test(raw)) fail("channel");
-  const ch = await checkChannel(raw);
+  return /^(@[A-Za-z][A-Za-z0-9_]{3,31}|-100\d{5,15})$/.test(raw) ? raw : null;
+}
+
+export async function chooseChannelAction(fd: FormData) {
+  await requireAdmin();
+  const raw = channelRef(str(fd, "channel"));
+  if (!raw) fail("channel");
+  const ch = await checkChannel(raw!);
   if (!ch) fail("notadmin");
   await updateTgState((s) => {
     s.channel = ch;
+    if (s.base?.id === ch!.id) s.base = null; // one channel can't be both
     s.candidates = [...s.candidates.filter((c) => c.id !== ch!.id), ch!];
   });
   redirect(`${BACK}?ok=channel#channel`);
+}
+
+/** The file channel: where each posted font's ZIP is kept (lib/tgFiles). */
+export async function chooseBaseAction(fd: FormData) {
+  await requireAdmin();
+  const raw = channelRef(str(fd, "channel"));
+  if (!raw) fail("channel");
+  const ch = await checkChannel(raw!);
+  if (!ch) fail("basenotadmin");
+  const { channel } = await getTgState();
+  if (channel?.id === ch!.id) fail("basesame");
+  await updateTgState((s) => {
+    s.base = ch;
+    s.candidates = [...s.candidates.filter((c) => c.id !== ch!.id), ch!];
+  });
+  redirect(`${BACK}?ok=base#channel`);
+}
+
+export async function clearBaseAction() {
+  await requireAdmin();
+  await updateTgState((s) => {
+    s.base = null;
+  });
+  redirect(`${BACK}?ok=basecleared#channel`);
 }
 
 export async function clearChannelAction() {
@@ -147,7 +178,7 @@ export async function postNextNowAction() {
   const r = await runAutopost({ force: true });
   revalidatePath(BACK);
   if (!r.posted) {
-    const code = { empty: "autoempty", nochannel: "channelfirst", notadmin: "notadmin", unsure: "autounsure" } as Record<string, string>;
+    const code = { empty: "autoempty", nochannel: "channelfirst", notadmin: "notadmin", unsure: "autounsure", basefile: "basefile" } as Record<string, string>;
     fail(code[r.reason ?? ""] ?? "autosend");
   }
   redirect(`${BACK}?ok=autoposted#auto`);

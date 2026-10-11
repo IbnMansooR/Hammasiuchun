@@ -241,6 +241,7 @@ const REASON: Record<string, string> = {
   notadmin: "Bot kanalda admin emas yoki post yozish huquqi yoʻq.",
   send: "Telegram postni qabul qilmadi. Birozdan keyin qayta bosing.",
   unsure: "Telegram vaqtida javob bermadi: avval kanalni tekshiring, post chiqqan boʻlishi mumkin.",
+  basefile: "Shrift faylini fayl kanaliga yuklab boʻlmadi.",
 };
 
 export async function handleDigestCallback(q: CallbackQuery): Promise<void> {

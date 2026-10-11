@@ -55,7 +55,7 @@ export function nextRun(a: TgAutopost, now = Date.now()): Date | null {
   return null;
 }
 
-export type AutopostResult = { posted: string | null; reason?: "off" | "nochannel" | "notdue" | "empty" | "busy" | "notadmin" | "send" | "unsure" | "gone" };
+export type AutopostResult = { posted: string | null; reason?: "off" | "nochannel" | "notdue" | "empty" | "busy" | "notadmin" | "send" | "unsure" | "basefile" | "gone" };
 
 /** Post the next family. `force` (the admin's "post now") ignores the switch and the schedule. */
 export async function runAutopost({ force = false } = {}): Promise<AutopostResult> {
@@ -89,7 +89,22 @@ export async function runAutopost({ force = false } = {}): Promise<AutopostResul
     }
     return { posted: null, reason: "unsure" };
   }
-  if (!r.ok) return { posted: null, reason: r.reason };
+  if (!r.ok) {
+    // Say why nothing went out today, so a broken channel doesn't go unnoticed.
+    const why: Record<string, string> = {
+      basefile: "faylni fayl kanaliga yuklab boʻlmadi (bot u yerda admin ekanini tekshiring)",
+      notadmin: "bot asosiy kanalda admin emas yoki post yozish huquqi yoʻq",
+      send: "Telegram postni qabul qilmadi",
+    };
+    if (why[r.reason]) {
+      const html = `⚠️ Bugungi avtomatik post chiqmadi (<b>${esc(next.name)}</b>): ${why[r.reason]}. Keyingi safar yana urinadi.`;
+      for (const a of state.admins) {
+        await sendMessage(a.chatId, html, [[{ text: "Telegram sozlamalari", url: `${SITE_URL}/admin/telegram#channel` }]]).catch(() => null);
+        await pause(40);
+      }
+    }
+    return { posted: null, reason: r.reason };
+  }
   await updateTgState((s) => { s.autopost.lastAt = new Date().toISOString(); });
 
   const [following] = await autopostQueue(1);

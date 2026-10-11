@@ -10,6 +10,7 @@ import SubmitButton from "@/components/SubmitButton";
 import { postToChannelAction } from "@/app/admin/telegramActions";
 import { posterQuoteOptions } from "@/lib/fontPoster";
 import { isQuoteId } from "@/lib/quotes";
+import { getSiteSettings } from "@/lib/settings";
 
 export const metadata = { title: "Admin — Kanalga yuborish" };
 export const maxDuration = 60; // a font goes out as an album of rendered posters
@@ -20,6 +21,7 @@ const ERR: Record<string, string> = {
   nochannel: "Avval kanalni ulang.",
   notadmin: "Bot kanalda admin emas yoki post yozish huquqi yoʻq.",
   send: "Telegram postni qabul qilmadi. Birozdan keyin qayta urinib koʻring.",
+  basefile: "Shrift faylini fayl kanaliga yuklab boʻlmadi, post yuborilmadi. Bot fayl kanalida admin ekanini tekshiring.",
   unsure: "Telegram vaqtida javob bermadi: post kanalga chiqqan boʻlishi mumkin. Qayta yuborishdan oldin kanalni tekshiring.",
   gone: "Bu shrift yoki ish saytda koʻrinmaydi, shuning uchun yuborib boʻlmaydi.",
 };
@@ -30,12 +32,13 @@ export default async function TelegramPost({ searchParams }: { searchParams: Pro
     ? await digestDraft()
     : font ? await fontDraft(font, q && isQuoteId(q) ? q : null) : work && /^\d{1,9}$/.test(work) ? await workDraft(Number(work)) : null;
   if (!draft) notFound();
-  const [{ channel }, history] = await Promise.all([
+  const [{ channel, base }, history] = await Promise.all([
     getTgState(),
     db.tgPost.findMany({ where: { kind: draft.kind, ref: draft.ref }, orderBy: { postedAt: "desc" }, take: 5 }),
   ]);
   const ready = botEnabled() && !!channel;
   const options = draft.kind === "font" && draft.quote ? await posterQuoteOptions(draft.ref) : [];
+  const instagram = draft.kind === "font" && (await getSiteSettings()).socials.some((x) => x.key === "instagram" && x.enabled && /^https:\/\//.test(x.url));
   const optionLabel = (o: (typeof options)[number]) => {
     const t = o.text.replace(/\n/g, " ");
     return `${t.length > 80 ? `${t.slice(0, 78)}…` : t}${o.author ? ` — ${o.author}` : ""}`;
@@ -88,9 +91,22 @@ export default async function TelegramPost({ searchParams }: { searchParams: Pro
               </div>
             </form>
           )}
-          <div className="adm-tg-buttons" aria-label={draft.album && draft.album.length >= 2 ? "Matn tagidagi havolalar" : "Post tugmalari"}>
-            {draft.keyboard.flat().map((b) => <span key={b.text} className="chip">{b.text}</span>)}
-          </div>
+          {draft.kind === "font" ? (
+            <div className="adm-tg-links" aria-label="Matn oxiriga qoʻshiladigan havolalar">
+              <span>Saytdan yuklab olish: <u>bu yerda</u></span>
+              {base ? (
+                <span>Telegramdan <u>yuklab olish</u> <span className="adm-meta">· fayl {base.username ? `@${base.username}` : base.title} kanaliga yuklanadi</span></span>
+              ) : (
+                <span className="adm-meta">Telegramdan yuklab olish: fayl kanali ulanmagan (Telegram sozlamalari → Kanal)</span>
+              )}
+              <span>🔗 feekrfont.uz</span>
+              {instagram && <span>📱 Instagram</span>}
+            </div>
+          ) : (
+            <div className="adm-tg-buttons" aria-label="Post tugmalari">
+              {draft.keyboard.flat().map((b) => <span key={b.text} className="chip">{b.text}</span>)}
+            </div>
+          )}
         </div>
         <form action={postToChannelAction} className="adm-card adm-pad">
           <input type="hidden" name="kind" value={draft.kind} />
@@ -100,7 +116,7 @@ export default async function TelegramPost({ searchParams }: { searchParams: Pro
             <label htmlFor="tg-caption">Post matni</label>
             <textarea id="tg-caption" name="caption" rows={12} maxLength={CAPTION_MAX} defaultValue={draft.caption} required />
             <span className="adm-meta">
-              Birinchi qator qalin boʻladi. {draft.album && draft.album.length >= 2 ? "Albomga tugma qoʻyib boʻlmaydi: saytga havola matn oxiriga qoʻshiladi." : "Tugma postning tagida turadi."}
+              Birinchi qator qalin boʻladi. {draft.kind === "font" ? "Havolalar matn oxiriga oʻzi qoʻshiladi; hammasi 1024 belgidan oshsa, matn qisqartiriladi." : "Tugma postning tagida turadi."}
             </span>
           </div>
           <label className="check" style={{ margin: "4px 0 18px" }}>

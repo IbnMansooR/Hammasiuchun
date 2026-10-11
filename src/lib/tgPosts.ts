@@ -1,5 +1,7 @@
 // What the bot posts to the channel: a picture, a caption the admin can edit before sending,
-// and a button back to the site (tagged utm_source=telegram so the visits show in the statistics).
+// and a way back to the site (tagged utm_source=telegram so the visits show in the statistics).
+// Font posts end with links like the channel's own posts: the site, the file in the file channel
+// (lib/tgFiles), feekrfont.uz and Instagram.
 import { db } from "./db";
 import { CATEGORY_LABEL } from "./fonts";
 import { LICENSE_LABEL, PUBLIC_FAMILY } from "./license";
@@ -7,6 +9,8 @@ import { SITE_URL } from "./site";
 import { absoluteImage, esc, sendAlbum, sendPhotoOrText, siteLink, type Keyboard, type TgMessage } from "./telegram";
 import { posterAlbum } from "./fontPoster";
 import { getTgState, updateTgState } from "./tgState";
+import { fontFile } from "./tgFiles";
+import { getSiteSettings } from "./settings";
 import { rememberQuote } from "./quotes";
 import { splitTags } from "./works";
 import { TZ_OFFSET_MS, tashkentDay } from "./analytics";
@@ -26,10 +30,30 @@ export type PostDraft = {
   quote?: string | null;
   caption: string; // plain text; the first line is set in bold when sent
   keyboard: Keyboard;
+  /** Font posts: the font page, for "Saytdan yuklab olish" in the links under the caption. */
+  site?: string;
   backHref: string;
 };
 
-const tag = (s: string) => `#${s.toLowerCase().replace(/[^a-z0-9ʻʼа-яёўқғҳ]+/gi, "")}`;
+/** The admin's tagline as a bold title and a lead: its first sentence names the font (or the
+ * name is put in front), the rest becomes the next paragraph. */
+function titleAndLead(name: string, tagline: string | null): { title: string; lead: string | null } {
+  const t = (tagline ?? "").replace(/\s+/g, " ").trim();
+  if (!t) return { title: `${name} shrifti`, lead: null };
+  const [first, ...rest] = t.split(/(?<=[.!?])\s+(?=\p{Lu})/u);
+  const word = name.split(/[\s_-]+/)[0].toLowerCase();
+  return { title: first.toLowerCase().includes(word) ? first : `${name} shrifti – ${first}`, lead: rest.join(" ") || null };
+}
+
+/** Plain text from the admin's description (Markdown marks dropped), cut at a sentence. */
+function shortText(s: string | null, max: number): string | null {
+  const t = (s ?? "").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/[#*_`>]/g, "").replace(/\s+/g, " ").trim();
+  if (!t) return null;
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max);
+  const end = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("! "), cut.lastIndexOf("? "));
+  return end > max / 2 ? cut.slice(0, end + 1) : `${cut.replace(/\s+\S*$/, "")}…`;
+}
 
 /** `quote`: the admin's pick for the first poster (otherwise one that suits the font is chosen). */
 export async function fontDraft(slug: string, quote?: string | null): Promise<PostDraft | null> {
@@ -37,16 +61,11 @@ export async function fontDraft(slug: string, quote?: string | null): Promise<Po
   if (!f) return null;
   const album = await posterAlbum(f.slug, quote);
   const scripts = [f.hasLatin && "Lotin", f.hasCyrillic && "Kirill"].filter(Boolean).join(" + ");
-  const lines = [
-    f.name,
-    f.tagline?.trim() || null,
-    "",
-    `✦ ${f.styleCount} uslub${scripts ? ` · ${scripts}` : ""} · ${CATEGORY_LABEL[f.category] ?? f.category}`,
-    `✦ ${LICENSE_LABEL[f.licenseClass] ?? f.licenseClass} · bepul`,
+  const { title, lead } = titleAndLead(f.name, f.tagline);
+  const facts = [
+    `✦ ${[`${f.styleCount} uslub`, scripts, CATEGORY_LABEL[f.category] ?? f.category, `${LICENSE_LABEL[f.licenseClass] ?? f.licenseClass} · bepul`].filter(Boolean).join(" · ")}`,
     f.designer ? `✦ Dizayner: ${f.designer}` : null,
-    "",
-    ["#shrift", "#bepulshrift", f.hasCyrillic ? "#kirill" : null, tag(CATEGORY_LABEL[f.category] ?? f.category)].filter(Boolean).join(" "),
-  ].filter((l) => l !== null);
+  ].filter(Boolean).join("\n");
   return {
     kind: "font",
     ref: f.slug,
@@ -54,8 +73,9 @@ export async function fontDraft(slug: string, quote?: string | null): Promise<Po
     image: `${SITE_URL}/api/tg-image/font/${encodeURIComponent(f.slug)}`,
     album: album?.urls ?? null,
     quote: album?.quote ?? null,
-    caption: lines.join("\n"),
-    keyboard: [[{ text: "Koʻrish va yuklab olish", url: siteLink(`/fonts/${f.slug}`, "channel") }]],
+    caption: [title, lead, shortText(f.description, 520), facts].filter(Boolean).join("\n\n"),
+    keyboard: [],
+    site: siteLink(`/fonts/${f.slug}`, "channel"),
     backHref: `/admin/fonts/${f.slug}`,
   };
 }
@@ -159,26 +179,58 @@ export async function digestDraft(now = new Date()): Promise<PostDraft | null> {
 
 /* ---------------- sending ---------------- */
 
-export type PostResult = { ok: true; messageId: number; chatId: string; username: string | null } | { ok: false; reason: "nochannel" | "notadmin" | "send" | "unsure" };
+export type PostResult =
+  | { ok: true; messageId: number; chatId: string; username: string | null }
+  | { ok: false; reason: "nochannel" | "notadmin" | "send" | "unsure" | "basefile" };
 
-/** Publish a draft (with the admin's caption) to the connected channel and log it. */
-/** An album can't have buttons, so its caption ends with the links instead. */
-export function albumCaptionHtml(plain: string, keyboard: Keyboard): string {
-  const links = ["", ...keyboard.flat().filter((b) => b.url).map((b) => `👉 <a href="${esc(b.url!)}">${esc(b.text)}</a>`)].join("\n");
-  // Telegram's limit is 1024 characters: shorten the text (never the links, never mid-tag).
+/** Telegram counts a caption's length without the markup. */
+export const visibleLength = (html: string) => html.replace(/<[^>]+>/g, "").replace(/&(amp|lt|gt|quot|#39);/g, "_").length;
+
+/** The caption with a fixed tail (the links): Telegram's limit is 1024 characters, so the text is
+ * shortened when needed, never the links. */
+export function captionWithTail(plain: string, tail: string): string {
   let text = plain.trim();
-  while (text.length > 0 && captionHtml(text).length + links.length > 1024) text = text.slice(0, -40).trimEnd() + "…";
-  return captionHtml(text) + links;
+  while (text.length > 0 && visibleLength(captionHtml(text)) + visibleLength(tail) > 1024) text = `${text.slice(0, -40).trimEnd()}…`;
+  return captionHtml(text) + tail;
 }
 
+/** The links under a font post. `file` is the post in the file channel (none when not connected). */
+export function fontLinksHtml(site: string, file: string | null, instagram: string | null): string {
+  return [
+    "",
+    "",
+    `Saytdan yuklab olish: <a href="${esc(site)}">bu yerda</a>`,
+    file ? `Telegramdan <a href="${esc(file)}">yuklab olish</a>` : null,
+    "",
+    `🔗 <a href="${esc(siteLink("/", "channel"))}">feekrfont.uz</a>`,
+    instagram ? `📱 <a href="${esc(instagram)}">Instagram</a>` : null,
+  ].filter((l) => l !== null).join("\n");
+}
+
+/** Publish a draft (with the admin's caption) to the connected channel and log it. A font's file
+ * goes to the file channel first, so the post can link to it. */
 export async function postDraft(draft: PostDraft, caption: string, silent = false): Promise<PostResult> {
-  const { channel } = await getTgState();
+  const { channel, base } = await getTgState();
   if (!channel) return { ok: false, reason: "nochannel" };
   const extra = { disable_notification: silent };
   const notAdmin = (d: string, code: number) => code === 403 || /not enough rights|chat not found|kicked/i.test(d);
+  let html = captionHtml(caption);
+  if (draft.kind === "font" && draft.site) {
+    let file: string | null = null;
+    if (base) {
+      const f = await fontFile(base, draft.ref);
+      if (f.ok) file = f.url;
+      // A file too big for Telegram (or missing) only drops that one link; a failed upload stops
+      // the post, so it never goes out without the link it should have.
+      else if (f.reason === "notadmin" || f.reason === "send") return { ok: false, reason: "basefile" };
+    }
+    const { socials } = await getSiteSettings();
+    const ig = socials.find((x) => x.key === "instagram" && x.enabled && /^https:\/\//.test(x.url))?.url ?? null;
+    html = captionWithTail(caption, fontLinksHtml(draft.site, file, ig));
+  }
   let messageId: number | null = null;
   if (draft.album && draft.album.length >= 2) {
-    const a = await sendAlbum(channel.id, draft.album, albumCaptionHtml(caption, draft.keyboard), extra);
+    const a = await sendAlbum(channel.id, draft.album, html, extra);
     if (a.ok) {
       messageId = a.result[0]?.message_id ?? null;
       const q = draft.quote;
@@ -190,7 +242,7 @@ export async function postDraft(draft: PostDraft, caption: string, silent = fals
     else if (a.code !== 400) return { ok: false, reason: a.timeout ? "unsure" : "send" };
   }
   if (messageId === null) {
-    const r = await sendPhotoOrText(channel.id, draft.image, captionHtml(caption), draft.keyboard, extra);
+    const r = await sendPhotoOrText(channel.id, draft.image, html, draft.keyboard.length ? draft.keyboard : undefined, extra);
     if (!r.ok) return { ok: false, reason: notAdmin(r.description, r.code) ? "notadmin" : "send" };
     messageId = (r.result as TgMessage).message_id;
   }

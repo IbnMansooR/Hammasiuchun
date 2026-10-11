@@ -1,8 +1,6 @@
 import { after } from "next/server";
 import { db } from "@/lib/db";
-import { FREEWARE_WARNING, LICENSE_NOTE, isRedistributable } from "@/lib/license";
-import { readFont } from "@/lib/storage";
-import JSZip from "jszip";
+import { familyZip } from "@/lib/familyZip";
 import { overLimit, tooManyRequests } from "@/lib/softLimit";
 
 export const runtime = "nodejs";
@@ -19,60 +17,16 @@ export async function GET(
   if (!slug) return new Response("Bad request", { status: 400 });
 
   try {
-    const fam = await db.family.findUnique({
-      where: { slug },
-      select: {
-        name: true, folder: true, isPublished: true, licenseClass: true, copyright: true, license: true,
-        designer: true, licenseUrl: true,
-        styles: { select: { style: true, ext: true, file: true }, orderBy: [{ italic: "asc" }, { weight: "asc" }] },
-      },
-    });
-    if (!fam || !fam.isPublished || !isRedistributable(fam.licenseClass)) {
-      return new Response("Not found", { status: 404 });
-    }
+    const zip = await familyZip(slug);
+    if (!zip) return new Response("Not found", { status: 404 });
 
-    const base = fam.name.replace(/[^A-Za-z0-9]+/g, "") || slug;
-    const zip = new JSZip();
-    const dir = zip.folder(base) ?? zip;
-
-    // Read every cut from storage in parallel, then add the ones that exist.
-    const parts = await Promise.all(
-      fam.styles.map(async (s) => ({ s, buf: await readFont(fam.folder, s.file) })),
-    );
-    let added = 0;
-    for (const { s, buf } of parts) {
-      if (!buf) continue;
-      dir.file(`${base}-${s.style}.${s.ext}`, buf);
-      added++;
-    }
-    if (!added) return new Response("Missing source", { status: 404 });
-
-    // Ship the licence terms with the files so they travel with the font.
-    dir.file("LITSENZIYA.txt", [
-      `${fam.name}`,
-      fam.designer ? `Dizayner: ${fam.designer}` : "",
-      `Litsenziya: ${fam.licenseClass}${LICENSE_NOTE[fam.licenseClass] ? ` — ${LICENSE_NOTE[fam.licenseClass]}` : ""}`,
-      fam.licenseClass === "Freeware" ? FREEWARE_WARNING : "",
-      fam.copyright ? `\n${fam.copyright}` : "",
-      fam.license ? `\n${fam.license}` : "",
-      fam.licenseUrl ? `\n${fam.licenseUrl}` : "",
-      "\nYuklab olingan manba: Feekr (https://feekrfont.uz)",
-    ].filter(Boolean).join("\n"));
-
-    const content = await zip.generateAsync({
-      type: "nodebuffer",
-      compression: "DEFLATE",
-      compressionOptions: { level: 6 },
-    });
-
-    const dlName = `${base}.zip`;
     // Count it once the file is on its way; a failed counter never blocks a download.
     after(() => db.family.update({ where: { slug }, data: { downloads: { increment: 1 } } }).catch(() => {}));
-    return new Response(new Uint8Array(content), {
+    return new Response(new Uint8Array(zip.data), {
       headers: {
         "Content-Type": "application/zip",
         "Content-Disposition":
-          `attachment; filename="${dlName}"; filename*=UTF-8''${encodeURIComponent(dlName)}`,
+          `attachment; filename="${zip.name}"; filename*=UTF-8''${encodeURIComponent(zip.name)}`,
         "Cache-Control": "public, max-age=3600",
       },
     });

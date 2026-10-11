@@ -12,6 +12,8 @@ export type TgAutopost = { on: boolean; every: number; lastAt: string | null; sk
 export const AUTOPOST_EVERY = [1, 2, 3, 7] as const; // days between posts
 export type TgState = {
   channel: TgChannel | null;
+  /** The file channel: each posted font's ZIP is kept there, and channel posts link to it (lib/tgFiles). */
+  base: TgChannel | null;
   candidates: TgChannel[]; // channels where the bot is an admin (seen via my_chat_member)
   admins: TgAdmin[];
   adminNonce: { code: string; exp: number } | null; // one-time "connect my Telegram" link for an admin
@@ -21,7 +23,7 @@ export type TgState = {
 
 const KEY = "telegram";
 const AUTOPOST_DEFAULT: TgAutopost = { on: true, every: 1, lastAt: null, skip: [] };
-const empty = (): TgState => ({ channel: null, candidates: [], admins: [], adminNonce: null, autopost: { ...AUTOPOST_DEFAULT }, quotes: readQuoteState(null) });
+const empty = (): TgState => ({ channel: null, base: null, candidates: [], admins: [], adminNonce: null, autopost: { ...AUTOPOST_DEFAULT }, quotes: readQuoteState(null) });
 
 function readAutopost(v: unknown): TgAutopost {
   const a = (v && typeof v === "object" ? v : {}) as Partial<TgAutopost>;
@@ -40,6 +42,7 @@ export async function getTgState(): Promise<TgState> {
     const s = JSON.parse(row.value) as Partial<TgState>;
     return {
       channel: s.channel ?? null,
+      base: s.base ?? null,
       candidates: Array.isArray(s.candidates) ? s.candidates : [],
       admins: Array.isArray(s.admins) ? s.admins : [],
       adminNonce: s.adminNonce ?? null,

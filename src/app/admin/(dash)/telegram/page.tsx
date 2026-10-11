@@ -8,7 +8,7 @@ import Notice from "@/components/admin/Notice";
 import SubmitButton from "@/components/SubmitButton";
 import ConfirmButton from "@/components/ConfirmButton";
 import {
-  addQuoteAction, chooseChannelAction, clearChannelAction, createAdminLinkAction, postNextNowAction, removeQuoteAction, removeTgAdminAction,
+  addQuoteAction, chooseBaseAction, chooseChannelAction, clearBaseAction, clearChannelAction, createAdminLinkAction, postNextNowAction, removeQuoteAction, removeTgAdminAction,
   saveAutopostAction, setWebhookAction, skipAutopostAction, testAdminsAction, toggleQuoteAction, unskipAutopostAction,
 } from "@/app/admin/telegramActions";
 import { autopostQueue, nextRun } from "@/lib/tgAutopost";
@@ -26,6 +26,8 @@ const OK: Record<string, string> = {
   removed: "Admin Telegrami uzildi.",
   channel: "Kanal ulandi. Endi shrift va ishlarni kanalga yuborishingiz mumkin.",
   cleared: "Kanal uzildi.",
+  base: "Fayl kanali ulandi: endi har bir shrift fayli u yerga yuklanadi va postlarda “Telegramdan yuklab olish” havolasi chiqadi.",
+  basecleared: "Fayl kanali uzildi: postlarda faqat saytga havola qoladi.",
   auto: "Avtomatik postlar sozlamasi saqlandi.",
   autoposted: "Navbatdagi shrift kanalga yuborildi ✓",
   quote: "Iqtibos qoʻshildi. Keyingi postlarda birinchi navbatda ishlatiladi.",
@@ -40,6 +42,9 @@ const ERR: Record<string, string> = {
   channelfirst: "Avval kanalni ulang.",
   autosend: "Telegram postni qabul qilmadi. Birozdan keyin qayta urinib koʻring.",
   autounsure: "Telegram vaqtida javob bermadi: post kanalga chiqqan boʻlishi mumkin. Kanalni tekshiring; shrift navbatdan chetga olindi, chiqmagan boʻlsa “Oʻtkazilganlarni qaytarish”ni bosing.",
+  basenotadmin: "Bot bu kanalda admin emas yoki post yozish huquqi yoʻq. Fayl kanalida ham botni admin qiling.",
+  basesame: "Fayl kanali asosiy kanaldan boshqa boʻlsin.",
+  basefile: "Shrift faylini fayl kanaliga yuklab boʻlmadi, post yuborilmadi. Bot u yerda admin ekanini tekshiring.",
   qempty: "Iqtibos matnini yozing.",
   qmood: "Iqtibos mavzusini tanlang.",
 };
@@ -56,7 +61,7 @@ export default async function TelegramAdmin({ searchParams }: { searchParams: Pr
     enabled ? tg<WebhookInfo>("getWebhookInfo") : Promise.resolve(null),
     db.user.count({ where: { telegramId: { not: null } } }),
     db.user.count({ where: { tgNotify: true, telegramId: { not: null } } }),
-    db.tgPost.findMany({ orderBy: { postedAt: "desc" }, take: 10 }),
+    db.tgPost.findMany({ where: { kind: { not: "file" } }, orderBy: { postedAt: "desc" }, take: 10 }),
     enabled ? autopostQueue(5) : Promise.resolve([]),
   ]);
   const auto = state.autopost;
@@ -66,7 +71,7 @@ export default async function TelegramAdmin({ searchParams }: { searchParams: Pr
   const hook = info?.ok ? info.result : null;
   const hookOk = !!hook && hook.url === expected;
   const nonce = state.adminNonce && state.adminNonce.exp > Date.now() ? state.adminNonce : null;
-  const others = state.candidates.filter((c) => c.id !== state.channel?.id);
+  const others = state.candidates.filter((c) => c.id !== state.channel?.id && c.id !== state.base?.id);
 
   const fontNames = new Map(
     (await db.family.findMany({ where: { slug: { in: posts.filter((p) => p.kind === "font").map((p) => p.ref) } }, select: { slug: true, name: true } }))
@@ -171,10 +176,18 @@ export default async function TelegramAdmin({ searchParams }: { searchParams: Pr
                 {others.map((c) => (
                   <li key={c.id}>
                     <span>{c.title || c.id}{c.username ? ` · @${c.username}` : ""} <span className="adm-meta">bot admin qilingan</span></span>
-                    <form action={chooseChannelAction}>
-                      <input type="hidden" name="channel" value={c.username ? `@${c.username}` : c.id} />
-                      <SubmitButton className="chip chip-ok" pendingLabel="…">Shu kanalni tanlash</SubmitButton>
-                    </form>
+                    <span className="adm-tg-link">
+                      <form action={chooseChannelAction}>
+                        <input type="hidden" name="channel" value={c.username ? `@${c.username}` : c.id} />
+                        <SubmitButton className="chip chip-ok" pendingLabel="…">Asosiy kanal qilish</SubmitButton>
+                      </form>
+                      {state.channel && (
+                        <form action={chooseBaseAction}>
+                          <input type="hidden" name="channel" value={c.username ? `@${c.username}` : c.id} />
+                          <SubmitButton className="chip" pendingLabel="…">Fayl kanali qilish</SubmitButton>
+                        </form>
+                      )}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -183,6 +196,32 @@ export default async function TelegramAdmin({ searchParams }: { searchParams: Pr
               <label htmlFor="tg-channel" className="sr-only">Kanal nomi</label>
               <input id="tg-channel" type="text" name="channel" placeholder="@kanal_nomi" required maxLength={64} />
               <SubmitButton className="btn btn-sm" pendingLabel="Tekshirilmoqda…">{state.channel ? "Boshqa kanalga almashtirish" : "Kanalni ulash"}</SubmitButton>
+            </form>
+
+            <h3 className="adm-h3" id="base">Fayl kanali</h3>
+            <p className="adm-text">
+              Har bir shriftning ZIP fayli (saytdan yuklab olinadigan faylning aynan oʻzi) shu kanalga yuklanadi. Asosiy kanaldagi
+              postda esa “Telegramdan yuklab olish” havolasi chiqadi. Fayl bir marta yuklanadi va shrift fayllari oʻzgarmaguncha qayta ishlatiladi.
+            </p>
+            {state.base ? (
+              <ul className="adm-tg-list">
+                <li>
+                  <span>
+                    ✓ <b>{state.base.title || state.base.id}</b>
+                    {state.base.username && <> · <a href={`https://t.me/${state.base.username}`} target="_blank" rel="noopener" className="link">@{state.base.username}</a></>}
+                  </span>
+                  <form action={clearBaseAction}>
+                    <ConfirmButton className="chip" message="Fayl kanali uzilsinmi? Postlarda Telegram havolasi chiqmay qoladi.">Uzish</ConfirmButton>
+                  </form>
+                </li>
+              </ul>
+            ) : (
+              <p className="adm-meta">Ulanmagan: postlarda faqat saytga havola boʻladi. Botni fayl kanaliga ham admin qilib, shu yerda ulang.</p>
+            )}
+            <form action={chooseBaseAction} className="adm-tg-form">
+              <label htmlFor="tg-base" className="sr-only">Fayl kanali nomi</label>
+              <input id="tg-base" type="text" name="channel" placeholder="@feekrfontbase" required maxLength={64} />
+              <SubmitButton className="btn btn-sm" pendingLabel="Tekshirilmoqda…" disabled={!state.channel}>{state.base ? "Boshqa fayl kanaliga almashtirish" : "Fayl kanalini ulash"}</SubmitButton>
             </form>
           </section>
 

@@ -94,5 +94,24 @@ export function sendAlbum(chatId: string | number, photos: string[], html: strin
   });
 }
 
+/** Upload a file (bots may send up to 50 MB) with an HTML caption. */
+export async function sendDocument(chatId: string | number, file: { name: string; data: Buffer }, html: string, extra: Record<string, string> = {}): Promise<TgResult<TgMessage>> {
+  const token = botToken();
+  if (!token) return { ok: false, code: 0, description: "bot token is not set" };
+  // Text goes in the query string: multipart encoding would turn the caption's line breaks into CRLF.
+  const query = new URLSearchParams({ chat_id: String(chatId), caption: html, parse_mode: "HTML", ...extra });
+  const form = new FormData();
+  form.set("document", new Blob([new Uint8Array(file.data)], { type: "application/zip" }), file.name);
+  try {
+    const res = await fetch(`${API}/bot${token}/sendDocument?${query}`, { method: "POST", body: form, signal: AbortSignal.timeout(40_000), cache: "no-store" });
+    const data = (await res.json().catch(() => null)) as { ok?: boolean; result?: TgMessage; error_code?: number; description?: string } | null;
+    if (data?.ok) return { ok: true, result: data.result as TgMessage };
+    return { ok: false, code: data?.error_code ?? res.status, description: (data?.description ?? `HTTP ${res.status}`).slice(0, 200) };
+  } catch (e) {
+    const timeout = e instanceof Error && e.name === "TimeoutError";
+    return { ok: false, code: 0, description: timeout ? "Telegram javob bermadi" : "Telegram bilan aloqa yoʻq", timeout };
+  }
+}
+
 /** Telegram allows ~30 messages a second overall; stay under it for bulk sends. */
 export const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));

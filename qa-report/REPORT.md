@@ -899,3 +899,39 @@ How the text is laid out:
   - no answer in time → the family set aside, the admin warned, the next run moves on;
   - the admin UI: queue preview loads, skip and restore, add, switch-off and remove quotes, your own quote used first, manual post with a chosen quote, "post now";
   - axe light and dark.
+
+## 22. Font files in a Telegram file channel, and the channel's post style (2026-10-11)
+
+**Request.** The owner keeps a second channel, @feekrfontbase, for font files. Each font post in the main channel should link to its file there, as in the owner's own example post.
+
+**File channel.**
+- In Admin → Telegram → Kanal → "Fayl kanali", the admin connects a second channel. The bot must be an admin there with the right to post, and it can't be the main channel.
+- Any channel the bot was made admin of also shows a "Fayl kanali qilish" button. @feekrfontbase is already in that list in production.
+- Before a font is posted, its ZIP is uploaded there with a short caption (name, styles, scripts, category, licence, link to the font page). It is the very file the site's "download" button gives: the ZIP building moved into `lib/familyZip.ts`, shared by the download route and the bot.
+- **Reuse:** a font is uploaded once. The upload is reused until the font's files, name or licence change, recorded as a fingerprint in `TgPost` (`kind = "file"`).
+- **Limits and failures:**
+  - Files over Telegram's 50 MB bot limit only lose the Telegram link.
+  - If the upload fails, the post isn't sent, so it never goes out without the link. The admin page says why, and the admins get a Telegram message when the daily post didn't go out.
+- **Counting:** Telegram uploads don't count as site downloads.
+
+**Post style** (from the owner's example):
+- The admin's tagline becomes the bold title. If it doesn't name the font, "<name> shrifti – …" is put in front. A second sentence becomes the next paragraph.
+- Then the description (Markdown marks dropped, cut at a sentence) and one line of facts.
+- Then the links:
+  - Saytdan yuklab olish: bu yerda;
+  - Telegramdan yuklab olish (when the file channel is connected);
+  - 🔗 feekrfont.uz;
+  - 📱 Instagram (from the site settings).
+- Telegram counts the 1,024-character caption limit without markup, so the text is shortened when needed, never the links.
+- Hashtags and the button are gone from font posts. The single-card fallback carries the same links.
+
+**Verification:** the autopost suite grows to 69 checks, all passing. New checks:
+- the file channel can't be the main channel, or one where the bot isn't admin; connecting by `t.me` link;
+- the ZIP is uploaded before the album, and is identical in name and contents to the site's download;
+- the post links to the file;
+- a repeat post reuses the file;
+- a refused upload stops the post and tells the admin;
+- disconnecting;
+- titles built from taglines, with or without the font's name, and descriptions with Markdown.
+
+The fake Telegram API now accepts file uploads, which are saved so the test can open the ZIP. Uploads send their text in the query string, because multipart encoding would turn the caption's line breaks into CRLF; a test checks this.
