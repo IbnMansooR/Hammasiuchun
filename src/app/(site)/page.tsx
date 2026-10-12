@@ -34,7 +34,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const getHomeData = unstable_cache(
   async () => {
-    const [newest, posts, families, styles, cyrillic, showcasePool, catCounts, catReps, pairings, dl, cyrReps] = await Promise.all([
+    const [newest, posts, families, styles, cyrillic, showcasePool, catCounts, catReps, pairings, dl, cyrReps, everyone] = await Promise.all([
       fetchCards({ where: PUBLIC_FAMILY, orderBy: [{ isNew: "desc" }, { popularity: "desc" }, { name: "asc" }], take: 6 }),
       db.article.findMany({
         where: { isPublished: true }, orderBy: { publishedAt: "desc" }, take: 3,
@@ -50,13 +50,15 @@ const getHomeData = unstable_cache(
       db.family.aggregate({ _sum: { downloads: true } }),
       // The Russian headline word is Cyrillic: rotate it through families that can draw it.
       Promise.all(CATEGORIES.map((c) => fetchCards({ where: { ...PUBLIC_FAMILY, category: c, hasCyrillic: true }, orderBy: [{ popularity: "desc" }, { name: "asc" }], take: 1 }))),
+      // Every public family, for the rotating headline word.
+      fetchCards({ where: { ...PUBLIC_FAMILY, category: { not: "Dingbat" } }, orderBy: { name: "asc" }, take: 1000 }),
     ]);
     return {
       newest, posts, families, styles, cyrillic, showcasePool, catCounts, catReps: catReps.map((r) => r[0] ?? null),
-      cyrReps: cyrReps.map((r) => r[0] ?? null), pairings: pairings.slice(0, 2), downloads: dl._sum.downloads ?? 0,
+      cyrReps: cyrReps.map((r) => r[0] ?? null), everyone: everyone.filter((c) => c.previewStyleName), pairings: pairings.slice(0, 2), downloads: dl._sum.downloads ?? 0,
     };
   },
-  ["home-data-v4"],
+  ["home-data-v5"],
   { revalidate: 300, tags: [CATALOG_TAG] },
 );
 
@@ -70,7 +72,7 @@ function pick<T>(arr: T[], n: number): T[] {
 }
 
 export default async function HomePage() {
-  const [{ newest, posts, families, styles, cyrillic, showcasePool, catCounts, catReps, cyrReps, pairings, downloads }, allWorks, settings, tgState, locale] = await Promise.all([
+  const [{ newest, posts, families, styles, cyrillic, showcasePool, catCounts, catReps, everyone, pairings, downloads }, allWorks, settings, tgState, locale] = await Promise.all([
     getHomeData(),
     getPublishedWorks(),
     getSiteSettingsCached().catch(() => null),
@@ -84,17 +86,16 @@ export default async function HomePage() {
   ];
   const works = allWorks.slice(0, 3);
 
-  // One family per category gives the rotating headline its range of voices.
-  const rotator = (locale === "ru" ? cyrReps : catReps).filter(
-    (c): c is CardFont => !!c && (locale === "ru" ? c.hasCyrillic : c.hasLatin) && c.category !== "Dingbat",
-  );
-  const rotSlugs = new Set(rotator.map((r) => r.slug));
+  // The rotating headline word goes through every public family that can write it, in a new
+  // random order on each visit. Only the first is declared here; the rest load as their turn comes.
+  const rotator = pick(everyone.filter((c) => (locale === "ru" ? c.hasCyrillic : c.hasLatin)), everyone.length);
+  const rotSlugs = new Set(rotator.slice(0, 1).map((r) => r.slug));
   const featuredPool = showcasePool.filter((c) => !rotSlugs.has(c.slug));
   const featured = pick(featuredPool.length >= 4 ? featuredPool : showcasePool, 4);
   const countOf = (c: string) => catCounts.find((x) => x.category === c)?._count ?? 0;
   const tiles = CATEGORIES.map((c, i) => ({ cat: c, rep: catReps[i], n: countOf(c) })).filter((t) => t.n > 0 && t.rep);
 
-  const cards = [...rotator, ...featured, ...newest, ...tiles.map((t) => t.rep!)];
+  const cards = [...rotator.slice(0, 1), ...featured, ...newest, ...tiles.map((t) => t.rep!)];
   const pairCuts = pairings.flatMap((p) => [p.heading, p.body]);
   const faceCSS =
     cardsFaceCSS(cards) +
@@ -113,7 +114,7 @@ export default async function HomePage() {
             <HeroRotator
               lead={t.lead}
               word={t.word}
-              fonts={rotator.map((r) => ({ slug: r.slug, name: r.name, weight: r.previewWeight, italic: r.previewItalic }))}
+              fonts={rotator.map((r) => ({ slug: r.slug, name: r.name, style: r.previewStyleName, weight: r.previewWeight, italic: r.previewItalic }))}
             />
           </div>
           <div className="hero-side">

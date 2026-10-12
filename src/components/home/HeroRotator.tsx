@@ -2,9 +2,21 @@
 import Link from "../LLink";
 import { useT } from "@/i18n/client";
 import { useEffect, useRef, useState } from "react";
-import { cssFamily } from "@/lib/fonts";
+import { cssFamily, webfontUrl } from "@/lib/fonts";
 
-type F = { slug: string; name: string; weight: number; italic: boolean };
+type F = { slug: string; name: string; style: string; weight: number; italic: boolean };
+
+/** Fonts are declared only when their turn comes (the page declares the first one). */
+async function loadFont(f: F, text: string): Promise<boolean> {
+  const family = cssFamily(f.slug);
+  const style = f.italic ? "italic" : "normal";
+  if (![...document.fonts].some((x) => x.family.replace(/"/g, "") === family)) {
+    const face = new FontFace(family, `url("${webfontUrl(f.slug, f.style)}") format("woff2")`, { weight: String(f.weight), style, display: "swap" });
+    document.fonts.add(face);
+  }
+  const loaded = await document.fonts.load(`${style} ${f.weight} 64px "${family}"`, text);
+  return loaded.length > 0;
+}
 
 /** The headline's last word, re-set in a different family every few seconds.
  * The next font is loaded before the swap (no flash of fallback text); the
@@ -20,8 +32,13 @@ export default function HeroRotator({ lead, word, fonts }: { lead: string; word:
     let timer: ReturnType<typeof setTimeout>;
     let stop = false;
     const tick = async () => {
-      const next = (idx.current + 1) % fonts.length;
-      try { await document.fonts.load(`64px "${cssFamily(fonts[next].slug)}"`, word); } catch { /* fall through */ }
+      let next = (idx.current + 1) % fonts.length;
+      // A font that fails to load is skipped (up to a few tries), never shown half-drawn.
+      for (let tries = 0; tries < 4; tries++) {
+        const ok = await loadFont(fonts[next], word).catch(() => false);
+        if (ok || stop) break;
+        next = (next + 1) % fonts.length;
+      }
       if (stop) return;
       if (document.hidden) { timer = setTimeout(tick, 2600); return; }
       setOut(true);
