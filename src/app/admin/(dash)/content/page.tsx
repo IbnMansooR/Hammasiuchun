@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
-import { getTgState } from "@/lib/tgState";
+import { AUTOPOST_MAX_TIMES, getTgState } from "@/lib/tgState";
 import { searchPeople } from "@/lib/wikidata";
 import { DESIGNER_EVERY, NEWS_PER_DAY, getContent } from "@/lib/contentScout";
 import {
@@ -15,6 +15,10 @@ import ConfirmButton from "@/components/ConfirmButton";
 
 export const metadata = { title: "Admin — Yangilik va dizayner profillari" };
 export const maxDuration = 60; // approving saves a picture and may post to the channel
+
+const DAY_LABEL: [number, string, string][] = [
+  [1, "Du", "Dushanba"], [2, "Se", "Seshanba"], [3, "Ch", "Chorshanba"], [4, "Pa", "Payshanba"], [5, "Ju", "Juma"], [6, "Sh", "Shanba"], [7, "Ya", "Yakshanba"],
+];
 
 const OK: Record<string, string> = {
   saved: "Saqlandi.",
@@ -35,6 +39,8 @@ const ERR: Record<string, string> = {
   feedread: "Bu manzildan yangiliklar oʻqilmadi. RSS yoki Atom lenta manzilini tekshiring.",
   feedmany: "Lentalar 12 tadan oshmasin.",
   gone: "Bu taklif allaqachon koʻrib chiqilgan.",
+  gap: "Vaqtlar orasida kamida 30 daqiqa boʻlsin.",
+  days: "Kamida bitta kunni belgilang.",
   title: "Sarlavha juda qisqa.",
   exists: "Bu allaqachon saytda bor.",
   failed: "Saqlab boʻlmadi. Birozdan keyin qayta urinib koʻring.",
@@ -73,9 +79,24 @@ export default async function ContentAdmin({ searchParams }: { searchParams: Pro
         </p>
         <form action={saveContentSettingsAction} className="adm-tg-auto-form">
           <label className="check"><input type="checkbox" name="on" defaultChecked={st.on} /> Yoqilgan</label>
-          <label className="adm-tg-scout-field"><span>Vaqti (Toshkent)</span><input type="time" name="time" defaultValue={st.time} required /></label>
+          <fieldset className="adm-tg-times">
+            <legend>Taklif vaqtlari (Toshkent vaqti)</legend>
+            {Array.from({ length: AUTOPOST_MAX_TIMES }, (_, i) => (
+              <input key={i} type="time" name="time" defaultValue={st.times[i] ?? ""} aria-label={`${i + 1}-taklif vaqti`} />
+            ))}
+            <span className="adm-meta">Kuniga 4 tagacha. Hammasini boʻsh qoldirsangiz, takliflar oʻchadi. Taklif belgilangan vaqtdan 5 daqiqa ichida keladi.</span>
+          </fieldset>
+          <fieldset className="adm-tg-days">
+            <legend>Kunlar</legend>
+            {DAY_LABEL.map(([n, short, full]) => (
+              <label key={n} className="adm-tg-day" title={full}>
+                <input type="checkbox" name="day" value={n} defaultChecked={st.days.includes(n)} />
+                <span>{short}</span>
+              </label>
+            ))}
+          </fieldset>
           <label className="adm-tg-scout-field">
-            <span>Yangilik, kuniga</span>
+            <span>Yangilik, har safar</span>
             <select name="news" className="sel" defaultValue={String(st.news)}>
               {NEWS_PER_DAY.map((k) => <option key={k} value={k}>{k ? `${k} ta` : "Kerak emas"}</option>)}
             </select>
@@ -89,7 +110,7 @@ export default async function ContentAdmin({ searchParams }: { searchParams: Pro
           <SubmitButton className="btn btn-sm" pendingLabel="…">Saqlash</SubmitButton>
         </form>
         <p className="adm-meta">{translationOn() ? "Yangiliklar avtomatik oʻzbekchaga tarjima qilinadi; ✅ dan oldin matnni tahrirlash mumkin." : "Avtomatik tarjima oʻchiq (ANTHROPIC_API_KEY qoʻyilmagan): yangilik matnini oʻzingiz oʻzbekchaga yozasiz."}</p>
-        <p className="adm-meta">{tg.admins.length === 0 ? "Telegramingiz ulanmagan: takliflar faqat shu yerda chiqadi." : st.on ? `Takliflar har kuni ${st.time} da Telegramingizga keladi.` : "Oʻchirilgan: takliflar faqat “Hozir taklif olish” bilan."}</p>
+        <p className="adm-meta">{tg.admins.length === 0 ? "Telegramingiz ulanmagan: takliflar faqat shu yerda chiqadi." : st.on && st.times.length > 0 ? `Takliflar ${st.days.length === 7 ? "har kuni" : "tanlangan kunlari"} ${st.times.join(", ")} da Telegramingizga keladi.` : "Oʻchirilgan: takliflar faqat “Hozir taklif olish” bilan."}</p>
       </section>
 
       <section className="adm-card adm-pad" id="offers" aria-labelledby="h-off">

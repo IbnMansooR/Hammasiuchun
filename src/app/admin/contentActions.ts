@@ -4,7 +4,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/adminGuard";
 import { CATALOG_TAG } from "@/lib/stats";
-import { isClock } from "@/lib/tgState";
+import { ALL_DAYS, AUTOPOST_MAX_TIMES, AUTOPOST_MIN_GAP, isClock } from "@/lib/tgState";
 import {
   DESIGNER_EVERY, NEWS_PER_DAY, addDesignerById, decideContent, feedUrlOk, runContentScout, updateContent, type Decision,
 } from "@/lib/contentScout";
@@ -18,14 +18,21 @@ function fail(code: string, hash = ""): never {
 
 export async function saveContentSettingsAction(fd: FormData) {
   await requireAdmin();
-  const time = str(fd, "time");
+  const times = [...new Set(fd.getAll("time").map((v) => String(v).trim()).filter(Boolean))].sort();
   const news = Number(str(fd, "news"));
   const designerDays = Number(str(fd, "designerDays"));
-  if (!isClock(time)) fail("time", "#settings");
+  if (times.some((t) => !isClock(t)) || times.length > AUTOPOST_MAX_TIMES) fail("time", "#settings");
+  // Far enough apart, midnight included.
+  const mins = times.map((t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3)));
+  const gaps = mins.map((m, i) => (i ? m - mins[i - 1] : m + 1440 - mins[mins.length - 1]));
+  if (mins.length > 1 && Math.min(...gaps) < AUTOPOST_MIN_GAP) fail("gap", "#settings");
+  const days = [...new Set(fd.getAll("day").map(Number).filter((d) => ALL_DAYS.includes(d)))].sort();
+  if (times.length > 0 && days.length === 0) fail("days", "#settings");
   if (!NEWS_PER_DAY.includes(news) || !DESIGNER_EVERY.includes(designerDays)) fail("count", "#settings");
   await updateContent((s) => {
     s.on = fd.get("on") === "on";
-    s.time = time;
+    s.times = times; // none = off
+    if (days.length) s.days = days;
     s.news = news;
     s.designerDays = designerDays;
   });

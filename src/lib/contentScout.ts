@@ -15,7 +15,8 @@ import { submitIndexNow } from "./indexnow";
 import { fetchFeed, shorten, type FeedItem } from "./rssFeed";
 import { translateNews, type UzText } from "./translate";
 import { absoluteImage, esc, pause, sendMessage, sendPhotoOrText, siteLink, tg, type Keyboard } from "./telegram";
-import { getTgState, isClock } from "./tgState";
+import { ALL_DAYS, AUTOPOST_MAX_TIMES, getTgState, isClock } from "./tgState";
+import { dueSlots } from "./tgAutopost";
 import { adminPress, answer, setKeyboard, type CallbackQuery } from "./tgAdmin";
 import { postDraft, type PostDraft } from "./tgPosts";
 import { SEED_NAMES, WikiUnavailable, designerFacts, designerSummary, findDesigner, portraitInfo, savePortrait, type DesignerFacts, type Portrait } from "./wikidata";
@@ -35,8 +36,9 @@ export type Offer = {
 };
 export type ContentState = {
   on: boolean;
-  time: string; // Tashkent
-  news: number; // news offers a day (0 = none)
+  times: string[]; // Tashkent "HH:MM", up to 4 a day; none = off
+  days: number[]; // ISO weekdays (1 = Monday)
+  news: number; // news offers each time (0 = none)
   designerDays: number; // a designer offer every N days (0 = none)
   lastDesigner: string | null; // Tashkent day of the last designer offer
   feeds: Feed[];
@@ -48,7 +50,6 @@ export type ContentState = {
 const KEY = "content-scout";
 const PENDING_MAX = 20;
 const PENDING_DAYS = 14;
-const GRACE = 6 * 60 * 60 * 1000;
 export const NEWS_PER_DAY = [0, 1, 2, 3, 4, 5];
 export const DESIGNER_EVERY = [0, 1, 2, 3, 7];
 
@@ -58,7 +59,7 @@ export const DEFAULT_FEEDS: Feed[] = [
   { name: "Typographica", url: "https://typographica.org/feed/", on: true },
 ];
 
-const DEFAULT: ContentState = { on: true, time: "12:00", news: 2, designerDays: 2, lastDesigner: null, feeds: DEFAULT_FEEDS, pending: [], seen: [], rejected: [] };
+const DEFAULT: ContentState = { on: true, times: ["12:00"], days: ALL_DAYS, news: 2, designerDays: 2, lastDesigner: null, feeds: DEFAULT_FEEDS, pending: [], seen: [], rejected: [] };
 
 /** Feeds are read over https; the test suites serve theirs from 127.0.0.1 (CONTENT_ALLOW_LOCAL=1). */
 export const feedUrlOk = (u: string) => {
@@ -76,7 +77,13 @@ function parse(raw: string | undefined): ContentState {
   const strs = (a: unknown, max: number) => (Array.isArray(a) ? a.filter((x): x is string => typeof x === "string").slice(-max) : []);
   return {
     on: typeof o.on === "boolean" ? o.on : DEFAULT.on,
-    time: typeof o.time === "string" && isClock(o.time) ? o.time : DEFAULT.time,
+    // An empty list is a choice (= off); the old single "time" becomes a one-item list.
+    times: Array.isArray(o.times)
+      ? [...new Set(o.times.filter((t): t is string => typeof t === "string" && isClock(t)))].sort().slice(0, AUTOPOST_MAX_TIMES)
+      : typeof (o as { time?: unknown }).time === "string" && isClock((o as { time: string }).time) ? [(o as { time: string }).time] : [...DEFAULT.times],
+    days: Array.isArray(o.days) && o.days.some((d) => ALL_DAYS.includes(Number(d)))
+      ? [...new Set(o.days.map(Number).filter((d) => ALL_DAYS.includes(d)))].sort()
+      : [...ALL_DAYS],
     news: NEWS_PER_DAY.includes(Number(o.news)) ? Number(o.news) : DEFAULT.news,
     designerDays: DESIGNER_EVERY.includes(Number(o.designerDays)) ? Number(o.designerDays) : DEFAULT.designerDays,
     lastDesigner: typeof o.lastDesigner === "string" ? o.lastDesigner : null,
@@ -210,14 +217,20 @@ export type ContentResult = { news: number; designers: number; reason?: "off" | 
 export async function runContentScout({ force = false } = {}): Promise<ContentResult> {
   const st = await getContent();
   // CONTENT_SCOUT=off keeps the scheduled run quiet (the test suites that aren't about it).
-  if (!force && (!st.on || process.env.CONTENT_SCOUT === "off")) return { news: 0, designers: 0, reason: "off" };
+  if (!force && (!st.on || st.times.length === 0 || process.env.CONTENT_SCOUT === "off")) return { news: 0, designers: 0, reason: "off" };
   const { admins } = await getTgState();
   if (!force && admins.length === 0) return { news: 0, designers: 0, reason: "noadmins" };
   const day = tashkentDay();
   if (!force) {
-    const at = Date.parse(`${day}T${st.time}:00+05:00`);
-    if (Date.now() < at || Date.now() - at > GRACE) return { news: 0, designers: 0, reason: "notdue" };
-    if (!(await db.loginAttempt.create({ data: { key: `cscout:${day}`, count: 1 } }).then(() => true, () => false))) return { news: 0, designers: 0, reason: "busy" };
+    // Same schedule as the font posts: each time of each chosen weekday is claimed once.
+    const due = dueSlots({ on: true, times: st.times, days: st.days, lastAt: null, skip: [] });
+    if (due.length === 0) return { news: 0, designers: 0, reason: "notdue" };
+    let claimed = false;
+    for (const slot of due) {
+      claimed = await db.loginAttempt.create({ data: { key: slot.key.replace(/^autopost:/, "cscout:"), count: 1 } }).then(() => true, () => false);
+      if (claimed) break;
+    }
+    if (!claimed) return { news: 0, designers: 0, reason: "busy" };
   }
   const cutoff = Date.now() - PENDING_DAYS * DAY;
   const cur = await updateContent((s) => { s.pending = s.pending.filter((p) => Date.parse(p.at) > cutoff); });

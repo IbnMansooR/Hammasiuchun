@@ -1184,3 +1184,10 @@ The channel-posts table in Admin → Telegram now names news and profile posts.
 - **Tests (e2e-content, 95 checks).** Translated offer and stored text; rules and `<item>` wrapping reach the translator; Uzbek article; API refusal, wrong answer shape and a translation with an added link each leave the offer English with an edit link and no Telegram ✅; manual edit published as typed; ❌ with an empty field.
 - **Not covered.** The quality of the real translation: the tests use a stand-in that echoes the text. Read the first real offers and adjust the prompt in `translate.ts` if needed.
 - **Later (asked by the owner).** Russian for the channel and the bot's welcome message.
+
+### 26.2 Offer schedule like the font posts
+
+- **What.** The scout's single "time" is replaced by the same schedule the font auto-posts use: up to 4 times a day (Tashkent, at least 30 minutes apart) and the weekdays. Leave every time empty and the offers are off (only "Hozir taklif olish" works). An old single `time` setting is read as a one-item list.
+- **Count.** "Yangilik, har safar" is the number of news offers at each time; a designer profile still follows its own "every N days" rule.
+- **How it runs.** Same slot logic as the font posts (`dueSlots`): each time of each chosen day is claimed once, a missed slot goes out up to 2 hours late.
+- **Tests (e2e-content, 98).** Not a chosen weekday → nothing; no times → off; two times today → each claimed once; the admin form saves the times.
