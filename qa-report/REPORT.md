@@ -1172,3 +1172,15 @@ The channel-posts table in Admin → Telegram now names news and profile posts.
   - axe light and dark, and no sideways scroll on a phone.
 
 **Not covered.** Real Wikidata and real feeds were not run from the build environment. Wikidata's API rate-limits that environment's shared address, which is why the tests use stand-ins and the client waits and retries. The first real run is the scheduled one at 12:00 Tashkent, or "Hozir taklif olish" in the admin page.
+
+### 26.1 Uzbek translation and editing of news offers
+
+- **What.** Each news offer's title and the publisher's short summary are translated into natural, everyday Uzbek (Latin script, `oʻ gʻ`) by Claude (`src/lib/translate.ts`, model `claude-sonnet-5-5`, override with `ANTHROPIC_MODEL`). Names of people, studios, brands and typefaces stay as written. The feed text is passed as data inside `<item>` tags with a rule not to follow instructions in it.
+- **Output is checked.** The answer must be the two tags; a translation that brings a link or markup, or is far too long, is thrown away, and the offer is then treated as untranslated.
+- **Offer in Telegram.** Shows the Uzbek text, the original title in italics below it, and the usual ✅ buttons. When there is no translation (no key, API error, unusable answer) the offer says so and has only "✏️ Tahrirlash" (a link to the admin page) and ❌; a ✅ press that still arrives is refused, so English is never published as Uzbek by accident.
+- **Admin page.** Every news offer is a form with editable title and summary (prefilled with the Uzbek text, or the English one when there is none); the three buttons publish what is in the fields. ❌ works with an empty field.
+- **Published article.** Uzbek title and summary, a line "Asl sarlavhasi: …", the source link. The channel post uses the same Uzbek text.
+- **Needs.** `ANTHROPIC_API_KEY` in the Vercel environment (never in code). Without it everything still works, only by hand.
+- **Tests (e2e-content, 95 checks).** Translated offer and stored text; rules and `<item>` wrapping reach the translator; Uzbek article; API refusal, wrong answer shape and a translation with an added link each leave the offer English with an edit link and no Telegram ✅; manual edit published as typed; ❌ with an empty field.
+- **Not covered.** The quality of the real translation: the tests use a stand-in that echoes the text. Read the first real offers and adjust the prompt in `translate.ts` if needed.
+- **Later (asked by the owner).** Russian for the channel and the bot's welcome message.

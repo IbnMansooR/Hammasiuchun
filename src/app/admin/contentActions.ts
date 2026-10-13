@@ -80,7 +80,14 @@ export async function decideContentAction(fd: FormData) {
   const id = str(fd, "id");
   const how = str(fd, "how") as Decision;
   if (!/^[0-9a-f]{8}$/.test(id) || !["both", "site", "reject"].includes(how)) fail("gone", "#offers");
-  const { offer, result } = await decideContent(id, how);
+  let edited: { title: string; excerpt: string } | undefined;
+  if (how !== "reject" && fd.has("title")) {
+    const title = str(fd, "title").replace(/\s+/g, " ").slice(0, 200);
+    const excerpt = str(fd, "excerpt").replace(/\s+/g, " ").slice(0, 400);
+    if (title.length < 3) fail("title", "#offers");
+    edited = { title, excerpt };
+  }
+  const { offer, result } = await decideContent(id, how, edited);
   revalidatePath(BACK);
   if (!offer) fail("gone", "#offers");
   if (how === "reject") redirect(`${BACK}?ok=rejected#offers`);
@@ -146,4 +153,10 @@ export async function deleteDesignerAction(fd: FormData) {
     refreshDesigner(d.slug);
   }
   redirect(`${BACK}?ok=deleted#designers`);
+}
+
+/** The news form has one set of text fields and three buttons; each button binds its own decision. */
+export async function decideNewsAction(how: string, fd: FormData) {
+  fd.set("how", how);
+  return decideContentAction(fd);
 }

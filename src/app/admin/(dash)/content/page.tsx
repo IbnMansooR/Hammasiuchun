@@ -5,11 +5,12 @@ import { getTgState } from "@/lib/tgState";
 import { searchPeople } from "@/lib/wikidata";
 import { DESIGNER_EVERY, NEWS_PER_DAY, getContent } from "@/lib/contentScout";
 import {
-  addDesignerAction, addFeedAction, decideContentAction, deleteDesignerAction, removeFeedAction, runContentNowAction,
+  addDesignerAction, addFeedAction, decideContentAction, decideNewsAction, deleteDesignerAction, removeFeedAction, runContentNowAction,
   saveContentSettingsAction, saveDesignerAction, searchDesignerAction, toggleDesignerAction, toggleFeedAction,
 } from "@/app/admin/contentActions";
 import Notice from "@/components/admin/Notice";
 import SubmitButton from "@/components/SubmitButton";
+import { translationOn } from "@/lib/translate";
 import ConfirmButton from "@/components/ConfirmButton";
 
 export const metadata = { title: "Admin — Yangilik va dizayner profillari" };
@@ -34,6 +35,7 @@ const ERR: Record<string, string> = {
   feedread: "Bu manzildan yangiliklar oʻqilmadi. RSS yoki Atom lenta manzilini tekshiring.",
   feedmany: "Lentalar 12 tadan oshmasin.",
   gone: "Bu taklif allaqachon koʻrib chiqilgan.",
+  title: "Sarlavha juda qisqa.",
   exists: "Bu allaqachon saytda bor.",
   failed: "Saqlab boʻlmadi. Birozdan keyin qayta urinib koʻring.",
   notdesigner: "Wikidata javob bermadi yoki bu odam dizayner sifatida topilmadi.",
@@ -86,6 +88,7 @@ export default async function ContentAdmin({ searchParams }: { searchParams: Pro
           </label>
           <SubmitButton className="btn btn-sm" pendingLabel="…">Saqlash</SubmitButton>
         </form>
+        <p className="adm-meta">{translationOn() ? "Yangiliklar avtomatik oʻzbekchaga tarjima qilinadi; ✅ dan oldin matnni tahrirlash mumkin." : "Avtomatik tarjima oʻchiq (ANTHROPIC_API_KEY qoʻyilmagan): yangilik matnini oʻzingiz oʻzbekchaga yozasiz."}</p>
         <p className="adm-meta">{tg.admins.length === 0 ? "Telegramingiz ulanmagan: takliflar faqat shu yerda chiqadi." : st.on ? `Takliflar har kuni ${st.time} da Telegramingizga keladi.` : "Oʻchirilgan: takliflar faqat “Hozir taklif olish” bilan."}</p>
       </section>
 
@@ -98,29 +101,41 @@ export default async function ContentAdmin({ searchParams }: { searchParams: Pro
             {st.pending.map((o) => (
               <li key={o.id} className="adm-req">
                 <div className="adm-req-head">
-                  <strong>{o.news ? o.news.title : o.designer!.facts.name}</strong>
+                  <strong>{o.news ? (o.news.uz ?? o.news).title : o.designer!.facts.name}</strong>
                   <span className="adm-meta">{o.news ? `Yangilik · ${o.news.source}` : "Dizayner profili"} · {formatDateTime(o.at)}</span>
                 </div>
                 {o.news ? (
                   <>
-                    {o.news.excerpt && <p className="adm-ad-text">{o.news.excerpt}</p>}
-                    <p className="adm-meta"><a className="link" href={o.news.link} target="_blank" rel="noopener nofollow">Asl maqola ↗</a></p>
+                    <p className="adm-meta">{o.news.uz ? `Oʻzbekchaga tarjima qilingan. Asl sarlavha: ${o.news.title}` : "Tarjima yoʻq: inglizcha matnni oʻzbekchaga oʻzingiz yozing."}</p>
+                    <form action={decideContentAction} className="adm-tg-auto-form">
+                      <input type="hidden" name="id" value={o.id} />
+                      <label className="adm-tg-scout-field"><span>Sarlavha</span><input name="title" defaultValue={(o.news.uz ?? o.news).title} maxLength={200} required /></label>
+                      <label className="adm-tg-scout-field"><span>Qisqa matn</span><textarea name="excerpt" rows={3} maxLength={400} defaultValue={(o.news.uz ?? o.news).excerpt} /></label>
+                      <p className="adm-meta"><a className="link" href={o.news.link} target="_blank" rel="noopener nofollow">Asl maqola ↗</a></p>
+                      <div className="adm-tg-link">
+                        <button className="btn btn-accent btn-sm" formAction={decideNewsAction.bind(null, "both")}>✅ Sayt + kanal</button>
+                        <button className="btn btn-sm" formAction={decideNewsAction.bind(null, "site")}>🌐 Faqat sayt</button>
+                        <button className="btn btn-sm" formAction={decideNewsAction.bind(null, "reject")} formNoValidate>❌ Kerak emas</button>
+                      </div>
+                    </form>
                   </>
                 ) : (
-                  <p className="adm-ad-text">
-                    {[o.designer!.facts.born ? `${o.designer!.facts.born}${o.designer!.facts.died ? `–${o.designer!.facts.died}` : ""}` : null, o.designer!.facts.roles.join(", "), o.designer!.facts.country].filter(Boolean).join(" · ")}
-                    {o.designer!.portrait ? ` · rasm: ${o.designer!.portrait.credit}` : " · rasm topilmadi"}
-                  </p>
+                  <>
+                    <p className="adm-ad-text">
+                      {[o.designer!.facts.born ? `${o.designer!.facts.born}${o.designer!.facts.died ? `–${o.designer!.facts.died}` : ""}` : null, o.designer!.facts.roles.join(", "), o.designer!.facts.country].filter(Boolean).join(" · ")}
+                      {o.designer!.portrait ? ` · rasm: ${o.designer!.portrait.credit}` : " · rasm topilmadi"}
+                    </p>
+                    <div className="adm-tg-link">
+                      {([["both", "✅ Sayt + kanal", "btn btn-accent btn-sm"], ["site", "🌐 Faqat sayt", "btn btn-sm"], ["reject", "❌ Kerak emas", "btn btn-sm"]] as const).map(([how, label, cls]) => (
+                        <form key={how} action={decideContentAction}>
+                          <input type="hidden" name="id" value={o.id} />
+                          <input type="hidden" name="how" value={how} />
+                          <SubmitButton className={cls} pendingLabel="…">{label}</SubmitButton>
+                        </form>
+                      ))}
+                    </div>
+                  </>
                 )}
-                <div className="adm-tg-link">
-                  {([["both", "✅ Sayt + kanal", "btn btn-accent btn-sm"], ["site", "🌐 Faqat sayt", "btn btn-sm"], ["reject", "❌ Kerak emas", "btn btn-sm"]] as const).map(([how, label, cls]) => (
-                    <form key={how} action={decideContentAction}>
-                      <input type="hidden" name="id" value={o.id} />
-                      <input type="hidden" name="how" value={how} />
-                      <SubmitButton className={cls} pendingLabel="…">{label}</SubmitButton>
-                    </form>
-                  ))}
-                </div>
               </li>
             ))}
           </ul>

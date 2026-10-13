@@ -13,6 +13,7 @@ import { shortHash, slugify } from "./fontmeta";
 import { CATALOG_TAG } from "./stats";
 import { submitIndexNow } from "./indexnow";
 import { fetchFeed, shorten, type FeedItem } from "./rssFeed";
+import { translateNews, type UzText } from "./translate";
 import { absoluteImage, esc, pause, sendMessage, sendPhotoOrText, siteLink, tg, type Keyboard } from "./telegram";
 import { getTgState, isClock } from "./tgState";
 import { adminPress, answer, setKeyboard, type CallbackQuery } from "./tgAdmin";
@@ -23,7 +24,7 @@ import { SEED_NAMES, WikiUnavailable, designerFacts, designerSummary, findDesign
 
 export type Feed = { name: string; url: string; on: boolean };
 type Msg = { chatId: string; messageId: number };
-export type NewsOffer = { title: string; link: string; source: string; excerpt: string; date: string | null };
+export type NewsOffer = { title: string; link: string; source: string; excerpt: string; date: string | null; uz?: UzText };
 export type Offer = {
   id: string;
   kind: "news" | "designer";
@@ -162,12 +163,13 @@ const yearsOf = (f: Pick<DesignerFacts, "born" | "died">) => (f.born ? `${f.born
 
 function offerHtml(o: Offer): string {
   if (o.news) {
+    const uz = o.news.uz;
     return [
       `📰 <b>Yangilik taklifi</b> · ${esc(o.news.source)}`,
       "",
-      `<b>${esc(o.news.title)}</b>`,
-      o.news.excerpt ? esc(o.news.excerpt) : null,
-      "",
+      `<b>${esc((uz ?? o.news).title)}</b>`,
+      (uz ?? o.news).excerpt ? esc((uz ?? o.news).excerpt) : null,
+      uz ? `\n<i>Asl sarlavha: ${esc(o.news.title)}</i>` : "\n⚠️ Oʻzbekchaga tarjima qilinmadi. Matn inglizcha: saytda tahrirlab, keyin tasdiqlang.",
       `<a href="${esc(o.news.link)}">Asl maqola ↗</a>`,
     ].filter((l) => l !== null).join("\n");
   }
@@ -183,7 +185,10 @@ function offerHtml(o: Offer): string {
   ].filter((l) => l !== null).join("\n");
 }
 
-const offerKeyboard = (o: Offer): Keyboard => [
+const offerKeyboard = (o: Offer): Keyboard => o.news && !o.news.uz ? [
+  [{ text: "✏️ Tahrirlash va tasdiqlash", url: siteLink("/admin/content#offers") }],
+  [{ text: "❌ Kerak emas", callback_data: `cs:r:${o.id}` }],
+] : [
   [{ text: "✅ Sayt + kanal", callback_data: `cs:a:${o.id}` }, { text: "🌐 Faqat sayt", callback_data: `cs:s:${o.id}` }],
   [{ text: "❌ Kerak emas", callback_data: `cs:r:${o.id}` }],
 ];
@@ -221,6 +226,7 @@ export async function runContentScout({ force = false } = {}): Promise<ContentRe
 
   const offers: Offer[] = [];
   const news = await pickNews(cur, Math.min(cur.news, room));
+  for (const n of news) n.uz = (await translateNews({ title: n.title, excerpt: n.excerpt })) ?? undefined;
   for (const n of news) offers.push({ id: idOf(n.link), kind: "news", at: new Date().toISOString(), msgs: [], news: n });
   const due = cur.designerDays > 0 && (force || !cur.lastDesigner || (Date.parse(`${day}T12:00:00+05:00`) - Date.parse(`${cur.lastDesigner}T12:00:00+05:00`)) / DAY >= cur.designerDays);
   if (due && offers.length < room) {
@@ -252,14 +258,16 @@ async function articleSlug(title: string, link: string): Promise<string> {
   return (await db.article.findUnique({ where: { slug }, select: { id: true } })) ? `${slug}-${Date.now().toString(36)}` : slug;
 }
 
-export async function publishNews(n: NewsOffer): Promise<{ slug: string; draft: PostDraft } | null> {
+export async function publishNews(n: NewsOffer, edited?: UzText): Promise<{ slug: string; draft: PostDraft } | null> {
   if (await db.article.findFirst({ where: { sourceUrl: n.link }, select: { id: true } })) return null;
+  const txt = edited ?? n.uz ?? { title: n.title, excerpt: n.excerpt };
   const slug = await articleSlug(n.title, n.link);
-  const excerpt = shorten(n.excerpt, 240);
+  const excerpt = shorten(txt.excerpt, 240);
+  const translated = txt.title !== n.title;
   await db.article.create({
     data: {
-      slug, type: "news", title: n.title, excerpt: excerpt || null,
-      body: `${n.excerpt}\n\n**Manba:** [${n.source}](${n.link}). Maqolaning toʻliq matni va rasmlari manba saytida.`,
+      slug, type: "news", title: txt.title, excerpt: excerpt || null,
+      body: `${txt.excerpt}\n\n${translated ? `*Asl sarlavhasi: ${n.title.replace(/[*_\[\]]/g, "")}*\n\n` : ""}**Manba:** [${n.source}](${n.link}). Maqolaning toʻliq matni va rasmlari manba saytida.`,
       author: "Feekr", tags: "yangilik,dizayn", sourceName: n.source, sourceUrl: n.link, isPublished: true, publishedAt: new Date(),
     },
   });
@@ -267,8 +275,8 @@ export async function publishNews(n: NewsOffer): Promise<{ slug: string; draft: 
   return {
     slug,
     draft: {
-      kind: "news", ref: slug, title: n.title, image: null,
-      caption: [n.title, "", n.excerpt, "", `Manba: ${n.source}`, "#dizayn #yangilik #feekr"].filter((l) => l !== null).join("\n").replace(/\n{3,}/g, "\n\n"),
+      kind: "news", ref: slug, title: txt.title, image: null,
+      caption: [txt.title, "", txt.excerpt, "", `Manba: ${n.source}`, "#dizayn #yangilik #feekr"].filter((l) => l !== null).join("\n").replace(/\n{3,}/g, "\n\n"),
       keyboard: [[{ text: "Feekr’da oʻqish", url: siteLink(`/blog/${slug}`, "channel") }, { text: "Asl maqola ↗", url: n.link }]],
       backHref: "/admin/content",
     },
@@ -314,7 +322,7 @@ const done = (text: string): Keyboard => [[{ text, callback_data: "cs:n:0" }]];
 export type Decision = "both" | "site" | "reject";
 
 /** ✅ / ❌ from Telegram or the admin page. The offer leaves the waiting list first (one winner for a double press). */
-export async function decideContent(id: string, how: Decision): Promise<{ offer: Offer | null; result: Published | null }> {
+export async function decideContent(id: string, how: Decision, edited?: UzText): Promise<{ offer: Offer | null; result: Published | null }> {
   let taken: Offer | null = null;
   await updateContent((s) => {
     taken = s.pending.find((p) => p.id === id) ?? null;
@@ -328,7 +336,7 @@ export async function decideContent(id: string, how: Decision): Promise<{ offer:
     return { offer: o, result: null };
   }
   await markOffer(o, done("⏳ Saytga qoʻshilmoqda…"));
-  const made = await (o.news ? publishNews(o.news) : publishDesigner(o.designer!)).catch(() => undefined);
+  const made = await (o.news ? publishNews(o.news, edited) : publishDesigner(o.designer!)).catch(() => undefined);
   if (made === undefined) {
     // Something broke while saving: back on the list, with its buttons.
     await updateContent((s) => { if (!s.pending.some((x) => x.id === o.id)) s.pending.push(o); });
@@ -355,6 +363,13 @@ export async function handleContentCallback(q: CallbackQuery): Promise<void> {
     return;
   }
   const how: Decision = m[1] === "a" ? "both" : m[1] === "s" ? "site" : "reject";
+  if (how !== "reject") {
+    const cur = (await getContent()).pending.find((p) => p.id === m[2]);
+    if (cur?.news && !cur.news.uz) {
+      await answer(q.id, "Avval saytda tahrirlang");
+      return;
+    }
+  }
   await answer(q.id, how === "reject" ? "Rad etildi" : "Saytga qoʻshilmoqda…");
   const { offer, result } = await decideContent(m[2], how);
   if (!offer) {

@@ -19,6 +19,7 @@
     "meta:refresh": "node scripts/refresh-meta.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
     "@prisma/client": "^6.2.0",
     "@supabase/supabase-js": "^2.110.0",
     "bcryptjs": "^2.4.3",
