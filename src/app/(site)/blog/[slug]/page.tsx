@@ -52,6 +52,11 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
         </header>
         {p.coverImage && <HeroCover src={p.coverImage} alt={p.title} />}
         <div className="prose" style={{ paddingTop: 8, borderTop: "1px solid var(--line)" }} dangerouslySetInnerHTML={{ __html: renderMarkdown(p.body) }} />
+        {p.sourceUrl && /^https?:\/\//.test(p.sourceUrl) && (
+          <p className="source-note">
+            <a className="btn btn-sm" href={p.sourceUrl} target="_blank" rel="noopener nofollow">{`${locale === "ru" ? "Оригинал" : "Asl maqolani oʻqish"}${p.sourceName ? ` · ${p.sourceName}` : ""} ↗`}</a>
+          </p>
+        )}
         </div>
         <div style={{ marginTop: 48 }}>
           <Link href="/blog" className="arrow-link">{t.all}</Link>

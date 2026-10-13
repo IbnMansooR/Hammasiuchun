@@ -81,6 +81,10 @@ model Article {
   coverImage  String?
   author      String    @default("Feekr")
   tags        String    @default("")
+  // News from another site (lib/contentScout): its name and the original article. Only a short
+  // excerpt is kept here; the page sends the reader on to the source.
+  sourceName  String?
+  sourceUrl   String?
   isPublished Boolean   @default(false)
   publishedAt DateTime?
   createdAt   DateTime  @default(now())
@@ -398,4 +402,30 @@ model TgPost {
 
   @@index([kind, ref])
   @@index([postedAt])
+}
+
+// A designer or type designer with a public profile (Dizaynerlar → Dizaynerlar). The facts come
+// from Wikidata (CC0); the portrait from Wikimedia Commons, stored with its author and licence.
+model Designer {
+  id           Int       @id @default(autoincrement())
+  slug         String    @unique
+  name         String
+  wikidataId   String    @unique
+  summary      String    @default("") // Uzbek text built from the facts; the admin may edit it
+  born         Int?
+  died         Int?
+  country      String?
+  roles        String    @default("") // comma-separated, Uzbek
+  knownFor     String    @default("[]") // JSON: [{ label }]
+  wikiUrl      String? // the best Wikipedia page (uz, then ru, then en)
+  website      String?
+  image        String? // the portrait, saved on our storage
+  imageCredit  String? // "Author, CC BY-SA 4.0"
+  imageSource  String? // the Commons file page
+  isPublished  Boolean   @default(true)
+  publishedAt  DateTime? @default(now())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([isPublished, publishedAt])
 }

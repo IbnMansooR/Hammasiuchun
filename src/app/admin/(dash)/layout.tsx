@@ -27,6 +27,7 @@ export default async function DashLayout({ children }: { children: React.ReactNo
         { href: "/admin/fonts", label: "Shriftlar" },
         { href: "/admin/fonts/upload", label: "Shrift yuklash" },
         { href: "/admin/works", label: "Dizaynerlar", badge: pendingWorks },
+        { href: "/admin/content", label: "Yangilik va profillar" },
         { href: "/admin/ads", label: "Reklama" },
         { href: "/admin/articles", label: "Maqolalar" },
         { href: "/admin/media", label: "Rasmlar" },

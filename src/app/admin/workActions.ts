@@ -43,7 +43,8 @@ export async function saveWorkAction(fd: FormData) {
 
   const data = {
     title,
-    slug: slugify(str(fd, "slug") || title),
+    // "profil" is the designers' pages; "yuborish" the submit form.
+    slug: ["profil", "yuborish"].includes(slugify(str(fd, "slug") || title)) ? `${slugify(str(fd, "slug") || title)}-ish` : slugify(str(fd, "slug") || title),
     summary: str(fd, "summary").slice(0, 300) || null,
     body: str(fd, "body").slice(0, 20000),
     kind,

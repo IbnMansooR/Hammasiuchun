@@ -1252,3 +1252,26 @@ section.adm-card + section.adm-card, .stat-grid + section.adm-card { margin-top:
 .adm-promo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
 .adm-promo-img { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin-top: 8px; }
 .adm-promo-img img { width: 100%; height: auto; border-radius: var(--r-sm); border: 1px solid var(--line); background: #fff; }
+
+/* designers */
+.dgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 24px; margin-bottom: 40px; }
+.dcard { display: flex; flex-direction: column; gap: 12px; position: relative; }
+.dcard-media { aspect-ratio: 4 / 5; border-radius: var(--r-lg); overflow: hidden; background: var(--subtle); display: grid; place-items: center; color: var(--muted); }
+.dcard-media img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(.15); transition: transform .7s var(--ease); }
+.dcard:hover .dcard-media img { transform: scale(1.03); }
+.dcard-media svg { width: 32px; height: 32px; }
+.dcard-title { font-size: 18px; margin: 0; }
+.dcard-roles { margin: 2px 0 0; font-size: 14px; color: var(--fg-2); }
+.dsection { margin-top: 56px; }
+.dcredit { font-size: 13px; margin: 24px 0; }
+.dprofile { padding-bottom: 48px; }
+.dprofile-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 360px); gap: 48px; align-items: start; margin-top: 12px; }
+.dprofile h1.display { font-size: clamp(40px, 5.4vw, 72px); margin: 8px 0 12px; }
+.dprofile-summary { font-size: 18px; line-height: 1.6; max-width: 62ch; }
+.dprofile-list { padding-left: 20px; display: grid; gap: 6px; }
+.dprofile-links { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 24px; }
+.dprofile-fig { margin: 0; }
+.dprofile-fig img { width: 100%; height: auto; border-radius: var(--r-lg); background: var(--subtle); }
+.dprofile-fig figcaption { font-size: 12.5px; color: var(--muted); margin-top: 8px; line-height: 1.4; }
+.source-note { margin-top: 32px; }
+@media (max-width: 760px) { .dprofile-grid { grid-template-columns: minmax(0, 1fr); gap: 24px; } .dprofile-fig { order: -1; max-width: 320px; } }

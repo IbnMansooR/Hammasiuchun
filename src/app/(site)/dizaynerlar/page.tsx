@@ -1,6 +1,8 @@
 import Link from "@/components/LLink";
 import type { Metadata } from "next";
 import { getPublishedWorks } from "@/lib/works";
+import { db } from "@/lib/db";
+import DesignerCard from "@/components/DesignerCard";
 import WorkCard from "@/components/WorkCard";
 import AdSlot from "@/components/AdSlot";
 import { IconArrow } from "@/components/Icons";
@@ -18,7 +20,12 @@ export default async function DesignersPage({ searchParams }: { searchParams: Pr
   const sp = await searchParams;
   const kind = sp.kind === "own" || sp.kind === "partner" || sp.kind === "member" ? sp.kind : "";
   const tag = (sp.tag ?? "").trim();
-  const [all, locale] = await Promise.all([getPublishedWorks(), getLocale()]);
+  const [all, locale, people, peopleTotal] = await Promise.all([
+    getPublishedWorks(),
+    getLocale(),
+    db.designer.findMany({ where: { isPublished: true }, orderBy: [{ publishedAt: "desc" }, { id: "desc" }], take: 6, select: { slug: true, name: true, image: true, roles: true, country: true, born: true, died: true } }).catch(() => []),
+    db.designer.count({ where: { isPublished: true } }).catch(() => 0),
+  ]);
   const t = DICTS[locale].works;
   const base = await lhref("/dizaynerlar");
 
@@ -81,6 +88,16 @@ export default async function DesignersPage({ searchParams }: { searchParams: Pr
             {rest.map((w) => <WorkCard key={w.slug} w={w} headingLevel={2} />)}
           </div>
         </>
+      )}
+
+      {people.length > 0 && !filtered && (
+        <section className="dsection" aria-labelledby="dz-people">
+          <div className="section-head">
+            <h2 id="dz-people">{locale === "ru" ? "Известные дизайнеры" : "Mashhur dizaynerlar"}</h2>
+            {peopleTotal > people.length && <Link href="/dizaynerlar/profil" className="arrow-link">{locale === "ru" ? `Все (${peopleTotal})` : `Hammasi (${peopleTotal})`}</Link>}
+          </div>
+          <div className="dgrid">{people.map((d) => <DesignerCard key={d.slug} d={d} />)}</div>
+        </section>
       )}
 
       <AdSlot placement="dizaynerlar" />

@@ -23,15 +23,18 @@ function both(path: string, lastModified?: Date): MetadataRoute.Sitemap {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [families, articles, works] = await Promise.all([
+  const [families, articles, works, designers] = await Promise.all([
     db.family.findMany({ where: PUBLIC_FAMILY, select: { slug: true, updatedAt: true } }),
     db.article.findMany({ where: { isPublished: true }, select: { slug: true, updatedAt: true } }),
     db.work.findMany({ where: { isPublished: true }, select: { slug: true, updatedAt: true } }),
+    db.designer.findMany({ where: { isPublished: true }, select: { slug: true, updatedAt: true } }),
   ]);
   return [
     ...STATIC.flatMap((p) => (RU.has(p) ? both(p) : [{ url: `${SITE_URL}${p}` }])),
     ...families.flatMap((f) => both(`/fonts/${f.slug}`, f.updatedAt)),
     ...articles.map((a) => ({ url: `${SITE_URL}/blog/${a.slug}`, lastModified: a.updatedAt })),
     ...works.map((w) => ({ url: `${SITE_URL}/dizaynerlar/${w.slug}`, lastModified: w.updatedAt })),
+    ...(designers.length ? [{ url: `${SITE_URL}/dizaynerlar/profil` }] : []),
+    ...designers.map((d) => ({ url: `${SITE_URL}/dizaynerlar/profil/${d.slug}`, lastModified: d.updatedAt })),
   ];
 }

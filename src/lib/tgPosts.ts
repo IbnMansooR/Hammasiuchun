@@ -20,7 +20,7 @@ import { sampleFonts, sampleImageUrl } from "./fontSamples";
 export const CAPTION_MAX = 1000; // Telegram's photo caption limit is 1024 characters
 
 export type PostDraft = {
-  kind: "font" | "work" | "digest";
+  kind: "font" | "work" | "digest" | "news" | "designer";
   ref: string;
   title: string;
   image: string | null;

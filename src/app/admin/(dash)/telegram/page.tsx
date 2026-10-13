@@ -475,9 +475,10 @@ export default async function TelegramAdmin({ searchParams }: { searchParams: Pr
                 <thead><tr><th>Nima</th><th>Qachon</th><th><span className="sr-only">Havola</span></th></tr></thead>
                 <tbody>
                   {posts.map((p) => {
-                    const title = p.kind === "font" ? fontNames.get(p.ref) ?? p.ref : p.kind === "digest" ? p.ref : workTitles.get(p.ref) ?? `ish #${p.ref}`;
-                    const href = p.kind === "font" ? `/admin/telegram/post?font=${encodeURIComponent(p.ref)}` : p.kind === "digest" ? "/admin/telegram/post?digest=1" : `/admin/telegram/post?work=${p.ref}`;
-                    const label = p.kind === "font" ? "Shrift" : p.kind === "digest" ? "Dayjest" : "Ish";
+                    const title = p.kind === "font" ? fontNames.get(p.ref) ?? p.ref : p.kind === "digest" || p.kind === "news" || p.kind === "designer" ? p.ref : workTitles.get(p.ref) ?? `ish #${p.ref}`;
+                    const href = p.kind === "font" ? `/admin/telegram/post?font=${encodeURIComponent(p.ref)}` : p.kind === "digest" ? "/admin/telegram/post?digest=1"
+                      : p.kind === "news" ? `/blog/${encodeURIComponent(p.ref)}` : p.kind === "designer" ? `/dizaynerlar/profil/${encodeURIComponent(p.ref)}` : `/admin/telegram/post?work=${p.ref}`;
+                    const label = p.kind === "font" ? "Shrift" : p.kind === "digest" ? "Dayjest" : p.kind === "news" ? "Yangilik" : p.kind === "designer" ? "Dizayner" : "Ish";
                     const pub = state.channel?.id === p.chatId && state.channel.username ? `https://t.me/${state.channel.username}/${p.messageId}` : null;
                     return (
                       <tr key={p.id}>

@@ -7,6 +7,7 @@ import { botEnabled } from "@/lib/telegram";
 import { runAutopost } from "@/lib/tgAutopost";
 import { runScout } from "@/lib/fontScout";
 import { runChannelAds } from "@/lib/channelAds";
+import { runContentScout } from "@/lib/contentScout";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,5 +21,7 @@ export async function GET(req: Request) {
   const autopost = await runAutopost().catch(() => ({ posted: null, reason: "send" as const }));
   // Not in the same call as a post: both together could outrun the time limit.
   const scout = autopost.posted ? null : await runScout().catch(() => ({ sent: 0, reason: "error" as const }));
-  return NextResponse.json({ ads, autopost, scout });
+  // Designers and news, at their own time of day and never in a call that already did the heavy work.
+  const content = autopost.posted || (scout && "sent" in scout && scout.sent) ? null : await runContentScout().catch(() => ({ news: 0, designers: 0, reason: "error" as const }));
+  return NextResponse.json({ ads, autopost, scout, content });
 }

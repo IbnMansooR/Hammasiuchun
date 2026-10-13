@@ -1097,3 +1097,78 @@ A summary follows with ✅ Yuborish / ✏️ Qaytadan / ❌ Bekor qilish. Plain 
   - register → back on the page with the font saved;
   - the download prompt dismissal;
   - the account sync across two devices.
+
+## 26. Dizaynerlar: profiles of well-known designers and design news, found by the bot, approved in Telegram (2026-10-14)
+
+**Request.** Fill the Dizaynerlar section like a "Google Fonts for designers": designers and their well-known work. The bot should find them and put them on the site and in the channel, as an article, blog post or news item.
+
+**Rights.** The owner's view: the site earns nothing from this, and the author is named and promoted for free. That is a good-faith reason, but it doesn't make copying a picture or text from Behance, Dribbble or a magazine lawful: non-commercial use and credit are not a licence. So each source is used only the way it allows:
+- **Designer profiles:** facts from **Wikidata (CC0, free to use)**; the portrait from **Wikimedia Commons**, saved only when its licence is CC BY, CC BY-SA, CC0 or public domain, with author and licence shown (non-commercial, no-derivatives and non-free files are refused). The text is Feekr's own, built from the facts. Nothing is copied from Wikipedia articles; they are linked.
+- **News:** from feeds the admin chooses (RSS/Atom): the title, the publisher's own short summary (cut to 280 characters) and a prominent link and button to the original. No article text, no pictures.
+- **Behance / Dribbble:** nothing is taken from them automatically. A work whose author agreed can be added by hand in Admin → Dizaynerlar (kind "Hamkor"), which already labels it as partner work.
+
+**How it works.**
+- Once a day at the set time (default 12:00 Tashkent) the 5-minute cron runs the scout, never in a call that already posted a font, found fonts or sent ads. Each day is claimed once.
+- **News:** the feeds take turns, newest first. Items already offered, already on the site, rejected, or older than 14 days are skipped. Up to 5 a day (default 2).
+- **Designers:** one every N days (default 2). The bot takes the next name from a list of about 65 well-known designers and type designers, looks it up on Wikidata and checks that it is a person with a design occupation (graphic designer, typographer, type designer, art director and so on). A name that finds no one, or someone who isn't a designer, is never looked up again. If Wikidata can't be reached, no name is held against it. A "slow down" answer (429) is waited out and retried.
+- **The offer** goes to every admin in Telegram: the picture, name, years, occupations, country, known works, the portrait's credit and a link. Buttons: **✅ Sayt + kanal**, **🌐 Faqat sayt**, **❌ Kerak emas**.
+  - ✅ puts it on the site: a news item becomes an Article (type "news") with its source name and link, and a designer becomes a profile at `/dizaynerlar/profil/<name>` with the portrait copied to our storage.
+  - Sayt + kanal also posts it to the channel (a news item with "Feekr’da oʻqish" and "Asl maqola" buttons, a profile with its photo, credit and links).
+  - ❌ is never offered again.
+  - Pressing again does nothing; the offer leaves the waiting list atomically. Only a connected admin in their own chat can press.
+- **Also:** at most 20 offers wait, and unanswered ones expire after 14 days.
+
+**On the site.**
+- **`/dizaynerlar/profil`:** list of profiles.
+- **`/dizaynerlar/profil/<name>`:**
+  - portrait with its credit and a link to the Commons file;
+  - the text, "Mashhur ishlari" and Wikipedia / official site buttons;
+  - a "Data from Wikidata (CC0)" note and Person structured data.
+- **`/dizaynerlar`:** a strip of the latest profiles under the work grid.
+- **News articles:** at `/blog/…` with an "Asl maqolani oʻqish · <source> ↗" button (nofollow).
+- **Sitemap:** profiles and the list page are in it.
+- **Russian pages:** profiles are Uzbek-only, so the Russian versions are noindex.
+- **Work slugs:** "profil" is reserved so a work can't hide the designers' pages.
+
+**Admin → Yangilik va profillar** (`/admin/content`):
+- the switch, time, news per day, designer frequency;
+- the waiting offers with the same three buttons;
+- "Hozir taklif olish";
+- feeds: add (checked that it reads), switch off, remove;
+- add a designer by name (Wikidata search, "Saytga" or "Sayt + kanal");
+- the profiles: edit the text, hide, delete (a deleted one is never offered again).
+
+The channel-posts table in Admin → Telegram now names news and profile posts.
+
+**Database (production first, RLS on, anon/authenticated revoked):** `Designer`, `Article.sourceName/sourceUrl`.
+
+**Verification:** new suite `e2e-content`, 81 checks, all passing, against stand-ins for Wikidata, Commons and two feeds (RSS with CDATA and escaped HTML, Atom). Checks:
+- **The offers:**
+  - not due, due, the same day again, switched off, no admin, 20 waiting, expiry;
+  - feeds take turns and an old item is skipped;
+  - text cleaned of markup and entities, and escaped for Telegram;
+  - the designer's facts, credit and portrait fetched like Telegram does.
+- **Safety:** non-admin refused; a double press; ❌ never again.
+- **✅ paths:**
+  - news: the article, the channel post with its buttons, the log, the article page with its source button;
+  - site-only: no channel post;
+  - designer: facts, Uzbek text, credit, links, portrait stored;
+  - the profile page and Person data, the list page and strip, the sitemap, an unpublished profile 404, the Russian page noindex.
+- **Day by day:**
+  - the next run doesn't repeat what was seen;
+  - a name that finds no one is dropped;
+  - a profile with no free portrait is offered without one;
+  - the N-day rhythm.
+- **Failures:**
+  - Wikidata down: no designer and nothing blacklisted;
+  - a "429, retry after 1 s" answer: the bot waits and retries, and a politician is refused;
+  - an unreachable feed breaks nothing.
+- **Admin page:**
+  - settings, the three buttons, "now";
+  - feeds: an unreadable one and an http one refused, off, on, remove;
+  - search by name and add;
+  - a politician refused, someone already on the site marked;
+  - edit, hide, delete;
+  - axe light and dark, and no sideways scroll on a phone.
+
+**Not covered.** Real Wikidata and real feeds were not run from the build environment. Wikidata's API rate-limits that environment's shared address, which is why the tests use stand-ins and the client waits and retries. The first real run is the scheduled one at 12:00 Tashkent, or "Hozir taklif olish" in the admin page.
