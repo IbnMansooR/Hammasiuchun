@@ -1,7 +1,6 @@
 "use client";
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import { trackEvent } from "@/lib/trackClient";
-import { offerSave } from "@/lib/savePrompt";
 
 export type StoreItem = { slug: string; name: string };
 
@@ -50,12 +49,16 @@ const OWNED = "feekr_wish_owned";
 // account is the truth, so something removed on another device stays removed here.
 const DIRTY = "feekr_wish_dirty";
 const MAX_WISH = 500;
+// A guest's ♡: kept while they sign in, then added, and they are taken back to the page.
+const PENDING = "feekr_wish_pending";
+const PENDING_TTL = 30 * 60 * 1000;
+type Pending = { slug: string; name: string; back: string; at: number };
 const flag = (k: string, on: boolean) => { try { if (on) localStorage.setItem(k, "1"); else localStorage.removeItem(k); } catch { /* storage blocked */ } };
 const flagged = (k: string) => { try { return localStorage.getItem(k) === "1"; } catch { return false; } };
 
 const JSON_HEADERS = { "content-type": "application/json" };
 
-export default function StoreProvider({ children, signedIn = false }: { children: React.ReactNode; signedIn?: boolean }) {
+export default function StoreProvider({ children, signedIn = false, loginHref = "/login" }: { children: React.ReactNode; signedIn?: boolean; loginHref?: string }) {
   const [wish, setWish] = useState<StoreItem[]>([]);
   const [ready, setReady] = useState(false);
   const wishRef = useRef<StoreItem[]>([]);
@@ -111,9 +114,25 @@ export default function StoreProvider({ children, signedIn = false }: { children
           result = (await p.json()).items ?? capped;
         }
         syncedKey.current = result.map((x) => x.slug).join(",");
-        setWish(result);
         flag(OWNED, true);
         flag(DIRTY, false);
+        // The ♡ pressed before signing in: add it (the change effect sends it) and go back to that page.
+        let pending: Pending | null = null;
+        try {
+          pending = JSON.parse(localStorage.getItem(PENDING) || "null");
+          localStorage.removeItem(PENDING);
+        } catch { /* storage blocked */ }
+        if (pending && typeof pending.slug === "string" && Date.now() - pending.at < PENDING_TTL) {
+          const p = pending;
+          if (!result.some((x) => x.slug === p.slug) && result.length < MAX_WISH) {
+            flag(DIRTY, true);
+            trackEvent("wish", p.slug);
+            setWish([...result, { slug: p.slug, name: p.name }]);
+          } else setWish(result);
+          if (typeof p.back === "string" && p.back.startsWith("/") && !p.back.startsWith("//") && /\/account\/?$/.test(location.pathname)) {
+            location.replace(p.back);
+          }
+        } else setWish(result);
       } catch { /* aborted / offline */ }
     })();
     return () => ctl.abort();
@@ -135,12 +154,16 @@ export default function StoreProvider({ children, signedIn = false }: { children
   const toggleWish = useCallback(
     (i: StoreItem) => {
       const had = wishRef.current.some((x) => x.slug === i.slug);
-      if (!had) {
-        // Count only additions (a removal is not interest).
-        trackEvent("wish", i.slug);
-        // A second saved font is the moment saving it to an account is worth offering.
-        if (wishRef.current.length + 1 >= 2) offerSave("wish", { n: wishRef.current.length + 1 });
+      // Saving needs an account: remember the ♡ and go to sign in (removing an old local one still works).
+      if (!signedInRef.current && !had) {
+        const pending: Pending = { slug: i.slug, name: i.name, back: location.pathname + location.search, at: Date.now() };
+        try { localStorage.setItem(PENDING, JSON.stringify(pending)); } catch { /* storage blocked */ }
+        trackEvent("prompt_show", "wish-login");
+        location.assign(`${loginHref}?for=wish`);
+        return;
       }
+      // Count only additions (a removal is not interest).
+      if (!had) trackEvent("wish", i.slug);
       if (signedInRef.current) flag(DIRTY, true);
       setWish((w) => (w.some((x) => x.slug === i.slug) ? w.filter((x) => x.slug !== i.slug) : w.length >= MAX_WISH ? w : [...w, { slug: i.slug, name: i.name }]));
     },

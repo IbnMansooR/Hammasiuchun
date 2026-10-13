@@ -6,7 +6,7 @@ import StoreProvider from "@/components/StoreProvider";
 import PreviewProvider from "@/components/PreviewProvider";
 import { getCurrentUser, unreadNotifications } from "@/lib/userAuth";
 import { LocaleProvider } from "@/i18n/client";
-import { getLocale } from "@/i18n/server";
+import { getLocale, lhref } from "@/i18n/server";
 import { DICTS } from "@/i18n/dict";
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
@@ -15,7 +15,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   const locale = await getLocale();
   return (
     <LocaleProvider locale={locale}>
-    <StoreProvider signedIn={!!user}>
+    <StoreProvider signedIn={!!user} loginHref={await lhref("/login")}>
       <PreviewProvider>
         <a href="#main" className="skip-link">{DICTS[locale].layout.skip}</a>
         <Header user={user} unread={unread} />

@@ -10,6 +10,8 @@ import { handleAdminCallback, handleDigestCallback } from "@/lib/tgAdmin";
 import { handleSampleCallback, sendSample, sendUzbekLetters } from "@/lib/tgSamples";
 import { handleInlineQuery } from "@/lib/tgInline";
 import { handleScoutCallback } from "@/lib/fontScout";
+import { handleAdFlowCallback, handleAdFlowMessage, inAdFlow, startAdFlow } from "@/lib/tgAdFlow";
+import { handleAdRequestCallback } from "@/lib/channelAds";
 import { SITE_URL } from "@/lib/site";
 
 export const runtime = "nodejs";
@@ -19,7 +21,7 @@ export const maxDuration = 60; // the first call of the day also builds the font
 type From = { id: number; first_name?: string; last_name?: string; username?: string; is_bot?: boolean };
 type Chat = { id: number; type: string; title?: string; username?: string };
 type Update = {
-  message?: { message_id: number; from?: From; chat: Chat; text?: string };
+  message?: { message_id: number; from?: From; chat: Chat; text?: string; contact?: { phone_number: string; user_id?: number } };
   callback_query?: { id: string; from: From; data?: string; message?: { message_id: number; chat: Chat; caption?: string } };
   inline_query?: { id: string; from: From; query: string };
   my_chat_member?: { chat: Chat; from: From; new_chat_member: { status: string } };
@@ -45,12 +47,17 @@ export async function POST(req: NextRequest) {
     const cb = update.callback_query;
     if (cb?.data?.startsWith("s:")) after(() => handleSampleCallback(cb).catch(() => {})); // re-renders a picture: answer Telegram first
     else if (cb?.data?.startsWith("d:")) await handleDigestCallback(cb);
+    else if (cb?.data?.startsWith("ad:f:")) await handleAdFlowCallback(cb);
+    else if (cb?.data?.startsWith("ad:")) await handleAdRequestCallback(cb);
     else if (cb?.data?.startsWith("gf:")) after(() => handleScoutCallback(cb).catch(() => {})); // adding a font takes a while
     else if (cb) await handleAdminCallback(cb);
     else if (update.inline_query) await handleInlineQuery(update.inline_query);
     else if (update.my_chat_member) await onMembership(update.my_chat_member);
     else if (update.message?.chat.type === "private" && update.message.from && !update.message.from.is_bot) {
-      await onPrivateMessage(update.message.from, update.message.text ?? "");
+      const c = update.message.contact;
+      // A shared phone number only counts when it is the sender's own.
+      if (c && c.user_id === update.message.from.id) await handleAdFlowMessage(update.message.from, "", c.phone_number);
+      else await onPrivateMessage(update.message.from, update.message.text ?? "");
     }
   } catch {
     // Always 200: a non-2xx makes Telegram resend the same update again and again.
@@ -69,6 +76,9 @@ async function onPrivateMessage(from: From, text: string) {
   if (cmd === "/start" && payload.startsWith("l_")) return linkMember(from, payload.slice(2));
   if (cmd === "/start" && payload.startsWith("a_")) return linkAdmin(from, payload.slice(2));
 
+  if (cmd === "/reklama" || (cmd === "/start" && payload === "reklama")) return startAdFlow(from);
+  // Plain text in the middle of an ad enquiry is an answer, not a text sample.
+  if (!text.trim().startsWith("/") && (await inAdFlow(chatId))) return handleAdFlowMessage(from, text);
   if (cmd === "/harflar") return sendUzbekLetters(chatId);
   if (cmd === "/help") return sendWelcome(chatId);
   // Plain text: show it in our fonts. Rendering takes a few seconds, so Telegram gets its answer first.
@@ -107,6 +117,7 @@ async function sendWelcome(chatId: string) {
     "🔤 /harflar: oʻzbek harflari (oʻ gʻ ʼ, ў қ ғ ҳ) qaysi shriftlarda bor.",
     `🔎 Istalgan chatda <code>@${esc(botUsername())} nomi</code> deb yozib, shriftni doʻstingizga yuboring.`,
     "🔔 Kabinetda “Telegramni ulash”ni bossangiz, shaxsiy xabarlar va yangi shriftlar shu yerga keladi.",
+    "📣 /reklama: Feekr kanali yoki saytida reklama berish uchun ariza.",
   ];
   if (channel?.username) lines.push(`• Yangi shriftlar kanali: @${esc(channel.username)}`);
   const keyboard: Keyboard = [

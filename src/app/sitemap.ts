@@ -7,9 +7,9 @@ import { PUBLIC_FAMILY } from "@/lib/license";
 // under the 50k-URL sitemap limit.
 export const dynamic = "force-dynamic";
 
-const STATIC = ["", "/fonts", "/pairs", "/dizaynerlar", "/blog", "/about", "/license", "/support"];
+const STATIC = ["", "/fonts", "/pairs", "/dizaynerlar", "/blog", "/about", "/license", "/support", "/reklama"];
 // Pages that have a real Russian version (articles and works are written once, in Uzbek).
-const RU = new Set(["", "/fonts", "/pairs", "/dizaynerlar", "/about", "/license", "/support"]);
+const RU = new Set(["", "/fonts", "/pairs", "/dizaynerlar", "/about", "/license", "/support", "/reklama"]);
 
 /** Uzbek URL plus, for translated pages, its Russian twin — each listing the other as an alternate. */
 function both(path: string, lastModified?: Date): MetadataRoute.Sitemap {

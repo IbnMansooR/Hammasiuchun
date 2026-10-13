@@ -334,10 +334,56 @@ model Ad {
   endsAt     DateTime?
   isActive   Boolean   @default(true)
   sortOrder  Int       @default(0)
+  // Secret part of the advertiser's report link (/reklama/hisobot/<token>).
+  reportToken String?  @unique
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
   @@index([placement, isActive])
+}
+
+// An advertising enquiry, from the /reklama form or the bot's /reklama conversation.
+model AdRequest {
+  id         Int      @id @default(autoincrement())
+  createdAt  DateTime @default(now())
+  source     String // site | bot
+  name       String
+  contact    String // phone, @username or e-mail, as given
+  what       String // what they want to advertise
+  placements String // comma list: channel,site,both,unsure
+  timing     String? // when / how long / budget, free text
+  link       String?
+  tgChatId   String? // the applicant's chat with the bot
+  tgUsername String?
+  status     String   @default("new") // new | contacted | accepted | rejected | done
+  note       String? // the admin's own note
+  msgs       String? // JSON: the admins' Telegram copies [{chatId, messageId}], to update their buttons
+
+  @@index([status, createdAt])
+}
+
+// A paid post in the Telegram channel: sent at postAt, marked #reklama, removed after deleteAfterH.
+model ChannelAd {
+  id           Int       @id @default(autoincrement())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  advertiser   String?
+  requestId    Int?
+  text         String
+  image        String?
+  buttonText   String?
+  href         String? // https; the button goes through /r/<id> so clicks are counted
+  postAt       DateTime
+  deleteAfterH Int?
+  status       String    @default("scheduled") // scheduled | posting | posted | deleted | failed | canceled
+  chatId       String?
+  messageId    Int?
+  postedAt     DateTime?
+  deletedAt    DateTime?
+  error        String?
+  reportToken  String    @unique
+
+  @@index([status, postAt])
 }
 
 /// A post the bot published to the Telegram channel (one row per send).

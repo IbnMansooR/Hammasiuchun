@@ -17,9 +17,9 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: DICTS[await getLocale()].auth.loginTitle, robots: { index: false } };
 }
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; until?: string }> }) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; until?: string; for?: string }> }) {
   if (await getCurrentUser()) redirect(await lhref("/account"));
-  const { error, until } = await searchParams;
+  const { error, until, for: why } = await searchParams;
   const locale = await getLocale();
   const t = DICTS[locale].auth;
   // Only the date is taken from the URL (never free text), so the message can't be spoofed.
@@ -45,6 +45,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <div className="auth-card">
         <h1>{t.loginTitle}</h1>
         <p className="sub">{t.loginSub}</p>
+        {why === "wish" && !error && <div className="alert alert-info" role="status">{DICTS[locale].wishlist.needLogin}</div>}
         {error === "1" && <div className="alert alert-error" role="alert">{t.errWrong}</div>}
         {error === "locked" && <div className="alert alert-error" role="alert">{t.errLocked}</div>}
         {error === "blocked" && (

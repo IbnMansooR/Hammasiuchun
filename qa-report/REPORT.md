@@ -1017,3 +1017,83 @@ Defaults: 09:00 and 20:00, every day. Times must be at least 30 minutes apart, m
 - mobile width, axe light and dark.
 
 Real Google Fonts files were checked as well (Roboto, Inter, Montserrat, Open Sans, Nunito, Raleway, Rubik, Google Sans). Each gave static TTFs, OFL found in the file, Uzbek letters detected, and outlines that fontkit draws.
+
+## 25. Sevimlilar need an account; advertising: page, applications (site and bot), channel ad posts, reports, promo kit (2026-10-13)
+
+**Requests.**
+- Saving to Sevimlilar (♡) should need registration.
+- For advertising, "do all of it".
+- The bot should take ad applications and send them to the owner.
+
+**♡ needs an account.**
+- A guest's ♡ goes to the sign-in page with a reason ("Sevimlilarga saqlash uchun hisobingizga kiring…").
+- The pressed font is remembered (30 minutes). After signing in or registering, it is saved to the account and the visitor is taken back to the page they were on.
+- Lists saved in a browser before this change still merge into the account on first sign-in.
+- The wishlist page asks a guest to sign in or register.
+- The soft "save your list" prompt after the 2nd ♡ is gone (no guest ♡ any more). The download prompt stays.
+- Downloads stay free without an account.
+
+**"Reklama berish" page** (`/reklama`, Uzbek and Russian, in the footer and sitemap).
+- **Audience:** real numbers only. Visits and page views over 30 days come from our own statistics; channel subscribers come from Telegram. The font count is shown, and downloads once past the public threshold.
+- **Formats:** channel post, site banner, package. Each shows the admin's price, or "Narx kelishiladi" when none is set.
+- **Report and rules:** every ad gets a report link. Ads are always labelled; gambling, adult content, scams and pirated fonts are not accepted.
+- **Application form:** name, contact, what, where, timing/budget, link. A honeypot field stops bots, and one address can send 3 a day. A "Telegram orqali ariza" button opens the bot.
+
+**Applications reach the owner.** Each one, from the form or the bot, is saved (`AdRequest`) and sent to every admin's Telegram. The message carries the details and these buttons:
+- **✍️ Yozish:** opens a chat with the applicant;
+- **✅ Qabul qilish / ❌ Rad etish;**
+- **Admin panelda.**
+
+After ✅ or ❌, every admin's copy updates, and a bot applicant gets a message.
+
+**The bot's /reklama** (also `t.me/<bot>?start=reklama`, listed in /help and the command menu). It starts with the real numbers and prices, then asks 4 questions:
+1. what to advertise (a link in the text is picked up);
+2. where (4 buttons);
+3. when, for how long and the budget (can be skipped);
+4. contact: a typed number, "Telegramda yozing (@username)", or a one-tap "📱 Raqamimni yuborish". Only the sender's own number is accepted.
+
+A summary follows with ✅ Yuborish / ✏️ Qaytadan / ❌ Bekor qilish. Plain text during the questions isn't turned into a font sample. The answers live 30 minutes; there are 3 applications a day per chat; a double press sends one.
+
+**Channel ad posts** (Admin → Reklama → Kanal postlari).
+- **Writing a post:** text, optional picture, button text and an https link, the time (Tashkent), and deletion after 6, 12, 24 or 47 hours or never. Telegram only lets a bot delete its posts within 48 hours. A post can be started from an application, prefilled.
+- **Sending:** the 5-minute pg_cron call sends it at its time, before the font autopost. The text ends with "#reklama". The button goes through `/r/<id>`, which counts the click (link-preview bots excluded) and redirects only to the stored link. Each post is claimed once, so it is never sent twice.
+- **Late or failed:**
+  - a post more than 6 hours late is not sent, and the admin is told;
+  - with no channel connected, the post is marked failed with the reason;
+  - if Telegram refuses the delete, the admin is asked to delete it by hand.
+- **Admin controls:** "Hozir yuborish", "Bekor qilish", "Kanaldan oʻchirish", and click counts (total and unique people).
+- **Admin messages:** the admins get a message when the post is out, with links to the post and the report.
+
+**Advertiser reports** (`/reklama/hisobot/<secret>`, noindex).
+- Channel post: time, status, button clicks and unique people by day, and a link to the post. Post views show under the post in Telegram; the Bot API can't read them.
+- Banner: views, clicks and CTR by day. The admin makes the link with "Hisobot havolasi" on the banner list.
+
+**Narxlar va promo.**
+- Prices for /reklama.
+- For promoting Feekr itself:
+  - a link builder (UTM source, page, campaign) whose visits show under that source in Statistika;
+  - three ready texts with the real font count (Instagram, Telegram, a message to a partner page);
+  - two ready pictures, post 1080×1080 and story 1080×1920 (`/api/tg-image/promo/<square|story>`).
+
+**Database (production first, RLS on, anon/authenticated revoked):** `AdRequest`, `ChannelAd`, `Ad.reportToken`.
+
+**Bugs found by the tests and fixed before release:**
+- The bot's last question removed the phone keyboard in the same message as the ✅ buttons, so the buttons never showed. Telegram allows one keyboard per message; a separate message now removes it.
+- A double press of ✅ Yuborish could send two applications. The press now claims the conversation atomically.
+
+**Verification:**
+- **New suite `e2e-ads`, 82 checks, all passing:**
+  - **Page:** numbers, prices, Russian page, sitemap, footer.
+  - **Form:** errors, honeypot, the daily limit, the admin message.
+  - **Bot:** every step; someone else's contact refused; double press; deep link; cancel.
+  - **Admin buttons:** a non-admin refused; ✅ tells the applicant; ❌.
+  - **Cron:** a due post out once, #reklama, the tracked button, a picture, the application marked done.
+  - **Clicks and reports:** clicks counted with previews excluded; unknown id → home; the report page; deletion after its hours; a refused delete; missed and no-channel cases.
+  - **Banners:** the report with an 8.00% CTR.
+  - **Admin pages:** tabs and counts; status and note; a post from an application (the http link refused, the application kept); send now, take down, cancel; prices on the page; the UTM builder; the ready texts and pictures.
+  - **Accessibility:** axe light and dark, no sideways scroll on a phone.
+- **`e2e-stage2` rewritten for the ♡ change, 72 checks:**
+  - a guest ♡ goes to sign-in, remembered, nothing saved without an account;
+  - register → back on the page with the font saved;
+  - the download prompt dismissal;
+  - the account sync across two devices.

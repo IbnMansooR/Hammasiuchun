@@ -2,7 +2,10 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { formatDateTime, formatNumber } from "@/lib/format";
 import { PLACEMENTS } from "@/lib/ads";
-import { deleteAdAction, toggleAdAction } from "@/app/admin/adActions";
+import { bannerReportAction, deleteAdAction, toggleAdAction } from "@/app/admin/adActions";
+import AdsTabs from "@/components/admin/AdsTabs";
+import CopyField from "@/components/admin/CopyField";
+import { reportUrl } from "@/lib/channelAds";
 import Notice from "@/components/admin/Notice";
 import ConfirmButton from "@/components/ConfirmButton";
 import { IconImage } from "@/components/Icons";
@@ -39,7 +42,9 @@ export default async function AdsAdmin({ searchParams }: { searchParams: Promise
         </div>
         <Link href="/admin/ads/new" className="btn btn-accent btn-sm">+ Yangi banner</Link>
       </div>
+      <AdsTabs current="/admin/ads" />
       {ok === "saved" && <Notice>Saqlandi.</Notice>}
+      {ok === "report" && <Notice>Hisobot havolasi tayyor: uni reklama beruvchiga yuboring.</Notice>}
       {ok === "deleted" && <Notice>Banner oʻchirildi.</Notice>}
 
       {ads.length === 0 ? (
@@ -61,7 +66,7 @@ export default async function AdsAdmin({ searchParams }: { searchParams: Promise
                 const clicks = n(a.id, "ad_click");
                 const st = state(a);
                 return (
-                  <tr key={a.id}>
+                  <tr key={a.id} id={`ad${a.id}`}>
                     <td>
                       <Link href={`/admin/ads/${a.id}`} className="adm-ad-cell">
                         <img src={a.image} alt="" loading="lazy" />
@@ -75,10 +80,19 @@ export default async function AdsAdmin({ searchParams }: { searchParams: Promise
                     <td><span className={st.cls}>{st.label}</span></td>
                     <td>{formatNumber(views)}</td>
                     <td>{formatNumber(clicks)}</td>
-                    <td>{views ? `${((clicks / views) * 100).toFixed(1)}%` : "—"}</td>
+                    <td>
+                      {views ? `${((clicks / views) * 100).toFixed(1)}%` : "—"}
+                      {a.reportToken && <CopyField value={reportUrl(a.reportToken)} label="Hisobot havolasi" />}
+                    </td>
                     <td className="adm-act">
                      <div className="adm-act-wrap">
                       <Link href={`/admin/ads/${a.id}`} className="chip">Tahrirlash</Link>
+                      {!a.reportToken && (
+                        <form action={bannerReportAction}>
+                          <input type="hidden" name="id" value={a.id} />
+                          <button className="chip">Hisobot havolasi</button>
+                        </form>
+                      )}
                       <form action={toggleAdAction}>
                         <input type="hidden" name="id" value={a.id} />
                         <button className="chip">{a.isActive ? "Oʻchirib qoʻyish" : "Yoqish"}</button>

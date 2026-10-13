@@ -42,6 +42,7 @@ export default async function Footer() {
             <Link href="/license">{t.license}</Link>
             <Link href="/support">{t.support}</Link>
             <Link href="/maxfiylik">{t.privacy}</Link>
+            <Link href="/reklama">{t.ads}</Link>
             <LangSwitch variant="long" />
           </div>
           {visible.length > 0 && (

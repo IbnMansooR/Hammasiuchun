@@ -45,6 +45,7 @@ export async function setWebhookAction() {
     commands: [
       { command: "start", description: "Boshlash / xabarlarni yoqish" },
       { command: "harflar", description: "Oʻzbek harflari qaysi shriftlarda bor" },
+      { command: "reklama", description: "Reklama berish (ariza)" },
       { command: "help", description: "Bot nima qila oladi" },
       { command: "stop", description: "Telegram xabarlarini oʻchirish" },
     ],

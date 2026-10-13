@@ -6,6 +6,7 @@ import { cronAuthorized } from "@/lib/cronAuth";
 import { botEnabled } from "@/lib/telegram";
 import { runAutopost } from "@/lib/tgAutopost";
 import { runScout } from "@/lib/fontScout";
+import { runChannelAds } from "@/lib/channelAds";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,8 +15,10 @@ export const maxDuration = 60;
 export async function GET(req: Request) {
   if (!(await cronAuthorized(req))) return new NextResponse(null, { status: 401 });
   if (!botEnabled()) return NextResponse.json({ autopost: null, reason: "bot not configured" });
+  // Paid posts keep their exact time, so they go first.
+  const ads = await runChannelAds().catch(() => ({ posted: 0, deleted: 0 }));
   const autopost = await runAutopost().catch(() => ({ posted: null, reason: "send" as const }));
   // Not in the same call as a post: both together could outrun the time limit.
   const scout = autopost.posted ? null : await runScout().catch(() => ({ sent: 0, reason: "error" as const }));
-  return NextResponse.json({ autopost, scout });
+  return NextResponse.json({ ads, autopost, scout });
 }

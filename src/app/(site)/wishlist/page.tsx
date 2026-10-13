@@ -41,10 +41,13 @@ export default function WishlistPage() {
         </p>
       </header>
 
-      {!loading && !signedIn && wish.length > 0 && (
+      {!loading && !signedIn && (
         <aside className="wish-note">
-          <p><b>{t.noteB}</b>{t.note}</p>
-          <Link href="/register" className="btn btn-primary btn-sm" onClick={() => trackEvent("prompt_click", "wishlist")}>{t.save}</Link>
+          <p>{wish.length > 0 ? <><b>{t.noteB}</b>{t.note}</> : t.guestLead}</p>
+          <span className="wish-note-cta">
+            <Link href="/login?for=wish" className="btn btn-primary btn-sm" onClick={() => trackEvent("prompt_click", "wishlist")}>{t.guestCta}</Link>
+            <Link href="/register" className="btn btn-sm">{t.guestReg}</Link>
+          </span>
         </aside>
       )}
 
