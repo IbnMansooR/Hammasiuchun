@@ -1191,3 +1191,10 @@ The channel-posts table in Admin → Telegram now names news and profile posts.
 - **Count.** "Yangilik, har safar" is the number of news offers at each time; a designer profile still follows its own "every N days" rule.
 - **How it runs.** Same slot logic as the font posts (`dueSlots`): each time of each chosen day is claimed once, a missed slot goes out up to 2 hours late.
 - **Tests (e2e-content, 98).** Not a chosen weekday → nothing; no times → off; two times today → each claimed once; the admin form saves the times.
+
+### 26.3 The bot refuses swearing in text samples
+
+- **What.** Text sent to the bot is checked before it is set in pictures (`lib/profanity.ts`, used in `sendSample`). Uzbek (Latin and Cyrillic) and Russian swearing gets "Bunday soʻzlarni yozib boʻlmaydi" and no picture. English is deliberately not checked: those words are used in real design work.
+- **How it matches.** The text is brought to one plain Latin spelling (Cyrillic letters, `ʻ ʼ '` marks, look-alike digits and `@ $`, repeated letters, dots and stars inside a word, "h" and "x" alike), then compared with word beginnings (words take endings), short stems with a limit on the ending, and a few whole words and two-word phrases ("am qutoq"). Ordinary words that begin like a swear (Mudofaa, Sukarno, Sikl, Sikka, Amir, Huawei, Xursand) pass.
+- **Limits.** A list never catches everything (new spellings, words broken with spaces or other letters), and some rare names may be refused: the person is asked to write something else. The word list lives in one file and is easy to extend.
+- **Tests.** e2e-tg2: seven Uzbek/Russian swears in Latin, Cyrillic and disguised spellings are refused, an English phrase and an ordinary lookalike word pass.

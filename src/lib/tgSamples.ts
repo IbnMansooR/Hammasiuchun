@@ -1,6 +1,7 @@
 // Bot: a person sends any text, the bot answers with that text set in the fonts that can draw every
 // letter of it (Uzbek ʻ ʼ and ғ қ ҳ ў included), four at a time, with links to each font.
 import { esc, sendMessage, sendPhotoOrText, siteLink, tg, type Keyboard } from "./telegram";
+import { hasProfanity } from "./profanity";
 import { PER_PAGE, cleanSampleText, matchFonts, sampleFonts, sampleImageUrl, uzbekize, type Match } from "./fontSamples";
 
 // A soft per-instance brake against someone flooding the bot (each sample renders a picture).
@@ -71,6 +72,11 @@ export async function sendSample(chatId: string, raw: string): Promise<void> {
   }
   const typed = cleanSampleText(raw);
   if (!typed) return;
+  // Swearing is not set in pictures (Uzbek and Russian; English is left alone: designers use it).
+  if (hasProfanity(typed)) {
+    await sendMessage(chatId, "Bunday soʻzlarni yozib boʻlmaydi. Iltimos, boshqa matn yozing: brend nomi, ibora yoki ism.");
+    return;
+  }
   const text = uzbekize(typed);
   await tg("sendChatAction", { chat_id: chatId, action: "upload_photo" });
   await show(chatId, text, 0, text !== typed);
