@@ -11,9 +11,10 @@ export const dynamic = "force-dynamic";
 
 const ROWS: [string, string, string][] = [
   ["Aa", "Matn namunasi", "Istalgan matn yozing: shriftlarimizda koʻrasiz"],
+  ["?", "Qaysi shrift sen?", "5 savol, shaxsiy karta · /test"],
+  ["Bg", "Fon rasmi va brend nomi", "/fon · /brend"],
   ["Oʻ", "Oʻzbek harflari", "oʻ gʻ va ў қ ғ ҳ bor shriftlar · /harflar"],
   ["@", "Inline qidiruv", "Istalgan chatda shrift nomini yozing"],
-  ["N", "Yangi shriftlar", "Kabinetdan Telegramni ulang"],
   ["Ad", "Reklama", "Kanal yoki saytda reklama · /reklama"],
 ];
 
@@ -33,7 +34,7 @@ export async function GET(req: Request) {
           <span style={{ fontFamily: "Feekr Display", fontSize: 150, lineHeight: 0.95, letterSpacing: -5 }}>Matningiz</span>
           <span style={{ fontFamily: "Feekr Display", fontSize: 150, lineHeight: 0.95, letterSpacing: -5, color: "#009A76" }}>shriftda.</span>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {ROWS.map(([ico, title, sub], i) => (
             <div key={title} style={{ display: "flex", alignItems: "center", gap: 28, padding: "20px 28px", borderRadius: 26, background: i % 2 ? "#f6f5f1" : "#eef7f2" }}>
               <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 92, height: 92, borderRadius: 24, background: "#0e0e0d", color: "#ffffff", fontFamily: "Feekr Display", fontSize: 50 }}>{ico}</span>
@@ -50,7 +51,7 @@ export async function GET(req: Request) {
         </div>
       </div>
     ),
-    { width: 1080, height: 1350, fonts: await ogFonts() },
+    { width: 1080, height: 1560, fonts: await ogFonts() },
   );
   const png = await img.arrayBuffer();
   return new Response(png, { headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=3600, s-maxage=86400" } });

@@ -14,6 +14,7 @@ import { handleContentCallback } from "@/lib/contentScout";
 import { handleAdFlowCallback, handleAdFlowMessage, inAdFlow, startAdFlow } from "@/lib/tgAdFlow";
 import { handleAdRequestCallback } from "@/lib/channelAds";
 import { handleHelpCallback, sendHelp, setBotCommands } from "@/lib/tgHelp";
+import { askBrand, askWallpaper, handleBrandCallback, handleTestCallback, handleWallCallback, isPlayReply, makeBrand, makeWallpaper, startTest } from "@/lib/tgPlay";
 import { botStats, noteBlocked, noteBot, startSource, statsText, type BotKind } from "@/lib/botStats";
 import { SITE_URL } from "@/lib/site";
 
@@ -24,8 +25,8 @@ export const maxDuration = 60; // the first call of the day also builds the font
 type From = { id: number; first_name?: string; last_name?: string; username?: string; is_bot?: boolean };
 type Chat = { id: number; type: string; title?: string; username?: string };
 type Update = {
-  message?: { message_id: number; from?: From; chat: Chat; text?: string; contact?: { phone_number: string; user_id?: number } };
-  callback_query?: { id: string; from: From; data?: string; message?: { message_id: number; chat: Chat; caption?: string } };
+  message?: { message_id: number; from?: From; chat: Chat; text?: string; contact?: { phone_number: string; user_id?: number }; reply_to_message?: { text?: string } };
+  callback_query?: { id: string; from: From; data?: string; message?: { message_id: number; chat: Chat; caption?: string; text?: string } };
   inline_query?: { id: string; from: From; query: string };
   my_chat_member?: { chat: Chat; from: From; new_chat_member: { status: string } };
 };
@@ -51,6 +52,9 @@ export async function POST(req: NextRequest) {
     if (cb?.data?.startsWith("s:")) after(() => handleSampleCallback(cb).catch(() => {})); // re-renders a picture: answer Telegram first
     else if (cb?.data?.startsWith("d:")) await handleDigestCallback(cb);
     else if (cb?.data?.startsWith("h:")) await handleHelpCallback(cb);
+    else if (cb?.data?.startsWith("t:")) await handleTestCallback(cb);
+    else if (cb?.data?.startsWith("f:")) after(() => handleWallCallback(cb).catch(() => {})); // draws a picture: answer Telegram first
+    else if (cb?.data?.startsWith("b:")) after(() => handleBrandCallback(cb).catch(() => {}));
     else if (cb?.data?.startsWith("ad:f:")) await handleAdFlowCallback(cb);
     else if (cb?.data?.startsWith("ad:")) await handleAdRequestCallback(cb);
     else if (cb?.data?.startsWith("cs:")) after(() => handleContentCallback(cb).catch(() => {})); // saving a profile downloads a picture
@@ -65,7 +69,7 @@ export async function POST(req: NextRequest) {
       const c = update.message.contact;
       // A shared phone number only counts when it is the sender's own.
       if (c && c.user_id === update.message.from.id) await handleAdFlowMessage(update.message.from, "", c.phone_number);
-      else await onPrivateMessage(update.message.from, update.message.text ?? "");
+      else await onPrivateMessage(update.message.from, update.message.text ?? "", update.message.reply_to_message?.text);
     }
   } catch {
     // Always 200: a non-2xx makes Telegram resend the same update again and again.
@@ -77,14 +81,16 @@ export async function POST(req: NextRequest) {
 
 const STOP_HINT = "Oʻchirish: /stop";
 
-async function onPrivateMessage(from: From, text: string) {
+async function onPrivateMessage(from: From, text: string, replyText?: string) {
   const chatId = String(from.id);
   const [cmd, payload = ""] = text.trim().split(/\s+/, 2);
 
   // Count the use (kinds only, never the text). /stat is the admin's own tool and is not counted.
   if (cmd !== "/stat") {
     const adAnswer = !text.trim().startsWith("/") && (await inAdFlow(chatId));
+    const play = !text.trim().startsWith("/") ? isPlayReply(replyText) : null;
     const kind: BotKind = cmd === "/start" ? "start" : cmd === "/help" ? "help" : cmd === "/harflar" ? "letters" : cmd === "/reklama" || adAnswer ? "ads"
+      : cmd === "/test" ? "test" : cmd === "/fon" || play === "wall" ? "wall" : cmd === "/brend" || play === "brand" ? "brand"
       : cmd === "/stop" ? "stop" : !text.trim().startsWith("/") ? (text.trim() ? "sample" : "other") : "other";
     await noteBot(chatId, kind, cmd === "/start" ? startSource(payload) : null);
   }
@@ -97,6 +103,13 @@ async function onPrivateMessage(from: From, text: string) {
   if (!text.trim().startsWith("/") && (await inAdFlow(chatId))) return handleAdFlowMessage(from, text);
   if (cmd === "/harflar") return sendUzbekLetters(chatId);
   if (cmd === "/help") return sendHelp(chatId);
+  if (cmd === "/test") return startTest(chatId);
+  if (cmd === "/fon") return askWallpaper(chatId);
+  if (cmd === "/brend") return askBrand(chatId);
+  // A reply to the /fon or /brend question (the picture takes a few seconds: Telegram gets its answer first).
+  const played = !text.trim().startsWith("/") ? isPlayReply(replyText) : null;
+  if (played === "wall") { after(() => makeWallpaper(chatId, text).catch(() => {})); return; }
+  if (played === "brand") { after(() => makeBrand(chatId, text).catch(() => {})); return; }
   if (cmd === "/stat") {
     const { admins } = await getTgState();
     if (!admins.some((a) => a.chatId === chatId)) return; // only the admins

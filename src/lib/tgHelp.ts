@@ -7,10 +7,14 @@ import { sendUzbekLetters } from "./tgSamples";
 import { startAdFlow } from "./tgAdFlow";
 import { noteBot } from "./botStats";
 import { answer } from "./tgAdmin";
+import { askBrand, askWallpaper, startTest } from "./tgPlay";
 
 export const COMMANDS = [
   { command: "start", description: "Boshlash / xabarlarni yoqish" },
   { command: "help", description: "Bot nima qila oladi (menyu)" },
+  { command: "test", description: "Qaysi shrift sensan? (test)" },
+  { command: "fon", description: "Telefon uchun fon rasmi" },
+  { command: "brend", description: "Brend nomi uchun shrift variantlari" },
   { command: "harflar", description: "Oʻzbek harflari qaysi shriftlarda bor" },
   { command: "reklama", description: "Reklama berish (ariza)" },
   { command: "stop", description: "Telegram xabarlarini oʻchirish" },
@@ -23,7 +27,7 @@ export async function setBotCommands(adminChatId?: string): Promise<void> {
 }
 
 const DESCRIPTION =
-  "Feekr: bepul shriftlar boti.\n\nMenga istalgan matn yozing: uni oʻzbek harflari (oʻ gʻ, ў қ ғ ҳ) bor shriftlarda rasm qilib qaytaraman. /harflar: qaysi shriftlarda oʻzbek harflari bor. Istalgan chatda @" + "BOT nomi: shriftni doʻstingizga yuboring.\n\nfeekrfont.uz";
+  "Feekr: bepul shriftlar boti.\n\nMenga istalgan matn yozing: uni oʻzbek harflari (oʻ gʻ, ў қ ғ ҳ) bor shriftlarda rasm qilib qaytaraman. /test: qaysi shrift ekaningni bil. /fon: fon rasmi. /brend: brend nomi uchun shrift. Istalgan chatda @" + "BOT nomi: shriftni doʻstingizga yuboring.\n\nfeekrfont.uz";
 const SHORT = "Matningizni bepul shriftlarda koʻring · feekrfont.uz";
 
 /** What people see before they press Start, and in the bot's profile. */
@@ -39,13 +43,17 @@ export async function sendHelp(chatId: string): Promise<void> {
     "<b>Feekr bot nima qila oladi</b>",
     "",
     "✍️ <b>Matn namunasi.</b> Menga istalgan matn yozing (60 belgigacha): uni shriftlarimizda rasm qilib qaytaraman.",
+    "🎭 <b>Qaysi shrift sen?</b> /test: 5 ta savol, shaxsiy shrifting va doʻstlarga yuboriladigan karta.",
+    "🖼 <b>Fon rasmi.</b> /fon: istalgan matnni telefon fon rasmiga aylantiring.",
+    "🏷 <b>Brend nomi.</b> /brend: nomingiz 4 xil shrift va rangda.",
     "🔤 <b>Oʻzbek harflari.</b> /harflar: oʻ gʻ ʼ va ў қ ғ ҳ qaysi shriftlarda bor.",
     `🔎 <b>Qidiruv.</b> Istalgan chatda <code>@${esc(botUsername())} nomi</code> deb yozing: shriftni doʻstingizga yuborasiz.`,
-    "🔔 <b>Xabarlar.</b> Kabinetda “Telegramni ulash”ni bossangiz, shaxsiy xabarlar va yangi shriftlar shu yerga keladi.",
     "📣 <b>Reklama.</b> /reklama: Feekr kanali yoki saytida reklama berish uchun ariza.",
   ];
   if (isAdmin) lines.push("📊 <b>Admin.</b> /stat: bot foydalanuvchilari statistikasi.");
   const keyboard: Keyboard = [
+    [{ text: "🎭 Qaysi shrift sen?", callback_data: "t:0:" }],
+    [{ text: "🖼 Fon rasmi", callback_data: "h:w" }, { text: "🏷 Brend nomi", callback_data: "h:b" }],
     [{ text: "✍️ Matn namunasi", callback_data: "h:t" }, { text: "🔤 Oʻzbek harflari", callback_data: "h:l" }],
     [{ text: "📣 Reklama berish", callback_data: "h:r" }],
     [{ text: "Shriftlarni koʻrish", url: siteLink("/fonts", "bot") }],
@@ -66,6 +74,10 @@ export async function handleHelpCallback(q: HelpCallback): Promise<void> {
     await sendMessage(chatId, "Menga istalgan matnni yozing, masalan brend nomi yoki ibora. Uni shriftlarimizda koʻrsataman.");
   } else if (q.data === "h:l") {
     await sendUzbekLetters(chatId);
+  } else if (q.data === "h:w") {
+    await askWallpaper(chatId);
+  } else if (q.data === "h:b") {
+    await askBrand(chatId);
   } else if (q.data === "h:r") {
     await startAdFlow(q.from as Parameters<typeof startAdFlow>[0]);
   }
