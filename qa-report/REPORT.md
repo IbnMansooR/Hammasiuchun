@@ -1233,6 +1233,6 @@ The channel-posts table in Admin → Telegram now names news and profile posts.
 - **Tests.** e2e-quiz (26): same question for everybody, four distinct options, card sizes, reveal, one answer a day, wrong answers, streak continuing and restarting, ranking order and hiding, practice, the reminder (once, not for opted-out or broken streaks), help menu.
 - **Flaky.** In one full run e2e-content saw the scout as off (a leftover server from the previous suite) and e2e-tg2 hit the React #418 hydration warning documented earlier; both passed on a rerun.
 
-### 26.8 The /help card, minimal
+### 26.8 The /help card, compact
 
-The card is now 1080×1350 (4:5, fits a phone without cropping): logo, a two-line headline and a two-column grid of the eight things the bot does (type a text, /viktorina, /test, /reyting, /fon, /brend, /harflar, /reklama), each with a few words. The explanations moved to the caption and the buttons. e2e-tg2 (80) renders it and checks the caption.
+The card keeps the row layout (icon tile, command, a few words) but is compact: 1080×1350 (4:5, fits a phone without cropping), a two-line headline and eight rows of 98 px (type a text, /viktorina, /test, /reyting, /fon, /brend, /harflar, /reklama). The tiles carry drawn icons (target, star, bars, phone, tag, megaphone; "Aa" and "Oʻ" as type) instead of text labels. The explanations live in the caption and the buttons. e2e-tg2 (80) renders it and checks the caption.
