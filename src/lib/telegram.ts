@@ -37,6 +37,20 @@ export async function tg<T = unknown>(method: string, params: Record<string, unk
   }
 }
 
+/** A file someone sent the bot (at most `max` bytes), or null. */
+export async function downloadFile(fileId: string, max = 6 * 1024 * 1024): Promise<Buffer | null> {
+  const r = await tg<{ file_path?: string; file_size?: number }>("getFile", { file_id: fileId });
+  if (!r.ok || !r.result.file_path || (r.result.file_size ?? 0) > max) return null;
+  try {
+    const res = await fetch(`${API}/file/bot${botToken()}/${r.result.file_path}`, { signal: AbortSignal.timeout(15_000), cache: "no-store" });
+    if (!res.ok) return null;
+    const buf = Buffer.from(await res.arrayBuffer());
+    return buf.length <= max ? buf : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Escape text for parse_mode=HTML. */
 export const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 

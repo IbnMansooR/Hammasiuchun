@@ -455,6 +455,13 @@ model BotEvent {
   @@index([kind, at])
 }
 
+// A picture someone sent to find a font, waiting for the text that is on it.
+model BotFind {
+  chatId String   @id
+  fileId String
+  at     DateTime @default(now())
+}
+
 // The bot's daily quiz ("Bu qaysi shrift?"): one question a day for everyone, kept so the answer
 // can't change if the catalogue does.
 model BotQuizDay {

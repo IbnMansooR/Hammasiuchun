@@ -9,6 +9,7 @@ import { startAdFlow } from "./tgAdFlow";
 import { noteBot } from "./botStats";
 import { answer } from "./tgAdmin";
 import { askBrand, askWallpaper } from "./tgPlay";
+import { askFind } from "./tgFind";
 
 // The "/" list is empty on purpose: everything is in the buttons under the input field (and in /help).
 // The commands themselves still work when typed. Only an admin's own chat lists /stat.
@@ -32,14 +33,15 @@ export async function setBotProfile(): Promise<void> {
 }
 
 /** Telegram keeps a picture it has fetched for a URL; a new number here makes it fetch the new design. */
-export const HELP_IMAGE_VERSION = 5;
+export const HELP_IMAGE_VERSION = 6;
 
 /** The button menu under the input field: label → the command it stands for. */
 export const MENU: [string, string][][] = [
   [["🎯 Viktorina", "/viktorina"], ["🎭 Qaysi shrift sen?", "/test"]],
   [["🖼 Fon rasmi", "/fon"], ["🏷 Brend nomi", "/brend"]],
   [["🏆 Reyting", "/reyting"], ["🔤 Harflar", "/harflar"]],
-  [["📣 Reklama", "/reklama"], ["ℹ️ Yordam", "/help"]],
+  [["🔍 Shrift topish", "/topish"], ["📣 Reklama", "/reklama"]],
+  [["ℹ️ Yordam", "/help"]],
 ];
 const MENU_TEXT = new Map(MENU.flat());
 /** A tapped menu button arrives as its label: the command it means, or null. */
@@ -62,6 +64,7 @@ export async function sendHelp(chatId: string): Promise<void> {
     "<b>Feekr bot nima qila oladi</b>",
     "",
     "✍️ <b>Matn namunasi.</b> Menga istalgan matn yozing (60 belgigacha): uni shriftlarimizda rasm qilib qaytaraman.",
+    "🔍 <b>Shrift topish.</b> /topish: rasmdagi shriftga oʻxshash shriftlar.",
     "🎯 <b>Kunlik viktorina.</b> /viktorina: bu qaysi shrift? Streak, ball va haftalik /reyting.",
     "🎭 <b>Qaysi shrift sen?</b> /test: 5 ta savol, shaxsiy shrifting va doʻstlarga yuboriladigan karta.",
     "🖼 <b>Fon rasmi.</b> /fon: istalgan matnni telefon fon rasmiga aylantiring.",
@@ -74,6 +77,7 @@ export async function sendHelp(chatId: string): Promise<void> {
   const keyboard: Keyboard = [
     [{ text: "🎯 Kunlik viktorina", callback_data: "q:t" }, { text: "🎭 Qaysi shrift sen?", callback_data: "t:0:" }],
     [{ text: "🖼 Fon rasmi", callback_data: "h:w" }, { text: "🏷 Brend nomi", callback_data: "h:b" }],
+    [{ text: "🔍 Shrift topish", callback_data: "h:f" }],
     [{ text: "✍️ Matn namunasi", callback_data: "h:t" }, { text: "🔤 Oʻzbek harflari", callback_data: "h:l" }],
     [{ text: "📣 Reklama berish", callback_data: "h:r" }],
     [{ text: "Shriftlarni koʻrish", url: siteLink("/fonts", "bot") }],
@@ -98,6 +102,8 @@ export async function handleHelpCallback(q: HelpCallback): Promise<void> {
     await askWallpaper(chatId);
   } else if (q.data === "h:b") {
     await askBrand(chatId);
+  } else if (q.data === "h:f") {
+    await askFind(chatId);
   } else if (q.data === "h:r") {
     await startAdFlow(q.from as Parameters<typeof startAdFlow>[0]);
   }

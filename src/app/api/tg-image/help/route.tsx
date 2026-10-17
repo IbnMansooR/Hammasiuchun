@@ -16,9 +16,9 @@ const line = { fill: "none", stroke: "#ffffff", strokeWidth: 2, strokeLinecap: "
 // [icon, title, what it does] in the order people use them
 const ROWS: [Icon, string, string][] = [
   [{ text: "Aa" }, "Matn yozing", "uni shriftlarimizda koʻring"],
-  [{ svg: [<circle key="0" cx="12" cy="12" r="9" {...line} />, <circle key="1" cx="12" cy="12" r="4.5" {...line} />, <circle key="2" cx="12" cy="12" r="1" fill="#ffffff" stroke="#ffffff" strokeWidth="1" />] }, "/viktorina", "bu qaysi shrift?"],
+  [{ svg: [<circle key="0" cx="12" cy="12" r="9" {...line} />, <circle key="1" cx="12" cy="12" r="4.5" {...line} />, <circle key="2" cx="12" cy="12" r="1" fill="#ffffff" stroke="#ffffff" strokeWidth="1" />] }, "/viktorina", "bu qaysi shrift? · /reyting"],
   [{ svg: <polygon points="12,3 14.6,9 21,9.6 16.2,13.8 17.6,20.2 12,16.9 6.4,20.2 7.8,13.8 3,9.6 9.4,9" {...line} /> }, "/test", "qaysi shrift sen?"],
-  [{ svg: [<rect key="0" x="4" y="12" width="4" height="8" rx="1" {...line} />, <rect key="1" x="10" y="4" width="4" height="16" rx="1" {...line} />, <rect key="2" x="16" y="9" width="4" height="11" rx="1" {...line} />] }, "/reyting", "haftalik top 10"],
+  [{ svg: [<circle key="0" cx="10.5" cy="10.5" r="6.5" {...line} />, <line key="1" x1="15.5" y1="15.5" x2="21" y2="21" {...line} />] }, "/topish", "rasmdan oʻxshash shrift topish"],
   [{ svg: [<rect key="0" x="7" y="2.5" width="10" height="19" rx="2.5" {...line} />, <line key="1" x1="10.5" y1="18" x2="13.5" y2="18" {...line} />] }, "/fon", "telefon uchun fon rasmi"],
   [{ svg: [<path key="0" d="M3 12V4h8l10 10-8 8L3 12z" {...line} />, <circle key="1" cx="7.5" cy="8.5" r="1.3" fill="#ffffff" stroke="#ffffff" strokeWidth="1" />] }, "/brend", "brend nomi, 4 xil shriftda"],
   [{ text: "Oʻ" }, "/harflar", "oʻ gʻ ў қ ғ ҳ bor shriftlar"],
