@@ -1221,3 +1221,14 @@ The channel-posts table in Admin → Telegram now names news and profile posts.
 - **Safety.** All pictures come from `/api/tg-image/card`, which draws only URLs the bot signed (HMAC), text up to 48 characters, soft limit per address; 20 pictures a minute per chat; the swear filter runs on every text and name.
 - **/help** lists the new features (card height 1560), the "/" menu has /test, /fon and /brend, the usage statistics count the three kinds.
 - **Tests.** e2e-play (29): question flow and edits, stale buttons refused, signed and tampered card URLs, the three cards render at the right size, name fallbacks, wallpaper font/colour buttons, album of four distinct fonts, a second set, swears refused in /fon and /brend, help menu buttons, caption within the limit.
+
+### 26.7 The daily quiz: /viktorina, /reyting
+
+- **The question.** One a day, the same for everybody: a famous font (one of the 150 most downloaded) set in a word, four names (the same kind of font where possible). Kept in `BotQuizDay` the first time it is asked, so the answer can't change if the catalogue does. The card never names the font; after the answer a second card shows it.
+- **Answering.** One answer a day (an atomic claim: a double press counts once). Right answer: 10 points plus a streak bonus (up to 7); a wrong one scores nothing but still counts as played. The streak is the days played in a row; missing a day restarts it at 1, the best is kept. An old day's button is refused.
+- **Ranking.** `/reyting`: this week's top ten (week = Monday in Tashkent), your own place when you are outside it, and "🙈 Ismimni yashir" to show as "Anonim". Only first names are kept (letters only, swear filter), for the ranking; the privacy page says so (uz and ru).
+- **Practice.** "🎯 Mashq" gives endless questions with no points and no stored state (the right index travels in the buttons).
+- **Reminder.** From 19:00 Tashkent the 5-minute cron tells players whose streak ends today, once a day, a hundred per call; a button switches it off, and a player who blocked the bot is switched off automatically.
+- **Database (production first, RLS on, anon/authenticated revoked):** `BotQuizDay`, `BotQuiz`.
+- **Tests.** e2e-quiz (26): same question for everybody, four distinct options, card sizes, reveal, one answer a day, wrong answers, streak continuing and restarting, ranking order and hiding, practice, the reminder (once, not for opted-out or broken streaks), help menu.
+- **Flaky.** In one full run e2e-content saw the scout as off (a leftover server from the previous suite) and e2e-tg2 hit the React #418 hydration warning documented earlier; both passed on a rerun.

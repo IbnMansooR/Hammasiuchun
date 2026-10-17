@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 
 const ROWS: [string, string, string][] = [
   ["Aa", "Matn namunasi", "Istalgan matn yozing: shriftlarimizda koʻrasiz"],
+  ["Q", "Kunlik viktorina", "Bu qaysi shrift? Streak va reyting · /viktorina"],
   ["?", "Qaysi shrift sen?", "5 savol, shaxsiy karta · /test"],
   ["Bg", "Fon rasmi va brend nomi", "/fon · /brend"],
   ["Oʻ", "Oʻzbek harflari", "oʻ gʻ va ў қ ғ ҳ bor shriftlar · /harflar"],
@@ -51,7 +52,7 @@ export async function GET(req: Request) {
         </div>
       </div>
     ),
-    { width: 1080, height: 1560, fonts: await ogFonts() },
+    { width: 1080, height: 1720, fonts: await ogFonts() },
   );
   const png = await img.arrayBuffer();
   return new Response(png, { headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=3600, s-maxage=86400" } });

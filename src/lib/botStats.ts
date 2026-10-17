@@ -4,7 +4,7 @@
 import { db } from "./db";
 import { TZ_OFFSET_MS, tashkentDay } from "./analytics";
 
-export type BotKind = "start" | "sample" | "help" | "letters" | "ads" | "inline" | "stop" | "menu" | "test" | "wall" | "brand" | "other";
+export type BotKind = "start" | "sample" | "help" | "letters" | "ads" | "inline" | "stop" | "menu" | "test" | "wall" | "brand" | "quiz" | "other";
 
 /** The ?start= label, without the secret one-time codes (l_… and a_… link members and admins). */
 export function startSource(payload: string): string | null {
@@ -76,7 +76,7 @@ export async function botStats(now = Date.now()): Promise<BotStats> {
 }
 
 export const KIND_LABEL: Record<string, string> = {
-  start: "/start", sample: "Matn namunasi", help: "/help", letters: "/harflar", ads: "Reklama", inline: "Inline qidiruv", stop: "/stop", menu: "Menyu tugmalari", test: "Shrift testi", wall: "Fon rasmi", brand: "Brend nom", other: "Boshqa",
+  start: "/start", sample: "Matn namunasi", help: "/help", letters: "/harflar", ads: "Reklama", inline: "Inline qidiruv", stop: "/stop", menu: "Menyu tugmalari", test: "Shrift testi", wall: "Fon rasmi", brand: "Brend nom", quiz: "Viktorina", other: "Boshqa",
 };
 
 /** The short text for admins: /stat in the bot and a line in the daily report. */

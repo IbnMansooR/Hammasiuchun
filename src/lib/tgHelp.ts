@@ -7,11 +7,13 @@ import { sendUzbekLetters } from "./tgSamples";
 import { startAdFlow } from "./tgAdFlow";
 import { noteBot } from "./botStats";
 import { answer } from "./tgAdmin";
-import { askBrand, askWallpaper, startTest } from "./tgPlay";
+import { askBrand, askWallpaper } from "./tgPlay";
 
 export const COMMANDS = [
   { command: "start", description: "Boshlash / xabarlarni yoqish" },
   { command: "help", description: "Bot nima qila oladi (menyu)" },
+  { command: "viktorina", description: "Kunlik viktorina: bu qaysi shrift?" },
+  { command: "reyting", description: "Haftalik reyting" },
   { command: "test", description: "Qaysi shrift sensan? (test)" },
   { command: "fon", description: "Telefon uchun fon rasmi" },
   { command: "brend", description: "Brend nomi uchun shrift variantlari" },
@@ -43,6 +45,7 @@ export async function sendHelp(chatId: string): Promise<void> {
     "<b>Feekr bot nima qila oladi</b>",
     "",
     "✍️ <b>Matn namunasi.</b> Menga istalgan matn yozing (60 belgigacha): uni shriftlarimizda rasm qilib qaytaraman.",
+    "🎯 <b>Kunlik viktorina.</b> /viktorina: bu qaysi shrift? Streak, ball va haftalik /reyting.",
     "🎭 <b>Qaysi shrift sen?</b> /test: 5 ta savol, shaxsiy shrifting va doʻstlarga yuboriladigan karta.",
     "🖼 <b>Fon rasmi.</b> /fon: istalgan matnni telefon fon rasmiga aylantiring.",
     "🏷 <b>Brend nomi.</b> /brend: nomingiz 4 xil shrift va rangda.",
@@ -52,7 +55,7 @@ export async function sendHelp(chatId: string): Promise<void> {
   ];
   if (isAdmin) lines.push("📊 <b>Admin.</b> /stat: bot foydalanuvchilari statistikasi.");
   const keyboard: Keyboard = [
-    [{ text: "🎭 Qaysi shrift sen?", callback_data: "t:0:" }],
+    [{ text: "🎯 Kunlik viktorina", callback_data: "q:t" }, { text: "🎭 Qaysi shrift sen?", callback_data: "t:0:" }],
     [{ text: "🖼 Fon rasmi", callback_data: "h:w" }, { text: "🏷 Brend nomi", callback_data: "h:b" }],
     [{ text: "✍️ Matn namunasi", callback_data: "h:t" }, { text: "🔤 Oʻzbek harflari", callback_data: "h:l" }],
     [{ text: "📣 Reklama berish", callback_data: "h:r" }],

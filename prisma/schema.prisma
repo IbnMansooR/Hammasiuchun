@@ -453,3 +453,35 @@ model BotEvent {
   @@index([at])
   @@index([kind, at])
 }
+
+// The bot's daily quiz ("Bu qaysi shrift?"): one question a day for everyone, kept so the answer
+// can't change if the catalogue does.
+model BotQuizDay {
+  day     String @id // Tashkent date
+  slug    String // the font shown
+  word    String // the text set in it
+  options String // JSON: [{slug,name}] in the order shown
+  correct Int
+  palette Int
+}
+
+// One row per player: streak and points. The first name is kept for the weekly ranking (hidden on request).
+model BotQuiz {
+  chatId      String   @id
+  name        String?
+  hidden      Boolean  @default(false)
+  remind      Boolean  @default(true)
+  streak      Int      @default(0)
+  best        Int      @default(0)
+  score       Int      @default(0) // all time
+  wScore      Int      @default(0) // this week
+  wKey        String? // Monday of the week wScore belongs to
+  played      Int      @default(0)
+  correct     Int      @default(0)
+  lastDay     String?
+  remindedDay String?
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@index([wKey, wScore])
+  @@index([lastDay])
+}

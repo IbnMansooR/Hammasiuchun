@@ -14,9 +14,9 @@ export async function GET(req: NextRequest) {
   const f = q.get("f") ?? "";
   const v = q.get("v") ?? "";
   const s = q.get("s") ?? "";
-  if (!["test", "wall", "brand"].includes(k) || t.length === 0 || t.length > CARD_TEXT_MAX || f.length > 120 || v.length > 12 || !verifyCard(k, t, f, v, s)) {
+  if (!["test", "wall", "brand", "quiz"].includes(k) || t.length === 0 || t.length > CARD_TEXT_MAX || f.length > 120 || v.length > 12 || !verifyCard(k, t, f, v, s)) {
     return new NextResponse(null, { status: 403 });
   }
-  const res = await renderCard(k as "test" | "wall" | "brand", t, f, v);
+  const res = await renderCard(k as "test" | "wall" | "brand" | "quiz", t, f, v);
   return res ?? new NextResponse(null, { status: 404 });
 }

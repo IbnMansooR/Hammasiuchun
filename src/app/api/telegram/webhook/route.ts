@@ -14,6 +14,7 @@ import { handleContentCallback } from "@/lib/contentScout";
 import { handleAdFlowCallback, handleAdFlowMessage, inAdFlow, startAdFlow } from "@/lib/tgAdFlow";
 import { handleAdRequestCallback } from "@/lib/channelAds";
 import { handleHelpCallback, sendHelp, setBotCommands } from "@/lib/tgHelp";
+import { handleQuizCallback, showDaily, showLeaderboard } from "@/lib/tgQuiz";
 import { askBrand, askWallpaper, handleBrandCallback, handleTestCallback, handleWallCallback, isPlayReply, makeBrand, makeWallpaper, startTest } from "@/lib/tgPlay";
 import { botStats, noteBlocked, noteBot, startSource, statsText, type BotKind } from "@/lib/botStats";
 import { SITE_URL } from "@/lib/site";
@@ -26,7 +27,7 @@ type From = { id: number; first_name?: string; last_name?: string; username?: st
 type Chat = { id: number; type: string; title?: string; username?: string };
 type Update = {
   message?: { message_id: number; from?: From; chat: Chat; text?: string; contact?: { phone_number: string; user_id?: number }; reply_to_message?: { text?: string } };
-  callback_query?: { id: string; from: From; data?: string; message?: { message_id: number; chat: Chat; caption?: string; text?: string } };
+  callback_query?: { id: string; from: From; data?: string; message?: { message_id: number; chat: Chat; caption?: string; text?: string; reply_markup?: { inline_keyboard?: { text: string }[][] } } };
   inline_query?: { id: string; from: From; query: string };
   my_chat_member?: { chat: Chat; from: From; new_chat_member: { status: string } };
 };
@@ -53,6 +54,7 @@ export async function POST(req: NextRequest) {
     else if (cb?.data?.startsWith("d:")) await handleDigestCallback(cb);
     else if (cb?.data?.startsWith("h:")) await handleHelpCallback(cb);
     else if (cb?.data?.startsWith("t:")) await handleTestCallback(cb);
+    else if (cb?.data?.startsWith("q:")) after(() => handleQuizCallback(cb).catch(() => {}));
     else if (cb?.data?.startsWith("f:")) after(() => handleWallCallback(cb).catch(() => {})); // draws a picture: answer Telegram first
     else if (cb?.data?.startsWith("b:")) after(() => handleBrandCallback(cb).catch(() => {}));
     else if (cb?.data?.startsWith("ad:f:")) await handleAdFlowCallback(cb);
@@ -90,7 +92,7 @@ async function onPrivateMessage(from: From, text: string, replyText?: string) {
     const adAnswer = !text.trim().startsWith("/") && (await inAdFlow(chatId));
     const play = !text.trim().startsWith("/") ? isPlayReply(replyText) : null;
     const kind: BotKind = cmd === "/start" ? "start" : cmd === "/help" ? "help" : cmd === "/harflar" ? "letters" : cmd === "/reklama" || adAnswer ? "ads"
-      : cmd === "/test" ? "test" : cmd === "/fon" || play === "wall" ? "wall" : cmd === "/brend" || play === "brand" ? "brand"
+      : cmd === "/viktorina" || cmd === "/reyting" ? "quiz" : cmd === "/test" ? "test" : cmd === "/fon" || play === "wall" ? "wall" : cmd === "/brend" || play === "brand" ? "brand"
       : cmd === "/stop" ? "stop" : !text.trim().startsWith("/") ? (text.trim() ? "sample" : "other") : "other";
     await noteBot(chatId, kind, cmd === "/start" ? startSource(payload) : null);
   }
@@ -104,6 +106,8 @@ async function onPrivateMessage(from: From, text: string, replyText?: string) {
   if (cmd === "/harflar") return sendUzbekLetters(chatId);
   if (cmd === "/help") return sendHelp(chatId);
   if (cmd === "/test") return startTest(chatId);
+  if (cmd === "/viktorina") return showDaily(from);
+  if (cmd === "/reyting") return showLeaderboard(from);
   if (cmd === "/fon") return askWallpaper(chatId);
   if (cmd === "/brend") return askBrand(chatId);
   // A reply to the /fon or /brend question (the picture takes a few seconds: Telegram gets its answer first).

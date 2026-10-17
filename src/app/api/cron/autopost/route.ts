@@ -8,6 +8,7 @@ import { runAutopost } from "@/lib/tgAutopost";
 import { runScout } from "@/lib/fontScout";
 import { runChannelAds } from "@/lib/channelAds";
 import { runContentScout } from "@/lib/contentScout";
+import { runQuizReminders } from "@/lib/tgQuiz";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,5 +24,7 @@ export async function GET(req: Request) {
   const scout = autopost.posted ? null : await runScout().catch(() => ({ sent: 0, reason: "error" as const }));
   // Designers and news, at their own time of day and never in a call that already did the heavy work.
   const content = autopost.posted || (scout && "sent" in scout && scout.sent) ? null : await runContentScout().catch(() => ({ news: 0, designers: 0, reason: "error" as const }));
-  return NextResponse.json({ ads, autopost, scout, content });
+  // A short evening nudge for players whose streak ends today.
+  const quiz = await runQuizReminders().catch(() => ({ sent: 0 }));
+  return NextResponse.json({ ads, autopost, scout, content, quiz });
 }

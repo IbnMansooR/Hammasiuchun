@@ -12,7 +12,7 @@ import { botUsername } from "./telegram";
 import { sampleFonts, type SampleFont } from "./fontSamples";
 import { MARK, WORD } from "@/components/Logo";
 
-export type CardKind = "test" | "wall" | "brand";
+export type CardKind = "test" | "wall" | "brand" | "quiz";
 export const CARD_TEXT_MAX = 48;
 
 type Palette = { bg: string; fg: string; muted: string; accent: string; chip: string };
@@ -55,7 +55,7 @@ export function verifyCard(k: string, t: string, f: string, v: string, s: string
 /** Size that keeps a short text on a few lines of a `width` px box. */
 const fit = (len: number, max: number, min: number, width: number) => Math.max(min, Math.min(max, Math.floor((width * 1.7) / Math.max(3, len))));
 
-const SIZES: Record<CardKind, [number, number]> = { test: [1080, 1920], wall: [1080, 2340], brand: [1080, 1080] };
+const SIZES: Record<CardKind, [number, number]> = { test: [1080, 1920], wall: [1080, 2340], brand: [1080, 1080], quiz: [1080, 1350] };
 
 function Logo({ p, w = 200 }: { p: Palette; w?: number }) {
   return (
@@ -116,6 +116,27 @@ export async function renderCard(kind: CardKind, text: string, slug: string, var
         <span style={{ display: "flex", height: 6, width: 120, background: p.accent, borderRadius: 3 }} />
         <span style={{ display: "flex", textAlign: "center", justifyContent: "center", fontFamily: S, fontSize: fit(text.length, 250, 84, 880), lineHeight: 1.08, wordBreak: "break-word", maxWidth: 920 }}>{text}</span>
         <span style={{ display: "flex", fontSize: 28, letterSpacing: 2, color: p.muted }}>feekrfont.uz</span>
+      </div>
+    );
+  } else if (kind === "quiz") {
+    // The question (variant "<palette>") never names the font; the answer card (variant "<palette>r") does.
+    const reveal = variant.endsWith("r");
+    const p = PALETTES[(parseInt(variant, 10) || 0) % PALETTE_COUNT];
+    tree = (
+      <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", background: p.bg, color: p.fg, padding: "76px 80px 70px", fontFamily: "Feekr Sans" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <Logo p={p} w={190} />
+          <span style={{ display: "flex", fontSize: 26, fontWeight: 600, letterSpacing: 3, padding: "9px 24px", border: `3px solid ${p.fg}`, borderRadius: 999 }}>KUNLIK VIKTORINA</span>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+          <span style={{ display: "flex", fontSize: 44, color: p.muted }}>{reveal ? "Javob:" : "Bu qaysi shrift?"}</span>
+          <span style={{ display: "flex", fontFamily: S, fontSize: fit(text.length, 260, 100, 920), lineHeight: 1.05, wordBreak: "break-word" }}>{text}</span>
+          {reveal && <span style={{ display: "flex", fontFamily: nameInFont ? S : "Feekr Display", fontSize: 76, color: p.accent }}>{font.name}</span>}
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", borderTop: `3px solid ${p.fg}`, paddingTop: 26, fontSize: 32, color: p.muted }}>
+          <span style={{ fontWeight: 600, color: p.fg }}>{`@${botUsername()}`}</span>
+          <span>feekrfont.uz</span>
+        </div>
       </div>
     );
   } else {
