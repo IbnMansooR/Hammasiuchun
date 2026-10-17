@@ -4,7 +4,7 @@
 import crypto from "node:crypto";
 import { NextRequest, NextResponse, after } from "next/server";
 import { db } from "@/lib/db";
-import { botEnabled, botUsername, esc, sendMessage, siteLink, type Keyboard } from "@/lib/telegram";
+import { botEnabled, botUsername, esc, pause, sendMessage, siteLink, type Keyboard } from "@/lib/telegram";
 import { getTgState, updateTgState, type TgChannel } from "@/lib/tgState";
 import { handleAdminCallback, handleDigestCallback } from "@/lib/tgAdmin";
 import { handleSampleCallback, sendSample, sendUzbekLetters } from "@/lib/tgSamples";
@@ -13,7 +13,7 @@ import { handleScoutCallback } from "@/lib/fontScout";
 import { handleContentCallback } from "@/lib/contentScout";
 import { handleAdFlowCallback, handleAdFlowMessage, inAdFlow, startAdFlow } from "@/lib/tgAdFlow";
 import { handleAdRequestCallback } from "@/lib/channelAds";
-import { handleHelpCallback, sendHelp, setBotCommands } from "@/lib/tgHelp";
+import { ensureMenu, handleHelpCallback, menuCommand, sendHelp, setBotCommands } from "@/lib/tgHelp";
 import { handleQuizCallback, showDaily, showLeaderboard } from "@/lib/tgQuiz";
 import { askBrand, askWallpaper, handleBrandCallback, handleTestCallback, handleWallCallback, isPlayReply, makeBrand, makeWallpaper, startTest } from "@/lib/tgPlay";
 import { botStats, noteBlocked, noteBot, startSource, statsText, type BotKind } from "@/lib/botStats";
@@ -83,8 +83,12 @@ export async function POST(req: NextRequest) {
 
 const STOP_HINT = "Oʻchirish: /stop";
 
-async function onPrivateMessage(from: From, text: string, replyText?: string) {
+async function onPrivateMessage(from: From, textIn: string, replyText?: string) {
   const chatId = String(from.id);
+  // A tap on the button menu arrives as the button's label: treat it as the command it stands for.
+  const text = menuCommand(textIn) ?? textIn;
+  // Everybody gets the button menu once, a moment after the answer.
+  after(async () => { await pause(1500); await ensureMenu(chatId).catch(() => {}); });
   const [cmd, payload = ""] = text.trim().split(/\s+/, 2);
 
   // Count the use (kinds only, never the text). /stat is the admin's own tool and is not counted.

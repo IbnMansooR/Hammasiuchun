@@ -1231,8 +1231,15 @@ The channel-posts table in Admin → Telegram now names news and profile posts.
 - **Reminder.** From 19:00 Tashkent the 5-minute cron tells players whose streak ends today, once a day, a hundred per call; a button switches it off, and a player who blocked the bot is switched off automatically.
 - **Database (production first, RLS on, anon/authenticated revoked):** `BotQuizDay`, `BotQuiz`.
 - **Tests.** e2e-quiz (26): same question for everybody, four distinct options, card sizes, reveal, one answer a day, wrong answers, streak continuing and restarting, ranking order and hiding, practice, the reminder (once, not for opted-out or broken streaks), help menu.
-- **Flaky.** In one full run e2e-content saw the scout as off (a leftover server from the previous suite) and e2e-tg2 hit the React #418 hydration warning documented earlier; both passed on a rerun.
+- **Test-harness slip (not flakiness).** In two full runs e2e-content saw the scout switched off: a script edit that added a suite name had broken the shell test that turns the scout on for that suite. Fixed; the suite passes in the full run again. e2e-tg2 once hit the React #418 hydration warning documented earlier and passed on a rerun.
 
 ### 26.8 The /help card, compact
 
 The card keeps the row layout (icon tile, command, a few words) but is compact: 1080×1350 (4:5, fits a phone without cropping), a two-line headline and eight rows of 98 px (type a text, /viktorina, /test, /reyting, /fon, /brend, /harflar, /reklama). The tiles carry drawn icons (target, star, bars, phone, tag, megaphone; "Aa" and "Oʻ" as type) instead of text labels. The explanations live in the caption and the buttons. e2e-tg2 (80) renders it and checks the caption.
+
+### 26.9 Button menu instead of the "/" list; the help picture refreshed
+
+- **Hidden commands.** The bot's "/" list is empty (the Menu button disappears), while every command still works when typed. Only an admin's own chat lists `/stat`.
+- **Button menu.** Everybody gets, once, a persistent keyboard under the input field (8 buttons: 🎯 Viktorina, 🎭 Qaysi shrift sen?, 🖼 Fon rasmi, 🏷 Brend nomi, 🏆 Reyting, 🔤 Harflar, 📣 Reklama, ℹ️ Yordam). A tap arrives as the label and is treated as the command; a text that merely contains a label is still a normal sample. `BotUser.menuShown` records that it was sent (production column added first), so existing users get it with their next message.
+- **Why the old card kept showing.** Telegram keeps a picture it has fetched for a URL, so `/help` went on showing the first design after the card was redrawn. The picture URL now carries a version number (`?v=5`, `HELP_IMAGE_VERSION` in `lib/tgHelp.ts`): raise it whenever the card is redesigned.
+- **Tests.** e2e-play (40) adds: the menu is sent once (persistent, 8 buttons), each button does what its command does, typed slash commands still work, "Reyting" alone is still a text sample.

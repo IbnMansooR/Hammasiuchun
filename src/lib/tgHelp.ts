@@ -2,6 +2,7 @@
 // chat after /start. Admins also see /stat.
 import { absoluteImage, botUsername, esc, sendPhotoOrText, siteLink, tg, type Keyboard } from "./telegram";
 import { sendMessage } from "./telegram";
+import { db } from "./db";
 import { getTgState } from "./tgState";
 import { sendUzbekLetters } from "./tgSamples";
 import { startAdFlow } from "./tgAdFlow";
@@ -9,23 +10,15 @@ import { noteBot } from "./botStats";
 import { answer } from "./tgAdmin";
 import { askBrand, askWallpaper } from "./tgPlay";
 
-export const COMMANDS = [
-  { command: "start", description: "Boshlash / xabarlarni yoqish" },
-  { command: "help", description: "Bot nima qila oladi (menyu)" },
-  { command: "viktorina", description: "Kunlik viktorina: bu qaysi shrift?" },
-  { command: "reyting", description: "Haftalik reyting" },
-  { command: "test", description: "Qaysi shrift sensan? (test)" },
-  { command: "fon", description: "Telefon uchun fon rasmi" },
-  { command: "brend", description: "Brend nomi uchun shrift variantlari" },
-  { command: "harflar", description: "Oʻzbek harflari qaysi shriftlarda bor" },
-  { command: "reklama", description: "Reklama berish (ariza)" },
-  { command: "stop", description: "Telegram xabarlarini oʻchirish" },
-];
+// The "/" list is empty on purpose: everything is in the buttons under the input field (and in /help).
+// The commands themselves still work when typed. Only an admin's own chat lists /stat.
+export const COMMANDS: { command: string; description: string }[] = [];
+
 
 /** The "/" menu: for everyone, and for an admin's own chat with /stat added. */
 export async function setBotCommands(adminChatId?: string): Promise<void> {
   if (!adminChatId) await tg("setMyCommands", { commands: COMMANDS });
-  else await tg("setMyCommands", { commands: [...COMMANDS, { command: "stat", description: "Bot statistikasi (admin)" }], scope: { type: "chat", chat_id: adminChatId } });
+  else await tg("setMyCommands", { commands: [{ command: "stat", description: "Bot statistikasi (admin)" }], scope: { type: "chat", chat_id: adminChatId } });
 }
 
 const DESCRIPTION =
@@ -36,6 +29,30 @@ const SHORT = "Matningizni bepul shriftlarda koʻring · feekrfont.uz";
 export async function setBotProfile(): Promise<void> {
   await tg("setMyDescription", { description: DESCRIPTION.replace("@BOT", `@${botUsername()}`) });
   await tg("setMyShortDescription", { short_description: SHORT });
+}
+
+/** Telegram keeps a picture it has fetched for a URL; a new number here makes it fetch the new design. */
+export const HELP_IMAGE_VERSION = 5;
+
+/** The button menu under the input field: label → the command it stands for. */
+export const MENU: [string, string][][] = [
+  [["🎯 Viktorina", "/viktorina"], ["🎭 Qaysi shrift sen?", "/test"]],
+  [["🖼 Fon rasmi", "/fon"], ["🏷 Brend nomi", "/brend"]],
+  [["🏆 Reyting", "/reyting"], ["🔤 Harflar", "/harflar"]],
+  [["📣 Reklama", "/reklama"], ["ℹ️ Yordam", "/help"]],
+];
+const MENU_TEXT = new Map(MENU.flat());
+/** A tapped menu button arrives as its label: the command it means, or null. */
+export const menuCommand = (text: string): string | null => MENU_TEXT.get(text.trim()) ?? null;
+
+/** Send the button menu once to everybody (the keyboard then stays under the input field). */
+export async function ensureMenu(chatId: string): Promise<void> {
+  if (process.env.BOT_MENU === "off") return;
+  const claimed = await db.botUser.updateMany({ where: { chatId, menuShown: false }, data: { menuShown: true } });
+  if (claimed.count === 0) return;
+  await sendMessage(chatId, "Menyu pastda 👇 Tugmalarni bosing yoki istalgan matnni yozing: uni shriftlarda koʻrsataman.", undefined, {
+    reply_markup: { keyboard: MENU.map((row) => row.map(([label]) => ({ text: label }))), resize_keyboard: true, is_persistent: true, input_field_placeholder: "Matn yozing: shriftda koʻrsataman" },
+  });
 }
 
 export async function sendHelp(chatId: string): Promise<void> {
@@ -63,7 +80,7 @@ export async function sendHelp(chatId: string): Promise<void> {
   ];
   if (channel?.username) keyboard.push([{ text: "Kanalga oʻtish", url: `https://t.me/${channel.username}` }]);
   // The picture carries the look; the caption holds the words (and works as plain text if the picture fails).
-  await sendPhotoOrText(chatId, absoluteImage("/api/tg-image/help"), lines.join("\n").slice(0, 1000), keyboard);
+  await sendPhotoOrText(chatId, absoluteImage(`/api/tg-image/help?v=${HELP_IMAGE_VERSION}`), lines.join("\n").slice(0, 1000), keyboard);
 }
 
 type HelpCallback = { id: string; from: { id: number; first_name?: string; username?: string; is_bot?: boolean }; data?: string; message?: { chat: { id: number } } };

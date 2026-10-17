@@ -439,6 +439,7 @@ model BotUser {
   msgs      Int       @default(1)
   source    String? // where they came from: the ?start= label (reklama, site, channel …)
   blockedAt DateTime? // the person blocked the bot
+  menuShown Boolean   @default(false) // the button menu under the input field was sent
 
   @@index([firstAt])
   @@index([lastAt])
