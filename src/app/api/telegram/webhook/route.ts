@@ -13,6 +13,8 @@ import { handleScoutCallback } from "@/lib/fontScout";
 import { handleContentCallback } from "@/lib/contentScout";
 import { handleAdFlowCallback, handleAdFlowMessage, inAdFlow, startAdFlow } from "@/lib/tgAdFlow";
 import { handleAdRequestCallback } from "@/lib/channelAds";
+import { handleHelpCallback, sendHelp, setBotCommands } from "@/lib/tgHelp";
+import { botStats, noteBlocked, noteBot, startSource, statsText, type BotKind } from "@/lib/botStats";
 import { SITE_URL } from "@/lib/site";
 
 export const runtime = "nodejs";
@@ -48,12 +50,16 @@ export async function POST(req: NextRequest) {
     const cb = update.callback_query;
     if (cb?.data?.startsWith("s:")) after(() => handleSampleCallback(cb).catch(() => {})); // re-renders a picture: answer Telegram first
     else if (cb?.data?.startsWith("d:")) await handleDigestCallback(cb);
+    else if (cb?.data?.startsWith("h:")) await handleHelpCallback(cb);
     else if (cb?.data?.startsWith("ad:f:")) await handleAdFlowCallback(cb);
     else if (cb?.data?.startsWith("ad:")) await handleAdRequestCallback(cb);
     else if (cb?.data?.startsWith("cs:")) after(() => handleContentCallback(cb).catch(() => {})); // saving a profile downloads a picture
     else if (cb?.data?.startsWith("gf:")) after(() => handleScoutCallback(cb).catch(() => {})); // adding a font takes a while
     else if (cb) await handleAdminCallback(cb);
-    else if (update.inline_query) await handleInlineQuery(update.inline_query);
+    else if (update.inline_query) {
+      void noteBot(String(update.inline_query.from.id), "inline");
+      await handleInlineQuery(update.inline_query);
+    }
     else if (update.my_chat_member) await onMembership(update.my_chat_member);
     else if (update.message?.chat.type === "private" && update.message.from && !update.message.from.is_bot) {
       const c = update.message.contact;
@@ -75,6 +81,14 @@ async function onPrivateMessage(from: From, text: string) {
   const chatId = String(from.id);
   const [cmd, payload = ""] = text.trim().split(/\s+/, 2);
 
+  // Count the use (kinds only, never the text). /stat is the admin's own tool and is not counted.
+  if (cmd !== "/stat") {
+    const adAnswer = !text.trim().startsWith("/") && (await inAdFlow(chatId));
+    const kind: BotKind = cmd === "/start" ? "start" : cmd === "/help" ? "help" : cmd === "/harflar" ? "letters" : cmd === "/reklama" || adAnswer ? "ads"
+      : cmd === "/stop" ? "stop" : !text.trim().startsWith("/") ? (text.trim() ? "sample" : "other") : "other";
+    await noteBot(chatId, kind, cmd === "/start" ? startSource(payload) : null);
+  }
+
   if (cmd === "/start" && payload.startsWith("l_")) return linkMember(from, payload.slice(2));
   if (cmd === "/start" && payload.startsWith("a_")) return linkAdmin(from, payload.slice(2));
 
@@ -82,7 +96,13 @@ async function onPrivateMessage(from: From, text: string) {
   // Plain text in the middle of an ad enquiry is an answer, not a text sample.
   if (!text.trim().startsWith("/") && (await inAdFlow(chatId))) return handleAdFlowMessage(from, text);
   if (cmd === "/harflar") return sendUzbekLetters(chatId);
-  if (cmd === "/help") return sendWelcome(chatId);
+  if (cmd === "/help") return sendHelp(chatId);
+  if (cmd === "/stat") {
+    const { admins } = await getTgState();
+    if (!admins.some((a) => a.chatId === chatId)) return; // only the admins
+    await sendMessage(chatId, statsText(await botStats()), [[{ text: "Batafsil", url: `${SITE_URL}/admin/telegram#botusers` }]]);
+    return;
+  }
   // Plain text: show it in our fonts. Rendering takes a few seconds, so Telegram gets its answer first.
   if (!text.trim().startsWith("/")) {
     if (text.trim()) after(() => sendSample(chatId, text).catch(() => {}));
@@ -175,6 +195,7 @@ async function linkAdmin(from: From, code: string) {
     await sendMessage(chatId, "Bu admin havolasi eskirgan yoki ishlatilgan. Admin paneldagi Telegram sahifasidan yangisini oling.");
     return;
   }
+  await setBotCommands(chatId).catch(() => null); // adds /stat to this admin's menu
   await sendMessage(
     chatId,
     "✅ Siz Feekr admini sifatida ulandingiz.\nYangi ishlar (✅/❌ tugmalari bilan) va har kungi qisqa hisobot shu yerga keladi.",
@@ -190,6 +211,7 @@ async function onMembership(m: NonNullable<Update["my_chat_member"]>) {
 
   if (chat.type === "private") {
     // The person blocked the bot: stop sending them copies.
+    await noteBlocked(String(chat.id), status === "kicked");
     if (status === "kicked") await db.user.updateMany({ where: { telegramId: String(chat.id) }, data: { tgNotify: false } });
     return;
   }

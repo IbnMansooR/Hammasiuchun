@@ -170,7 +170,7 @@ export async function buildDailyReport(now = new Date()): Promise<string> {
            COUNT(*) FILTER (WHERE name = 'signup')::int AS signups
     FROM "Hit" WHERE "at" >= ${a} AND "at" < ${b}`;
 
-  const [[k], [p], sources, downloads, newUsers, pending] = await Promise.all([
+  const [[k], [p], sources, downloads, newUsers, pending, botNew, botTotal] = await Promise.all([
     kpiOf(from, to),
     kpiOf(prevFrom, from),
     db.$queryRaw<{ source: string; v: number }[]>`
@@ -181,6 +181,8 @@ export async function buildDailyReport(now = new Date()): Promise<string> {
       WHERE "at" >= ${from} AND "at" < ${to} AND name = 'download' AND meta IS NOT NULL GROUP BY meta ORDER BY n DESC LIMIT 3`,
     db.user.count({ where: { createdAt: { gte: from, lt: to } } }),
     db.work.count({ where: { status: "pending" } }),
+    db.botUser.count({ where: { firstAt: { gte: from, lt: to } } }),
+    db.botUser.count(),
   ]);
   const names = new Map(
     (await db.family.findMany({ where: { slug: { in: downloads.map((d) => d.slug) } }, select: { slug: true, name: true } })).map((f) => [f.slug, f.name]),
@@ -193,6 +195,7 @@ export async function buildDailyReport(now = new Date()): Promise<string> {
     `👤 ${n(k?.visitors ?? 0)} mehmon${pct(k?.visitors ?? 0, p?.visitors ?? 0)} · ${n(k?.views ?? 0)} koʻrish`,
     `⬇️ ${n(k?.downloads ?? 0)} yuklash · ♡ ${n(k?.wishes ?? 0)}`,
     `🆕 ${n(newUsers)} yangi aʼzo`,
+    `🤖 Botga ${n(botNew)} yangi odam (jami ${n(botTotal)})`,
   ];
   if (sources.length) lines.push(`🧭 ${sources.map((s) => `${esc(SOURCE[s.source] ?? s.source)} ${n(s.v)}`).join(" · ")}`);
   if (downloads.length) lines.push(`🏆 ${downloads.map((d) => `${esc(names.get(d.slug) ?? d.slug)} ${n(d.n)}`).join(" · ")}`);

@@ -7,6 +7,7 @@ import { SITE_URL } from "@/lib/site";
 import { botEnabled, botToken, sendMessage, tg } from "@/lib/telegram";
 import { ALL_DAYS, AUTOPOST_MAX_TIMES, AUTOPOST_MIN_GAP, LINK_TTL_MS, isClock, getTgState, linkCode, updateTgState, type TgChannel } from "@/lib/tgState";
 import { runAutopost } from "@/lib/tgAutopost";
+import { setBotCommands } from "@/lib/tgHelp";
 import { CAPTION_MAX, digestDraft, fontDraft, postDraft, workDraft } from "@/lib/tgPosts";
 import { AUTHOR_MAX, BUILTIN_QUOTES, MOODS, cleanQuote, isQuoteId, type Mood } from "@/lib/quotes";
 import { uzbekize } from "@/lib/fontSamples";
@@ -41,15 +42,8 @@ export async function setWebhookAction() {
     max_connections: 10,
   });
   if (!r.ok) fail("webhook");
-  await tg("setMyCommands", {
-    commands: [
-      { command: "start", description: "Boshlash / xabarlarni yoqish" },
-      { command: "harflar", description: "Oʻzbek harflari qaysi shriftlarda bor" },
-      { command: "reklama", description: "Reklama berish (ariza)" },
-      { command: "help", description: "Bot nima qila oladi" },
-      { command: "stop", description: "Telegram xabarlarini oʻchirish" },
-    ],
-  });
+  await setBotCommands();
+  for (const a of (await getTgState()).admins) await setBotCommands(a.chatId);
   redirect(`${BACK}?ok=webhook`);
 }
 

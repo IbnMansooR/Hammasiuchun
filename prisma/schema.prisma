@@ -429,3 +429,27 @@ model Designer {
 
   @@index([isPublished, publishedAt])
 }
+
+// Everyone who has used the Telegram bot (private chats and inline mode). Only the chat id and
+// counts are kept: no name, no username, no text.
+model BotUser {
+  chatId    String    @id
+  firstAt   DateTime  @default(now())
+  lastAt    DateTime  @default(now())
+  msgs      Int       @default(1)
+  source    String? // where they came from: the ?start= label (reklama, site, channel …)
+  blockedAt DateTime? // the person blocked the bot
+
+  @@index([firstAt])
+  @@index([lastAt])
+}
+
+// One row per thing done with the bot (start, sample, help, letters, ads, inline …): counts only.
+model BotEvent {
+  id   Int      @id @default(autoincrement())
+  at   DateTime @default(now())
+  kind String
+
+  @@index([at])
+  @@index([kind, at])
+}

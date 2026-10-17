@@ -44,6 +44,12 @@ function BodyUz() {
         <li>Brauzeringizda “Do Not Track” yoki “Global Privacy Control” yoqilgan boʻlsa, statistika yozilmaydi.</li>
         <li>Faqat bitta qisqa cookie bor: u saytga qayerdan kelganingizni (masalan “instagram”) 7 kun eslab turadi. U sizni aniqlamaydi.</li>
       </ul>
+      <h2>Telegram bot</h2>
+      <p>
+        Botdan foydalansangiz, faqat suhbat raqamingiz, birinchi va oxirgi marta yozgan vaqtingiz, necha marta yozganingiz va botga qayerdan kelganingiz (masalan “reklama”) saqlanadi.
+        Ismingiz, username va yozgan matningiz <strong>saqlanmaydi</strong>; botni bloklasangiz, buni bilamiz va xabar yuborishni toʻxtatamiz.
+      </p>
+
       <h2>Hisob</h2>
       <p>
         Roʻyxatdan oʻtsangiz, sizdan email yoki telefon raqami (yoki Google hisobingiz) va ixtiyoriy ism saqlanadi.
@@ -72,6 +78,12 @@ function BodyRu() {
         <li>Если в браузере включены «Do Not Track» или «Global Privacy Control», статистика не записывается.</li>
         <li>Есть только одна короткая cookie: она 7 дней помнит, откуда вы пришли на сайт (например, «instagram»). Она вас не идентифицирует.</li>
       </ul>
+      <h2>Telegram-бот</h2>
+      <p>
+        Если вы пользуетесь ботом, сохраняются только номер вашего чата, время первого и последнего обращения, их число и то, откуда вы пришли к боту (например, «reklama»).
+        Имя, username и написанный вами текст <strong>не сохраняются</strong>; если вы заблокируете бота, мы это узнаем и перестанем писать.
+      </p>
+
       <h2>Аккаунт</h2>
       <p>
         При регистрации сохраняются email или номер телефона (или ваш аккаунт Google) и, по желанию, имя.

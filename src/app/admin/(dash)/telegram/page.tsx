@@ -18,6 +18,7 @@ import { posterAlbum } from "@/lib/fontPoster";
 import { AUTHOR_MAX, BUILTIN_QUOTES, MOODS, MOOD_LABEL, QUOTE_MAX } from "@/lib/quotes";
 import { SCOUT_PER_DAY, getScout, previewUrl } from "@/lib/fontScout";
 import { gfPage } from "@/lib/googleFonts";
+import { KIND_LABEL, botStats } from "@/lib/botStats";
 
 export const metadata = { title: "Admin — Telegram" };
 export const maxDuration = 60; // "post now" sends an album of rendered posters
@@ -76,7 +77,7 @@ export default async function TelegramAdmin({ searchParams }: { searchParams: Pr
   const enabled = botEnabled();
   const bot = botUsername();
   const expected = `${SITE_URL}/api/telegram/webhook`;
-  const [state, info, linked, subscribed, posts, waiting, scout] = await Promise.all([
+  const [state, info, linked, subscribed, posts, waiting, scout, botUse] = await Promise.all([
     getTgState(),
     enabled ? tg<WebhookInfo>("getWebhookInfo") : Promise.resolve(null),
     db.user.count({ where: { telegramId: { not: null } } }),
@@ -84,6 +85,7 @@ export default async function TelegramAdmin({ searchParams }: { searchParams: Pr
     db.tgPost.findMany({ where: { kind: { not: "file" } }, orderBy: { postedAt: "desc" }, take: 10 }),
     enabled ? autopostQueue(5) : Promise.resolve({ items: [], total: 0 }),
     getScout(),
+    botStats(),
   ]);
   const queue = waiting.items;
   const auto = state.autopost;
@@ -457,6 +459,30 @@ export default async function TelegramAdmin({ searchParams }: { searchParams: Pr
                 </div>
               ))}
             </details>
+          </section>
+
+          <section className="adm-card adm-pad" id="botusers" aria-labelledby="h-botusers">
+            <h2 className="adm-h2" id="h-botusers">6. Bot foydalanuvchilari</h2>
+            <p className="adm-text">
+              Botdan kim foydalanayotgani: faqat sonlar. Suhbat raqami, kelgan vaqti va qayerdan kelgani saqlanadi; ism, username va yozilgan matn saqlanmaydi.
+              Telegramda adminlar uchun <code>/stat</code> buyrugʻi ham bor.
+            </p>
+            <p className="adm-meta">
+              Jami <strong>{formatNumber(botUse.total)}</strong> · bloklaganlar {formatNumber(botUse.blocked)} · yangi: bugun {formatNumber(botUse.today)}, 7 kunda {formatNumber(botUse.week)} · faol: bugun {formatNumber(botUse.active1)}, 7 kunda {formatNumber(botUse.active7)}
+            </p>
+            <div className="adm-table-wrap">
+              <table className="adm-table">
+                <caption className="sr-only">Oxirgi 14 kun</caption>
+                <thead><tr><th scope="col">Kun</th><th scope="col">Yangi odam</th><th scope="col">Amallar</th></tr></thead>
+                <tbody>
+                  {[...botUse.days].reverse().map((d) => (
+                    <tr key={d.day}><th scope="row">{d.day}</th><td>{formatNumber(d.fresh)}</td><td>{formatNumber(d.events)}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {botUse.kinds.length > 0 && <p className="adm-meta">Oxirgi 7 kun: {botUse.kinds.map((k) => `${KIND_LABEL[k.kind] ?? k.kind} ${formatNumber(k.n)}`).join(" · ")}</p>}
+            {botUse.sources.length > 0 && <p className="adm-meta">Qayerdan kelgan: {botUse.sources.map((s) => `${s.source} ${formatNumber(s.n)}`).join(" · ")}</p>}
           </section>
 
           <section className="adm-card adm-pad" aria-labelledby="h-digest">
