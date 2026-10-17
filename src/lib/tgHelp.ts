@@ -1,6 +1,7 @@
 // The bot's /help menu: what it can do, with a button for each thing. The same buttons work in the
 // chat after /start. Admins also see /stat.
-import { botUsername, esc, sendMessage, siteLink, tg, type Keyboard } from "./telegram";
+import { absoluteImage, botUsername, esc, sendPhotoOrText, siteLink, tg, type Keyboard } from "./telegram";
+import { sendMessage } from "./telegram";
 import { getTgState } from "./tgState";
 import { sendUzbekLetters } from "./tgSamples";
 import { startAdFlow } from "./tgAdFlow";
@@ -19,6 +20,16 @@ export const COMMANDS = [
 export async function setBotCommands(adminChatId?: string): Promise<void> {
   if (!adminChatId) await tg("setMyCommands", { commands: COMMANDS });
   else await tg("setMyCommands", { commands: [...COMMANDS, { command: "stat", description: "Bot statistikasi (admin)" }], scope: { type: "chat", chat_id: adminChatId } });
+}
+
+const DESCRIPTION =
+  "Feekr: bepul shriftlar boti.\n\nMenga istalgan matn yozing: uni oʻzbek harflari (oʻ gʻ, ў қ ғ ҳ) bor shriftlarda rasm qilib qaytaraman. /harflar: qaysi shriftlarda oʻzbek harflari bor. Istalgan chatda @" + "BOT nomi: shriftni doʻstingizga yuboring.\n\nfeekrfont.uz";
+const SHORT = "Matningizni bepul shriftlarda koʻring · feekrfont.uz";
+
+/** What people see before they press Start, and in the bot's profile. */
+export async function setBotProfile(): Promise<void> {
+  await tg("setMyDescription", { description: DESCRIPTION.replace("@BOT", `@${botUsername()}`) });
+  await tg("setMyShortDescription", { short_description: SHORT });
 }
 
 export async function sendHelp(chatId: string): Promise<void> {
@@ -40,7 +51,8 @@ export async function sendHelp(chatId: string): Promise<void> {
     [{ text: "Shriftlarni koʻrish", url: siteLink("/fonts", "bot") }],
   ];
   if (channel?.username) keyboard.push([{ text: "Kanalga oʻtish", url: `https://t.me/${channel.username}` }]);
-  await sendMessage(chatId, lines.join("\n"), keyboard);
+  // The picture carries the look; the caption holds the words (and works as plain text if the picture fails).
+  await sendPhotoOrText(chatId, absoluteImage("/api/tg-image/help"), lines.join("\n").slice(0, 1000), keyboard);
 }
 
 type HelpCallback = { id: string; from: { id: number; first_name?: string; username?: string; is_bot?: boolean }; data?: string; message?: { chat: { id: number } } };

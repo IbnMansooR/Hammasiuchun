@@ -7,7 +7,7 @@ import { SITE_URL } from "@/lib/site";
 import { botEnabled, botToken, sendMessage, tg } from "@/lib/telegram";
 import { ALL_DAYS, AUTOPOST_MAX_TIMES, AUTOPOST_MIN_GAP, LINK_TTL_MS, isClock, getTgState, linkCode, updateTgState, type TgChannel } from "@/lib/tgState";
 import { runAutopost } from "@/lib/tgAutopost";
-import { setBotCommands } from "@/lib/tgHelp";
+import { setBotCommands, setBotProfile } from "@/lib/tgHelp";
 import { CAPTION_MAX, digestDraft, fontDraft, postDraft, workDraft } from "@/lib/tgPosts";
 import { AUTHOR_MAX, BUILTIN_QUOTES, MOODS, cleanQuote, isQuoteId, type Mood } from "@/lib/quotes";
 import { uzbekize } from "@/lib/fontSamples";
@@ -43,6 +43,7 @@ export async function setWebhookAction() {
   });
   if (!r.ok) fail("webhook");
   await setBotCommands();
+  await setBotProfile();
   for (const a of (await getTgState()).admins) await setBotCommands(a.chatId);
   redirect(`${BACK}?ok=webhook`);
 }
