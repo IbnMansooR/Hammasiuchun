@@ -1,21 +1,31 @@
-import Link from "next/link";
+import Link from "@/components/LLink";
+import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { CardCover } from "@/components/Cover";
+import { getLocale } from "@/i18n/server";
+import { DICTS } from "@/i18n/dict";
 
-export const metadata = { title: "Blog" };
+// Articles are written in Uzbek: the Russian list is for visitors, not a second copy for search engines.
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
+  const t = DICTS[locale].blog;
+  return {
+    title: t.metaTitle,
+    description: t.metaDescription,
+    alternates: { canonical: "/blog" },
+    ...(locale === "ru" ? { robots: { index: false, follow: true } } : {}),
+  };
+}
 
-const TABS: { key: string; label: string }[] = [
-  { key: "", label: "Hammasi" },
-  { key: "blog", label: "Blog" },
-  { key: "news", label: "Yangiliklar" },
-  { key: "article", label: "Maqolalar" },
-];
-
-const TYPE_LABEL: Record<string, string> = { blog: "Blog", news: "Yangilik", article: "Maqola" };
+const TABS = ["", "article", "blog", "news"];
 
 export default async function BlogPage({ searchParams }: { searchParams: Promise<{ type?: string }> }) {
-  const { type = "" } = await searchParams;
+  const { type: rawType = "" } = await searchParams;
+  const locale = await getLocale();
+  const t = DICTS[locale].blog;
+  const typeLabel = DICTS[locale].home.postType;
+  const type = TABS.includes(rawType) ? rawType : "";
   const posts = await db.article.findMany({
     where: { isPublished: true, ...(type ? { type } : {}) },
     orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
@@ -25,31 +35,37 @@ export default async function BlogPage({ searchParams }: { searchParams: Promise
   });
 
   return (
-    <div className="container section" style={{ paddingTop: 30 }}>
-      <div className="eyebrow">Jurnal</div>
-      <h1 style={{ fontSize: "clamp(32px,5vw,64px)", marginBottom: 24 }}>Blog va yangiliklar</h1>
+    <div className="container">
+      <header className="page-head narrow">
+        <div className="eyebrow">{t.eyebrow}</div>
+        <h1>{t.title}</h1>
+        <p className="lead">{t.lead}</p>
+        {t.langNote && <p className="muted">{t.langNote}</p>}
+      </header>
 
-      <div className="toolbar">
-        {TABS.map((t) => (
-          <Link key={t.key} href={t.key ? `/blog?type=${t.key}` : "/blog"}
-            className={`chip${type === t.key ? " active" : ""}`}>
-            {t.label}
+      <nav className="chips" aria-label={t.tabsLabel} style={{ marginBottom: 28 }}>
+        {TABS.map((k) => (
+          <Link key={k} href={k ? `/blog?type=${k}` : "/blog"} className={`chip${type === k ? " active" : ""}`} aria-current={type === k ? "page" : undefined}>
+            {t.tabs[k]}
           </Link>
         ))}
-      </div>
+      </nav>
 
       {posts.length === 0 ? (
-        <p className="muted" style={{ padding: "40px 0" }}>Hozircha maqola yo&apos;q.</p>
+        <div className="empty">
+          <div className="display">{t.empty}</div>
+          <p>{t.emptyText}</p>
+        </div>
       ) : (
-        <div className="grid cols-3">
+        <div className="posts">
           {posts.map((p) => (
             <Link key={p.id} href={`/blog/${p.slug}`} className="post-card">
-              {p.coverImage ? <CardCover src={p.coverImage} alt={p.title} /> : <div className="post-cover" />}
+              {p.coverImage ? <CardCover src={p.coverImage} alt="" /> : <div className="post-cover typo" aria-hidden="true">{[...p.title][0]}</div>}
               <div className="post-body">
-                <span className="badge">{TYPE_LABEL[p.type] ?? "Blog"}</span>
-                <h3>{p.title}</h3>
-                <p className="muted" style={{ margin: 0 }}>{p.excerpt}</p>
-                <span className="fcard-tags">{formatDate(p.publishedAt)} · {p.author}</span>
+                <span className="label">{typeLabel[p.type] ?? typeLabel.blog}</span>
+                <h2 lang="uz">{p.title}</h2>
+                {p.excerpt && <p lang="uz">{p.excerpt}</p>}
+                <span className="post-date">{formatDate(p.publishedAt, locale)} · {p.author}</span>
               </div>
             </Link>
           ))}

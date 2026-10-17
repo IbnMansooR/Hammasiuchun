@@ -1,10 +1,12 @@
 import { db } from "./db";
+import { PUBLIC_FAMILY } from "./license";
 import { CATEGORY_LABEL } from "./fonts";
 
 export type PairSide = { slug: string; name: string; style: string; weight: number; italic: boolean };
 export type Pairing = {
   id: string;
   label: string;
+  cats: [string, string]; // heading and body categories (for labels in other languages)
   heading: PairSide;
   body: PairSide;
   sampleHeading: string;
@@ -65,7 +67,7 @@ export async function getPairings(): Promise<Pairing[]> {
   let pool: Fam[] = [];
   try {
     pool = await db.family.findMany({
-      where: { isPublished: true, hasLatin: true, styleCount: { gte: 2 } },
+      where: { ...PUBLIC_FAMILY, hasLatin: true, styleCount: { gte: 2 } },
       select: { slug: true, name: true, category: true, styles: { select: { style: true, weight: true, italic: true } } },
       orderBy: [{ popularity: "desc" }, { name: "asc" }],
       take: 500,
@@ -103,6 +105,7 @@ export async function getPairings(): Promise<Pairing[]> {
     pairings.push({
       id: `${hf.slug}__${bf.slug}`,
       label: `${CATEGORY_LABEL[hCat] ?? hCat} + ${CATEGORY_LABEL[bCat] ?? bCat}`,
+      cats: [hCat, bCat],
       heading: { slug: hf.slug, name: hf.name, style: h.style, weight: h.weight, italic: h.italic },
       body: { slug: bf.slug, name: bf.name, style: b.style, weight: b.weight, italic: b.italic },
       sampleHeading: s.h,

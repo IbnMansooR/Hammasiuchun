@@ -1,50 +1,69 @@
-import Link from "next/link";
+import Link from "@/components/LLink";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/userAuth";
 import { userLoginAction } from "../account/actions";
 import { googleEnabled } from "@/lib/googleAuth";
 import { smsEnabled } from "@/lib/eskiz";
+import { telegramLoginBot } from "@/lib/telegramAuth";
+import { mailEnabled } from "@/lib/mailer";
 import SubmitButton from "@/components/SubmitButton";
 import AuthTabs from "@/components/AuthTabs";
+import { formatDateTime } from "@/lib/format";
+import { getLocale, lhref } from "@/i18n/server";
+import { DICTS } from "@/i18n/dict";
 
-export const metadata = { title: "Kirish" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: DICTS[await getLocale()].auth.loginTitle, robots: { index: false } };
+}
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  if (await getCurrentUser()) redirect("/account");
-  const { error } = await searchParams;
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; until?: string; for?: string }> }) {
+  if (await getCurrentUser()) redirect(await lhref("/account"));
+  const { error, until, for: why } = await searchParams;
+  const locale = await getLocale();
+  const t = DICTS[locale].auth;
+  // Only the date is taken from the URL (never free text), so the message can't be spoofed.
+  const untilAt = until ? new Date(until) : null;
+  const untilText = untilAt && untilAt > new Date() ? formatDateTime(untilAt, locale) : "";
 
   const emailForm = (
     <form action={userLoginAction}>
       <div className="field">
-        <label>Email</label>
-        <input type="email" name="email" required />
+        <label htmlFor="login-email">{t.email}</label>
+        <input id="login-email" type="email" name="email" autoComplete="email" required />
       </div>
       <div className="field">
-        <label>Parol</label>
-        <input type="password" name="password" required />
+        <label htmlFor="login-password">{t.password}</label>
+        <input id="login-password" type="password" name="password" autoComplete="current-password" required />
       </div>
-      <SubmitButton style={{ width: "100%", justifyContent: "center", marginTop: 6 }}>Kirish</SubmitButton>
+      <SubmitButton pendingLabel={t.loggingIn} className="btn btn-primary btn-lg btn-block" style={{ marginTop: 8 }}>{t.login}</SubmitButton>
     </form>
   );
 
   return (
-    <div className="container section" style={{ paddingTop: 40, display: "grid", placeItems: "center" }}>
-      <div style={{ background: "var(--surface, #fff)", border: "1px solid var(--line)", borderRadius: 18, padding: 34, width: "100%", maxWidth: 400 }}>
-        <div style={{ fontWeight: 800, fontSize: 24, marginBottom: 4 }}>Kirish</div>
-        <p className="muted" style={{ fontSize: 14, marginBottom: 22 }}>Hisobingizga kiring.</p>
-        {error === "1" && (
-          <div style={{ background: "#fdecec", color: "#b91c1c", padding: "10px 12px", borderRadius: 10, fontSize: 13.5, marginBottom: 16 }}>
-            Email yoki parol noto&apos;g&apos;ri.
+    <div className="container auth">
+      <div className="auth-card">
+        <h1>{t.loginTitle}</h1>
+        <p className="sub">{t.loginSub}</p>
+        {why === "wish" && !error && <div className="alert alert-info" role="status">{DICTS[locale].wishlist.needLogin}</div>}
+        {error === "1" && <div className="alert alert-error" role="alert">{t.errWrong}</div>}
+        {error === "locked" && <div className="alert alert-error" role="alert">{t.errLocked}</div>}
+        {error === "blocked" && (
+          <div className="alert alert-error" role="alert">
+            {untilText ? <>{t.blockedUntilA}<b>{untilText}</b>{t.blockedUntilB}</> : <>{t.blocked}</>}{" "}
+            {t.blockedHelpA}<Link href="/support" className="link">{t.blockedHelpLink}</Link>{t.blockedHelpB}
           </div>
         )}
-        {error === "google" && (
-          <div style={{ background: "#fdecec", color: "#b91c1c", padding: "10px 12px", borderRadius: 10, fontSize: 13.5, marginBottom: 16 }}>
-            Google orqali kirishda xatolik yuz berdi. Qaytadan urinib ko&apos;ring.
-          </div>
+        {error === "telegram" && <div className="alert alert-error" role="alert">{t.errTelegram}</div>}
+        {error === "google" && <div className="alert alert-error" role="alert">{t.errGoogle}</div>}
+        <AuthTabs emailForm={emailForm} googleEnabled={googleEnabled} smsEnabled={smsEnabled} telegramBot={await telegramLoginBot()} />
+        {mailEnabled && (
+          <p className="auth-foot" style={{ marginTop: 14 }}>
+            <Link href="/forgot">{t.forgot}</Link>
+          </p>
         )}
-        <AuthTabs emailForm={emailForm} googleEnabled={googleEnabled} smsEnabled={smsEnabled} />
-        <p className="muted" style={{ fontSize: 13.5, marginTop: 18, textAlign: "center" }}>
-          Hisobingiz yo&apos;qmi? <Link href="/register">Ro&apos;yxatdan o&apos;tish</Link>
+        <p className="auth-foot">
+          {t.noAccount} <Link href="/register">{t.register}</Link>
         </p>
       </div>
     </div>

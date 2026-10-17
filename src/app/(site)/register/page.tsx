@@ -1,53 +1,76 @@
-import Link from "next/link";
+import Link from "@/components/LLink";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/userAuth";
 import { registerAction } from "../account/actions";
 import SubmitButton from "@/components/SubmitButton";
+import { googleEnabled } from "@/lib/googleAuth";
+import { smsEnabled } from "@/lib/eskiz";
+import { telegramLoginBot } from "@/lib/telegramAuth";
+import TelegramLogin from "@/components/TelegramLogin";
+import { IconBell, IconHeart, IconImage } from "@/components/Icons";
+import { alternates, getLocale, lhref } from "@/i18n/server";
+import { DICTS } from "@/i18n/dict";
 
-export const metadata = { title: "Ro'yxatdan o'tish" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: DICTS[await getLocale()].auth.registerTitle, alternates: await alternates("/register") };
+}
 
-const ERRORS: Record<string, string> = {
-  email: "Email manzilini to'g'ri kiriting.",
-  password: "Parol kamida 8 belgidan iborat bo'lishi kerak.",
-  exists: "Bu email bilan hisob allaqachon mavjud. Kirish sahifasidan foydalaning.",
-};
+const PERK_ICONS = [IconHeart, IconBell, IconImage];
 
 export default async function RegisterPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  if (await getCurrentUser()) redirect("/account");
+  if (await getCurrentUser()) redirect(await lhref("/account"));
   const { error } = await searchParams;
+  const locale = await getLocale();
+  const t = DICTS[locale].auth;
+  const bot = await telegramLoginBot();
 
   return (
-    <div className="container section" style={{ paddingTop: 40, display: "grid", placeItems: "center" }}>
-      <div style={{ background: "var(--surface, #fff)", border: "1px solid var(--line)", borderRadius: 18, padding: 34, width: "100%", maxWidth: 400 }}>
-        <div style={{ fontWeight: 800, fontSize: 24, marginBottom: 4 }}>Ro'yxatdan o'tish</div>
-        <p className="muted" style={{ fontSize: 14, marginBottom: 22 }}>
-          Hisob oching — sotib olgan shriftlaringiz doim &quot;Mening xaridlarim&quot;da qoladi, kompyuteringizdan
-          o&apos;chib ketsa ham qayta yuklab olasiz.
-        </p>
+    <div className="container auth">
+      <div className="auth-card">
+        <h1>{t.registerTitle}</h1>
+        <p className="sub">{t.registerSub}</p>
+        <ul className="perks">
+          {t.perks.map((p, i) => {
+            const Icon = PERK_ICONS[i];
+            return <li key={p}><Icon aria-hidden="true" /><span>{p}</span></li>;
+          })}
+        </ul>
         {error && (
-          <div style={{ background: "#fdecec", color: "#b91c1c", padding: "10px 12px", borderRadius: 10, fontSize: 13.5, marginBottom: 16 }}>
-            {ERRORS[error] ?? "Xatolik yuz berdi."}
+          <div className="alert alert-error" role="alert">
+            {t.regErrors[error] ?? t.errOther}
           </div>
+        )}
+        {(googleEnabled || bot) && (
+          <>
+            <div className="oneclick">
+              {googleEnabled && <a href={locale === "ru" ? "/api/auth/google?lang=ru" : "/api/auth/google"} className="btn btn-lg btn-block">{t.google}</a>}
+              {bot && <TelegramLogin bot={bot} />}
+            </div>
+            <div className="divider">{t.orEmail}</div>
+          </>
         )}
         <form action={registerAction}>
           <div className="field">
-            <label>Ism (ixtiyoriy)</label>
-            <input type="text" name="name" />
+            <label htmlFor="reg-email">{t.email}</label>
+            <input id="reg-email" type="email" name="email" autoComplete="email" required />
           </div>
           <div className="field">
-            <label>Email</label>
-            <input type="email" name="email" required />
+            <label htmlFor="reg-password">{t.password}</label>
+            <input id="reg-password" type="password" name="password" autoComplete="new-password" required minLength={8} />
           </div>
-          <div className="field">
-            <label>Parol</label>
-            <input type="password" name="password" required minLength={8} />
-          </div>
-          <SubmitButton style={{ width: "100%", justifyContent: "center", marginTop: 6 }}>Ro&apos;yxatdan o&apos;tish</SubmitButton>
+          <SubmitButton pendingLabel={t.sending} className="btn btn-primary btn-lg btn-block" style={{ marginTop: 8 }}>{t.register}</SubmitButton>
         </form>
-        <p className="muted" style={{ fontSize: 13.5, marginTop: 18, textAlign: "center" }}>
-          Hisobingiz bormi? <Link href="/login">Kirish</Link><br />
-          Google yoki telefon raqami orqali ham <Link href="/login">shu yerdan</Link> kirishingiz mumkin.
+        <p className="auth-foot">
+          {t.haveAccount} <Link href="/login">{t.login}</Link>
+          {smsEnabled && (
+            <>
+              <br />
+              {t.phoneTooA}<Link href="/login">{t.phoneTooLink}</Link>{t.phoneTooB}
+            </>
+          )}
         </p>
+        <p className="auth-fine">{t.freeAnyway}</p>
       </div>
     </div>
   );

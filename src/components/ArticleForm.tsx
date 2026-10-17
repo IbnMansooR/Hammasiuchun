@@ -18,7 +18,7 @@ export default function ArticleForm({ article }: { article?: Article }) {
           <input type="text" name="title" defaultValue={a?.title ?? ""} required />
         </div>
         <div className="field">
-          <label>Slug (URL) — bo&apos;sh qoldirsangiz avtomatik</label>
+          <label>Slug (URL) — boʻsh qoldirsangiz avtomatik</label>
           <input type="text" name="slug" defaultValue={a?.slug ?? ""} placeholder="masalan: yangi-shriftlar" />
         </div>
       </div>
@@ -41,11 +41,11 @@ export default function ArticleForm({ article }: { article?: Article }) {
         <input type="text" name="excerpt" defaultValue={a?.excerpt ?? ""} />
       </div>
       <div className="field">
-        <label>Muqova rasmi URL (Rasmlar bo&apos;limidan nusxalang)</label>
+        <label>Muqova rasmi URL (Rasmlar boʻlimidan nusxalang)</label>
         <input type="text" name="coverImage" defaultValue={a?.coverImage ?? ""} placeholder="/uploads/..." />
       </div>
       <div className="field">
-        <label>Matn (Markdown: ## sarlavha, **qalin**, - ro&apos;yxat)</label>
+        <label>Matn (Markdown: ## sarlavha, **qalin**, - roʻyxat)</label>
         <textarea name="body" rows={16} defaultValue={a?.body ?? ""} style={{ minHeight: 320, fontFamily: "ui-monospace, monospace", fontSize: 13.5 }} />
       </div>
       <div className="field">
@@ -53,7 +53,7 @@ export default function ArticleForm({ article }: { article?: Article }) {
         <input type="text" name="tags" defaultValue={a?.tags ?? ""} placeholder="dizayn, yangilik" />
       </div>
       <label className="check" style={{ margin: "8px 0 20px" }}>
-        <input type="checkbox" name="isPublished" defaultChecked={a?.isPublished ?? false} /> Chop etish (saytda ko&apos;rsatish)
+        <input type="checkbox" name="isPublished" defaultChecked={a?.isPublished ?? false} /> Chop etish (saytda koʻrsatish)
       </label>
       <div style={{ display: "flex", gap: 10 }}>
         <SubmitButton>Saqlash</SubmitButton>

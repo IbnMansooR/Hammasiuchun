@@ -4,42 +4,43 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")  // Supabase pooler (pgbouncer) connection
-  directUrl = env("DIRECT_URL")    // direct connection for migrations
+  url       = env("DATABASE_URL") // Supabase pooler (pgbouncer) connection
+  directUrl = env("DIRECT_URL") // direct connection for migrations
 }
 
 model Family {
-  id           Int      @id @default(autoincrement())
-  slug         String   @unique
+  id           Int     @id @default(autoincrement())
+  slug         String  @unique
   name         String
   folder       String
-  category     String   @default("Display")
+  category     String  @default("Display")
   designer     String?
   manufacturer String?
   designerUrl  String?
   copyright    String?
   license      String?
   licenseUrl   String?
-  licenseClass String   @default("Unknown")
+  licenseClass String  @default("Unknown")
   version      String?
-  glyphs       Int      @default(0)
-  hasLatin     Boolean  @default(true)
-  hasCyrillic  Boolean  @default(false)
-  hasItalic    Boolean  @default(false)
-  styleCount   Int      @default(0)
+  glyphs       Int     @default(0)
+  hasLatin     Boolean @default(true)
+  hasCyrillic  Boolean @default(false)
+  hasItalic    Boolean @default(false)
+  styleCount   Int     @default(0)
 
   // editorial / commerce (admin-editable)
   tagline     String?
   description String? // long editorial "CTA" text
   history     String?
   usage       String?
-  priceCents  Int      @default(100)
-  isFree      Boolean  @default(false)
-  tier        String   @default("demo") // free | demo | paid
-  isPublished Boolean  @default(true)
-  isFeatured  Boolean  @default(false)
-  isNew       Boolean  @default(false)
-  popularity  Int      @default(0)
+  priceCents  Int     @default(100)
+  isFree      Boolean @default(false)
+  tier        String  @default("demo") // free | demo | paid
+  isPublished Boolean @default(true)
+  isFeatured  Boolean @default(false)
+  isNew       Boolean @default(false)
+  popularity  Int     @default(0)
+  downloads   Int     @default(0) // ZIP + single-cut downloads, counted by the download routes
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -80,6 +81,10 @@ model Article {
   coverImage  String?
   author      String    @default("Feekr")
   tags        String    @default("")
+  // News from another site (lib/contentScout): its name and the original article. Only a short
+  // excerpt is kept here; the page sends the reader on to the source.
+  sourceName  String?
+  sourceUrl   String?
   isPublished Boolean   @default(false)
   publishedAt DateTime?
   createdAt   DateTime  @default(now())
@@ -90,15 +95,18 @@ model Article {
 }
 
 model Media {
-  id        Int      @id @default(autoincrement())
-  filename  String
-  url       String
-  mime      String?
-  width     Int?
-  height    Int?
-  size      Int      @default(0)
-  alt       String?
-  createdAt DateTime @default(now())
+  id         Int      @id @default(autoincrement())
+  filename   String
+  url        String
+  mime       String?
+  width      Int?
+  height     Int?
+  size       Int      @default(0)
+  alt        String?
+  uploadedBy Int? // set for images uploaded by a signed-in member (not the admin)
+  createdAt  DateTime @default(now())
+
+  @@index([uploadedBy])
 }
 
 model Admin {
@@ -166,15 +174,83 @@ model ClickTransaction {
 // are all optional login paths onto the same account — at least one of
 // email/phone/googleId is expected to be set.
 model User {
-  id           Int        @id @default(autoincrement())
-  email        String?    @unique
-  phone        String?    @unique
-  passwordHash String?
-  googleId     String?    @unique
-  name         String?
-  createdAt    DateTime   @default(now())
-  orders       Order[]
-  purchases    Purchase[]
+  id               Int            @id @default(autoincrement())
+  email            String?        @unique
+  phone            String?        @unique
+  passwordHash     String?
+  googleId         String?        @unique
+  name             String?
+  createdAt        DateTime       @default(now())
+  lastLoginAt      DateTime?
+  // Restriction set by an admin: blockedAt + no blockedUntil = blocked until
+  // lifted; blockedAt + blockedUntil = suspended until that moment.
+  blockedAt        DateTime?
+  blockedUntil     DateTime?
+  blockReason      String?
+  // In-site bell messages about new fonts (broadcasts). Personal messages from the admin are always delivered.
+  notifyNews       Boolean        @default(true)
+  telegramId       String?        @unique
+  telegramUsername String?
+  // Copies of personal messages and news in Telegram. Off until the person turns it on (or presses Start in the bot).
+  tgNotify         Boolean        @default(false)
+  // One-time code behind the "connect Telegram" deep link (t.me/<bot>?start=l_<code>); expires after 15 minutes.
+  tgLinkCode       String?        @unique
+  tgLinkExp        DateTime?
+  orders           Order[]
+  purchases        Purchase[]
+  notifications    Notification[]
+  wishes           Wish[]
+
+  @@index([createdAt])
+}
+
+/// A message from the admin to one user. A broadcast writes one row per
+/// recipient, all sharing the same `batch` so the admin can see it as one send.
+model Notification {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  batch     String
+  title     String
+  body      String    @default("")
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@index([batch])
+}
+
+/// Portfolio entry: the owner's own work, or a partner designer's work the site promotes.
+model Work {
+  id            Int       @id @default(autoincrement())
+  slug          String    @unique
+  title         String
+  summary       String?
+  body          String    @default("") // markdown case study
+  kind          String    @default("own") // own | partner | member
+  authorName    String? // partner / member designer's name
+  authorUrl     String? // partner's portfolio (Behance, Dribbble, site…)
+  client        String?
+  year          Int?
+  tags          String    @default("") // comma separated
+  coverImage    String?
+  images        String    @default("") // gallery: one URL per line
+  fonts         String    @default("") // comma-separated Feekr font slugs used in the work
+  isPublished   Boolean   @default(false)
+  isFeatured    Boolean   @default(false)
+  sortOrder     Int       @default(0)
+  publishedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  // Member submissions wait for the admin: pending → approved (published) | rejected.
+  // Invariant: isPublished is true only when status is "approved".
+  status        String    @default("approved")
+  submittedById Int?
+  rejectReason  String?
+
+  @@index([isPublished, sortOrder])
+  @@index([status, createdAt])
 }
 
 // A confirmed entitlement: this user owns the full (non-demo) license for
@@ -215,4 +291,205 @@ model LoginAttempt {
   count       Int       @default(0)
   lockedUntil DateTime?
   updatedAt   DateTime  @updatedAt
+}
+
+// First-party, cookie-less analytics. One row per page view or event.
+// `visitor` is a daily-rotating hash (see src/lib/analytics.ts): it never links
+// one person across days and the raw IP is never stored.
+model Hit {
+  id      Int      @id @default(autoincrement())
+  at      DateTime @default(now())
+  name    String // view | leave | download | wish | signup | prompt_* | ad_*
+  path    String
+  visitor String
+  source  String   @default("direct") // instagram | telegram | google | referral | direct | utm value …
+  device  String   @default("desktop") // mobile | tablet | desktop
+  country String?
+  ms      Int? // engaged time on the page, for "leave"
+  ref     String? // referrer host
+  meta    String? // font slug, prompt id, ad id, sign-up method …
+
+  @@index([at])
+  @@index([name, at])
+  @@index([path, at])
+}
+
+// A signed-in user's saved ("♡") families. Signed-out visitors keep theirs in
+// the browser; signing in merges the two.
+model Wish {
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slug      String
+  createdAt DateTime @default(now())
+
+  @@id([userId, slug])
+  @@index([userId, createdAt])
+}
+
+// A labelled ("Reklama") banner. Views and clicks are counted in Hit (ad_view / ad_click, meta = id).
+model Ad {
+  id         Int       @id @default(autoincrement())
+  title      String // internal name and the image's alt text
+  advertiser String?
+  image      String // uploaded banner, ~4:1 (e.g. 1200×300)
+  href       String // https landing page
+  placement  String // home | dizaynerlar
+  startsAt   DateTime?
+  endsAt     DateTime?
+  isActive   Boolean   @default(true)
+  sortOrder  Int       @default(0)
+  // Secret part of the advertiser's report link (/reklama/hisobot/<token>).
+  reportToken String?  @unique
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([placement, isActive])
+}
+
+// An advertising enquiry, from the /reklama form or the bot's /reklama conversation.
+model AdRequest {
+  id         Int      @id @default(autoincrement())
+  createdAt  DateTime @default(now())
+  source     String // site | bot
+  name       String
+  contact    String // phone, @username or e-mail, as given
+  what       String // what they want to advertise
+  placements String // comma list: channel,site,both,unsure
+  timing     String? // when / how long / budget, free text
+  link       String?
+  tgChatId   String? // the applicant's chat with the bot
+  tgUsername String?
+  status     String   @default("new") // new | contacted | accepted | rejected | done
+  note       String? // the admin's own note
+  msgs       String? // JSON: the admins' Telegram copies [{chatId, messageId}], to update their buttons
+
+  @@index([status, createdAt])
+}
+
+// A paid post in the Telegram channel: sent at postAt, marked #reklama, removed after deleteAfterH.
+model ChannelAd {
+  id           Int       @id @default(autoincrement())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  advertiser   String?
+  requestId    Int?
+  text         String
+  image        String?
+  buttonText   String?
+  href         String? // https; the button goes through /r/<id> so clicks are counted
+  postAt       DateTime
+  deleteAfterH Int?
+  status       String    @default("scheduled") // scheduled | posting | posted | deleted | failed | canceled
+  chatId       String?
+  messageId    Int?
+  postedAt     DateTime?
+  deletedAt    DateTime?
+  error        String?
+  reportToken  String    @unique
+
+  @@index([status, postAt])
+}
+
+/// A post the bot published to the Telegram channel (one row per send).
+model TgPost {
+  id        Int      @id @default(autoincrement())
+  kind      String // font | work
+  ref       String // font slug or work id
+  chatId    String
+  messageId Int
+  caption   String
+  postedAt  DateTime @default(now())
+
+  @@index([kind, ref])
+  @@index([postedAt])
+}
+
+// A designer or type designer with a public profile (Dizaynerlar → Dizaynerlar). The facts come
+// from Wikidata (CC0); the portrait from Wikimedia Commons, stored with its author and licence.
+model Designer {
+  id           Int       @id @default(autoincrement())
+  slug         String    @unique
+  name         String
+  wikidataId   String    @unique
+  summary      String    @default("") // Uzbek text built from the facts; the admin may edit it
+  born         Int?
+  died         Int?
+  country      String?
+  roles        String    @default("") // comma-separated, Uzbek
+  knownFor     String    @default("[]") // JSON: [{ label }]
+  wikiUrl      String? // the best Wikipedia page (uz, then ru, then en)
+  website      String?
+  image        String? // the portrait, saved on our storage
+  imageCredit  String? // "Author, CC BY-SA 4.0"
+  imageSource  String? // the Commons file page
+  isPublished  Boolean   @default(true)
+  publishedAt  DateTime? @default(now())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([isPublished, publishedAt])
+}
+
+// Everyone who has used the Telegram bot (private chats and inline mode). Only the chat id and
+// counts are kept: no name, no username, no text.
+model BotUser {
+  chatId    String    @id
+  firstAt   DateTime  @default(now())
+  lastAt    DateTime  @default(now())
+  msgs      Int       @default(1)
+  source    String? // where they came from: the ?start= label (reklama, site, channel …)
+  blockedAt DateTime? // the person blocked the bot
+  menuShown Boolean   @default(false) // the button menu under the input field was sent
+
+  @@index([firstAt])
+  @@index([lastAt])
+}
+
+// One row per thing done with the bot (start, sample, help, letters, ads, inline …): counts only.
+model BotEvent {
+  id   Int      @id @default(autoincrement())
+  at   DateTime @default(now())
+  kind String
+
+  @@index([at])
+  @@index([kind, at])
+}
+
+// A picture someone sent to find a font, waiting for the text that is on it.
+model BotFind {
+  chatId String   @id
+  fileId String
+  at     DateTime @default(now())
+}
+
+// The bot's daily quiz ("Bu qaysi shrift?"): one question a day for everyone, kept so the answer
+// can't change if the catalogue does.
+model BotQuizDay {
+  day     String @id // Tashkent date
+  slug    String // the font shown
+  word    String // the text set in it
+  options String // JSON: [{slug,name}] in the order shown
+  correct Int
+  palette Int
+}
+
+// One row per player: streak and points. The first name is kept for the weekly ranking (hidden on request).
+model BotQuiz {
+  chatId      String   @id
+  name        String?
+  hidden      Boolean  @default(false)
+  remind      Boolean  @default(true)
+  streak      Int      @default(0)
+  best        Int      @default(0)
+  score       Int      @default(0) // all time
+  wScore      Int      @default(0) // this week
+  wKey        String? // Monday of the week wScore belongs to
+  played      Int      @default(0)
+  correct     Int      @default(0)
+  lastDay     String?
+  remindedDay String?
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@index([wKey, wScore])
+  @@index([lastDay])
 }

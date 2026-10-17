@@ -26,7 +26,7 @@ export function googleAuthUrl(state: string): string {
   return `${AUTH_URL}?${params.toString()}`;
 }
 
-export type GoogleProfile = { googleId: string; email: string | null; name: string | null };
+export type GoogleProfile = { googleId: string; email: string | null; emailVerified: boolean; name: string | null };
 
 /** Exchange an authorization code for an ID token and verify it against Google's JWKS. */
 export async function exchangeGoogleCode(code: string): Promise<GoogleProfile | null> {
@@ -54,6 +54,7 @@ export async function exchangeGoogleCode(code: string): Promise<GoogleProfile | 
     return {
       googleId: String(payload.sub),
       email: typeof payload.email === "string" ? payload.email : null,
+      emailVerified: payload.email_verified === true,
       name: typeof payload.name === "string" ? payload.name : null,
     };
   } catch {

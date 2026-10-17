@@ -1,163 +1,301 @@
-import Link from "next/link";
+import Link from "@/components/LLink";
+import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
+import { PUBLIC_FAMILY } from "@/lib/license";
+import { CATALOG_TAG, DOWNLOADS_SHOWN_FROM } from "@/lib/stats";
+import { getPairings } from "@/lib/pairs";
 import { CardCover } from "@/components/Cover";
-import { fetchCards, cardsFaceCSS, type CardFont } from "@/lib/queries";
-import { cssFamily, PANGRAM, CATEGORIES, CATEGORY_LABEL } from "@/lib/fonts";
+import { fetchCards, cardsFaceCSS, cardFontStyle, type CardFont } from "@/lib/queries";
+import { CATEGORIES, categoryLabel, styleFamily, webfontUrl } from "@/lib/fonts";
 import { formatDate, formatNumber } from "@/lib/format";
 import FontCard from "@/components/FontCard";
+import WorkCard from "@/components/WorkCard";
+import AdSlot from "@/components/AdSlot";
+import { getPublishedWorks } from "@/lib/works";
+import Facts from "@/components/Facts";
+import { PreviewText } from "@/components/PreviewProvider";
+import HeroRotator from "@/components/home/HeroRotator";
+import HeroTypebar from "@/components/home/HeroTypebar";
+import { IconArrow, IconArrowUR } from "@/components/Icons";
+import JsonLd from "@/components/JsonLd";
+import { siteJsonLd } from "@/lib/seo";
+import { getSiteSettingsCached } from "@/lib/settings";
+import { getTgState } from "@/lib/tgState";
+import { alternates, getLocale } from "@/i18n/server";
+import { DICTS } from "@/i18n/dict";
+import type { Metadata } from "next";
 
-// Re-render on every request so the showcase suggests different fonts each time.
+// Rendered per request (featured fonts are picked at random), but the data
+// behind it is cached for 5 minutes: the DB sits in another region.
 export const dynamic = "force-dynamic";
+export async function generateMetadata(): Promise<Metadata> {
+  return { alternates: await alternates("/") };
+}
+
+const getHomeData = unstable_cache(
+  async () => {
+    const [newest, posts, families, styles, cyrillic, showcasePool, catCounts, catReps, pairings, dl, cyrReps, everyone] = await Promise.all([
+      fetchCards({ where: PUBLIC_FAMILY, orderBy: [{ isNew: "desc" }, { popularity: "desc" }, { name: "asc" }], take: 6 }),
+      db.article.findMany({
+        where: { isPublished: true }, orderBy: { publishedAt: "desc" }, take: 3,
+        select: { id: true, slug: true, type: true, title: true, excerpt: true, coverImage: true, publishedAt: true },
+      }),
+      db.family.count({ where: PUBLIC_FAMILY }),
+      db.style.count({ where: { family: PUBLIC_FAMILY } }),
+      db.family.count({ where: { ...PUBLIC_FAMILY, hasCyrillic: true } }),
+      fetchCards({ where: { ...PUBLIC_FAMILY, hasLatin: true, styleCount: { gte: 3 } }, orderBy: [{ popularity: "desc" }, { name: "asc" }], take: 40 }),
+      db.family.groupBy({ by: ["category"], where: PUBLIC_FAMILY, _count: true }),
+      Promise.all(CATEGORIES.map((c) => fetchCards({ where: { ...PUBLIC_FAMILY, category: c }, orderBy: [{ popularity: "desc" }, { name: "asc" }], take: 1 }))),
+      getPairings(),
+      db.family.aggregate({ _sum: { downloads: true } }),
+      // The Russian headline word is Cyrillic: rotate it through families that can draw it.
+      Promise.all(CATEGORIES.map((c) => fetchCards({ where: { ...PUBLIC_FAMILY, category: c, hasCyrillic: true }, orderBy: [{ popularity: "desc" }, { name: "asc" }], take: 1 }))),
+      // Every public family, for the rotating headline word.
+      fetchCards({ where: { ...PUBLIC_FAMILY, category: { not: "Dingbat" } }, orderBy: { name: "asc" }, take: 1000 }),
+    ]);
+    return {
+      newest, posts, families, styles, cyrillic, showcasePool, catCounts, catReps: catReps.map((r) => r[0] ?? null),
+      cyrReps: cyrReps.map((r) => r[0] ?? null), everyone: everyone.filter((c) => c.previewStyleName), pairings: pairings.slice(0, 2), downloads: dl._sum.downloads ?? 0,
+    };
+  },
+  ["home-data-v5"],
+  { revalidate: 300, tags: [CATALOG_TAG] },
+);
+
+function pick<T>(arr: T[], n: number): T[] {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a.slice(0, n);
+}
 
 export default async function HomePage() {
-  const [newest, posts, total, rnd] = await Promise.all([
-    fetchCards({
-      where: { isPublished: true },
-      orderBy: [{ isNew: "desc" }, { popularity: "desc" }, { name: "asc" }],
-      take: 8,
-    }),
-    db.article.findMany({ where: { isPublished: true }, orderBy: { publishedAt: "desc" }, take: 3 }),
-    db.family.count({ where: { isPublished: true } }),
-    // 2 random, decent-sized families for the showcase banners
-    db.$queryRaw<{ slug: string }[]>`
-      SELECT "slug" FROM "Family"
-      WHERE "isPublished" = true AND "hasLatin" = true AND "styleCount" >= 5
-      ORDER BY RANDOM() LIMIT 2`,
+  const [{ newest, posts, families, styles, cyrillic, showcasePool, catCounts, catReps, everyone, pairings, downloads }, allWorks, settings, tgState, locale] = await Promise.all([
+    getHomeData(),
+    getPublishedWorks(),
+    getSiteSettingsCached().catch(() => null),
+    getTgState(),
+    getLocale(),
   ]);
+  const t = DICTS[locale].home;
+  const sameAs = [
+    ...(settings?.socials ?? []).filter((s) => s.enabled && /^https:\/\//.test(s.url)).map((s) => s.url),
+    ...(tgState.channel?.username ? [`https://t.me/${tgState.channel.username}`] : []),
+  ];
+  const works = allWorks.slice(0, 3);
 
-  const rndSlugs = rnd.map((r) => r.slug);
-  const showcase = rndSlugs.length ? await fetchCards({ where: { slug: { in: rndSlugs } } }) : [];
-  const bySlug = new Map(showcase.map((c) => [c.slug, c]));
-  const hero = bySlug.get(rndSlugs[0]) ?? showcase[0] ?? newest[0];
-  const dark = bySlug.get(rndSlugs[1]) ?? showcase[1] ?? newest[1] ?? hero;
-
-  const faceMap = new Map<string, CardFont>();
-  [hero, dark, ...newest].filter(Boolean).forEach((c) => faceMap.set(c.slug, c));
-  const faceCSS = cardsFaceCSS([...faceMap.values()]);
-
-  const catCounts = await db.family.groupBy({
-    by: ["category"],
-    where: { isPublished: true },
-    _count: true,
-  });
+  // The rotating headline word goes through every public family that can write it, in a new
+  // random order on each visit. Only the first is declared here; the rest load as their turn comes.
+  const rotator = pick(everyone.filter((c) => (locale === "ru" ? c.hasCyrillic : c.hasLatin)), everyone.length);
+  const rotSlugs = new Set(rotator.slice(0, 1).map((r) => r.slug));
+  const featuredPool = showcasePool.filter((c) => !rotSlugs.has(c.slug));
+  const featured = pick(featuredPool.length >= 4 ? featuredPool : showcasePool, 4);
   const countOf = (c: string) => catCounts.find((x) => x.category === c)?._count ?? 0;
+  const tiles = CATEGORIES.map((c, i) => ({ cat: c, rep: catReps[i], n: countOf(c) })).filter((t) => t.n > 0 && t.rep);
+
+  const cards = [...rotator.slice(0, 1), ...featured, ...newest, ...tiles.map((t) => t.rep!)];
+  const pairCuts = pairings.flatMap((p) => [p.heading, p.body]);
+  const faceCSS =
+    cardsFaceCSS(cards) +
+    pairCuts.map((c) => `@font-face{font-family:"${styleFamily(c.slug, c.style)}";src:url("${webfontUrl(c.slug, c.style)}") format("woff2");font-weight:${c.weight};font-style:${c.italic ? "italic" : "normal"};font-display:swap;}`).join("");
 
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: faceCSS }} />
+      <JsonLd data={siteJsonLd(sameAs)} />
 
       {/* Hero */}
-      <section className="container" style={{ paddingTop: 28 }}>
-        <div className="eyebrow">Mustaqil shrift ombori</div>
-        <h1 style={{ fontSize: "clamp(38px, 6vw, 76px)", maxWidth: 1000, letterSpacing: "-.03em" }}>
-          Brendingizga ovoz beradigan shriftlar.
-        </h1>
-        <p className="muted" style={{ fontSize: 19, maxWidth: 620, marginTop: 18 }}>
-          {formatNumber(total)}+ shrift oilasi. Har birini bepul sinab ko&apos;ring,
-          keyin loyihangiz uchun litsenziya oling.
-        </p>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 26 }}>
-          <Link href="/fonts" className="btn btn-accent">Barcha shriftlar</Link>
-          <Link href="/fonts?filter=free" className="btn">Bepul shriftlar</Link>
+      <section className="container hero">
+        <div className="hero-grid">
+          <div>
+            <div className="eyebrow">{t.eyebrow}</div>
+            <HeroRotator
+              lead={t.lead}
+              word={t.word}
+              fonts={rotator.map((r) => ({ slug: r.slug, name: r.name, style: r.previewStyleName, weight: r.previewWeight, italic: r.previewItalic }))}
+            />
+          </div>
+          <div className="hero-side">
+            <p className="lead">{t.intro}</p>
+            <div className="hero-cta">
+              <Link href="/fonts" className="btn btn-accent btn-lg">{t.seeFonts} <IconArrow className="ico" /></Link>
+              <Link href="/pairs" className="btn btn-lg">{t.pairs}</Link>
+            </div>
+          </div>
         </div>
+        <div className="typebar-wrap"><HeroTypebar /></div>
+        <Facts items={[
+          [formatNumber(families), t.factFamilies(families)],
+          [formatNumber(styles), t.factStyles(styles)],
+          [formatNumber(cyrillic), t.factCyr(cyrillic)],
+          ...(downloads >= DOWNLOADS_SHOWN_FROM ? [[formatNumber(downloads), t.factDownloads(downloads)] as [string, string]] : []),
+        ]} />
       </section>
 
-      {/* Featured light showcase */}
-      {hero && (
-        <section className="container">
-          <Link href={`/fonts/${hero.slug}`} className="showcase" style={{ display: "block" }}>
-            <div className="showcase-meta">
-              <h2>{hero.name}</h2>
-              <div className="sub">{hero.tagline ?? "Tavsiya etilgan oila"}</div>
-              <div className="sub">{hero.styleCount} uslub{hero.hasItalic ? " + Kursiv" : ""}</div>
-              <span className="btn btn-sm">Ko&apos;rish</span>
+      {/* Featured specimens */}
+      {featured.length > 0 && (
+        <section className="container section" aria-labelledby="featured-h">
+          <div className="section-head">
+            <div>
+              <h2 id="featured-h">{t.featured}</h2>
+              <p>{t.featuredSub}</p>
             </div>
-            <div className="showcase-specimens" style={{ fontFamily: `"${cssFamily(hero.slug)}", var(--font)`, fontWeight: hero.previewWeight }}>
-              <div className="spec spec-alpha">AaBbCcDdEe</div>
-              <div className="spec spec-pangram">{PANGRAM}.</div>
-            </div>
-          </Link>
+            <Link href="/fonts" className="arrow-link">{t.allFonts} <IconArrow /></Link>
+          </div>
+          <div className="specs">
+            {featured.map((f, i) => (
+              <article className="spec-row" key={f.slug}>
+                <div className="spec-meta">
+                  <span className="idx">{String(i + 1).padStart(2, "0")}</span>
+                  <h3 className="spec-name"><Link href={`/fonts/${f.slug}`}>{f.name}</Link></h3>
+                  <span className="spec-sub">{categoryLabel(f.category, locale)} · {DICTS[locale].card.styles(f.styleCount)}</span>
+                </div>
+                <PreviewText className="spec-text" style={cardFontStyle(f)} fallback={f.name} />
+                <span className="spec-go" aria-hidden="true"><IconArrowUR /></span>
+              </article>
+            ))}
+          </div>
         </section>
       )}
-
-      {/* Second featured showcase (skip when it would duplicate the hero) */}
-      {dark && dark.slug !== hero?.slug && (
-        <section className="container">
-          <Link href={`/fonts/${dark.slug}`} className="showcase" style={{ display: "block", paddingBottom: 40 }}>
-            <div className="showcase-meta">
-              <h2>{dark.name}</h2>
-              <div className="sub">Sinab ko&apos;ring</div>
-              <div className="sub">{dark.styleCount} uslub</div>
-              <span className="btn btn-sm">Ko&apos;rish</span>
-            </div>
-            <div className="showcase-specimens" style={{ fontFamily: `"${cssFamily(dark.slug)}", var(--font)`, fontWeight: dark.previewWeight }}>
-              <div className="spec spec-alpha">AaBbCcDdEe</div>
-              <div className="spec spec-pangram">{PANGRAM}.</div>
-            </div>
-          </Link>
-        </section>
-      )}
-
-      {/* Newest grid */}
-      <section className="container section" style={{ paddingTop: 20 }}>
-        <div className="section-head">
-          <h2>Eng so&apos;nggi shriftlar</h2>
-          <Link href="/fonts" className="btn btn-sm">Hammasi →</Link>
-        </div>
-        <div className="grid">
-          {newest.map((f) => <FontCard key={f.slug} f={f} />)}
-        </div>
-      </section>
 
       {/* Categories */}
-      <section className="container section" style={{ paddingTop: 0 }}>
-        <div className="section-head"><h2>Kategoriyalar</h2></div>
-        <div className="toolbar">
-          {CATEGORIES.map((c) => (
-            <Link key={c} href={`/fonts?cat=${c}`} className="chip">
-              {CATEGORY_LABEL[c]} <span className="muted" style={{ marginLeft: 6 }}>{countOf(c)}</span>
+      {tiles.length > 0 && (
+        <section className="container section cv" style={{ paddingTop: 0 }} aria-labelledby="cats-h">
+          <div className="section-head">
+            <h2 id="cats-h">{t.categories}</h2>
+          </div>
+          <div className="cat-grid">
+            {tiles.map((tile) => (
+              <Link key={tile.cat} href={`/fonts?cat=${tile.cat}`} className="cat-tile">
+                <span className="cat-aa" style={cardFontStyle(tile.rep!)} aria-hidden="true">{locale === "ru" && tile.rep!.hasCyrillic ? "Аа" : "Aa"}</span>
+                <span>
+                  <span className="cat-foot">
+                    <span className="cat-name">{categoryLabel(tile.cat, locale)}</span>
+                    <span className="cat-n">{formatNumber(tile.n)}</span>
+                  </span>
+                  <span className="cat-from">{tile.rep!.name}</span>
+                </span>
+              </Link>
+            ))}
+            <Link href="/fonts" className="cat-tile all" style={{ "--span4": 4 - (tiles.length % 4), "--span2": 2 - (tiles.length % 2) } as React.CSSProperties}>
+              <span className="cat-aa" aria-hidden="true">A–Z</span>
+              <span>
+                <span className="cat-foot">
+                  <span className="cat-name">{t.allFonts}</span>
+                  <span className="cat-n">{formatNumber(families)}</span>
+                </span>
+                <span className="cat-from">{t.openCatalog}</span>
+              </span>
             </Link>
-          ))}
+          </div>
+        </section>
+      )}
+
+      {/* Newest */}
+      {newest.length > 0 && (
+        <section className="container section cv" style={{ paddingTop: 0 }} aria-labelledby="new-h">
+          <div className="section-head">
+            <h2 id="new-h">{t.newest}</h2>
+            <Link href="/fonts?sort=new" className="arrow-link">{t.all} <IconArrow /></Link>
+          </div>
+          <div className="fgrid">
+            {newest.map((f) => <FontCard key={f.slug} f={f} />)}
+          </div>
+        </section>
+      )}
+
+      {/* Uzbek-first */}
+      <section className="container section cv" style={{ paddingTop: 0 }} aria-labelledby="uz-h">
+        <div className="uz">
+          <div>
+            <div className="eyebrow">{t.uzEyebrow}</div>
+            <h2 id="uz-h">{t.uzTitle}</h2>
+            <p>{t.uzText}</p>
+            <ul className="uz-list">
+              {t.uzList.map((li) => <li key={li}>{li}</li>)}
+            </ul>
+            <Link href="/fonts?cyr=1" className="btn btn-primary">{t.uzCta} <IconArrow className="ico" /></Link>
+          </div>
+          <div className="uz-glyphs" aria-hidden="true">
+            <div className="hl">Oʻ</div><div>gʻ</div><div>ʼ</div><div>Sh</div>
+            <div>Ў</div><div>Қ</div><div>Ғ</div><div className="hl">Ҳ</div>
+          </div>
         </div>
       </section>
 
-      {/* Blog teaser */}
-      {posts.length > 0 && (
-        <section className="container section" style={{ paddingTop: 0 }}>
+      {/* Pairs */}
+      {pairings.length > 0 && (
+        <section className="container section cv" style={{ paddingTop: 0 }} aria-labelledby="pairs-h">
           <div className="section-head">
-            <h2>Jurnal</h2>
-            <Link href="/blog" className="btn btn-sm">Blogga o&apos;tish →</Link>
+            <div>
+              <h2 id="pairs-h">{t.pairsTitle}</h2>
+              <p>{t.pairsSub}</p>
+            </div>
+            <Link href="/pairs" className="arrow-link">{t.allPairs} <IconArrow /></Link>
           </div>
-          <div className="grid cols-3">
+          <div className="pairs-grid">
+            {pairings.map((p) => (
+              <article className="pair-card" key={p.id}>
+                <div className="pair-tag">{p.cats.map((c) => categoryLabel(c, locale)).join(" + ")}</div>
+                <div className="pair-head" style={{ fontFamily: `"${styleFamily(p.heading.slug, p.heading.style)}", var(--font)`, fontWeight: p.heading.weight, fontStyle: p.heading.italic ? "italic" : "normal" }}>
+                  {p.sampleHeading}
+                </div>
+                <p className="pair-body" style={{ fontFamily: `"${styleFamily(p.body.slug, p.body.style)}", var(--font)`, fontWeight: p.body.weight, fontStyle: p.body.italic ? "italic" : "normal" }}>
+                  {p.sampleBody}
+                </p>
+                <div className="pair-meta">
+                  <Link href={`/fonts/${p.heading.slug}`}><strong>{p.heading.name}</strong> {p.heading.style}</Link>
+                  <span className="pair-plus" aria-hidden="true">+</span>
+                  <Link href={`/fonts/${p.body.slug}`}><strong>{p.body.name}</strong> {p.body.style}</Link>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <AdSlot placement="home" />
+
+      {/* Dizaynerlar */}
+      {works.length > 0 && (
+        <section className="container section cv" style={{ paddingTop: 0 }} aria-labelledby="works-h">
+          <div className="section-head">
+            <div>
+              <h2 id="works-h">{t.works}</h2>
+              <p>{t.worksSub}</p>
+            </div>
+            <Link href="/dizaynerlar" className="arrow-link">{t.allWorks} <IconArrow /></Link>
+          </div>
+          <div className="pf-grid pf-grid-3">
+            {works.map((w) => <WorkCard key={w.slug} w={w} />)}
+          </div>
+        </section>
+      )}
+
+      {/* Journal */}
+      {posts.length > 0 && (
+        <section className="container section cv" style={{ paddingTop: 0, paddingBottom: 0 }} aria-labelledby="blog-h">
+          <div className="section-head">
+            <h2 id="blog-h">{t.journal}</h2>
+            <Link href="/blog" className="arrow-link">{t.allPosts} <IconArrow /></Link>
+          </div>
+          <div className="posts">
             {posts.map((p) => (
               <Link key={p.id} href={`/blog/${p.slug}`} className="post-card">
-                {p.coverImage ? <CardCover src={p.coverImage} alt={p.title} /> : <div className="post-cover" />}
+                {p.coverImage ? <CardCover src={p.coverImage} alt="" /> : <div className="post-cover typo" aria-hidden="true">{[...p.title][0]}</div>}
                 <div className="post-body">
-                  <span className="badge">{p.type === "news" ? "Yangilik" : p.type === "article" ? "Maqola" : "Blog"}</span>
+                  <span className="label">{t.postType[p.type] ?? t.postType.blog}</span>
                   <h3>{p.title}</h3>
-                  <p className="muted" style={{ margin: 0 }}>{p.excerpt}</p>
-                  <span className="fcard-tags">{formatDate(p.publishedAt)}</span>
+                  {p.excerpt && <p>{p.excerpt}</p>}
+                  <span className="post-date">{formatDate(p.publishedAt, locale)}</span>
                 </div>
               </Link>
             ))}
           </div>
         </section>
       )}
-
-      {/* CTA */}
-      <section className="container">
-        <div className="showcase dark" style={{ paddingBottom: 40, textAlign: "center" }}>
-          <h2 style={{ color: "#fff", fontSize: "clamp(28px,4vw,52px)", margin: "20px auto 14px", maxWidth: 720 }}>
-            O&apos;z shriftingizni topdingizmi?
-          </h2>
-          <p style={{ color: "rgba(255,255,255,.65)", maxWidth: 520, margin: "0 auto 24px" }}>
-            Butun katalogni ko&apos;rib chiqing va brendingizga mos oilani tanlang.
-          </p>
-          <Link href="/fonts" className="btn btn-light" style={{ marginBottom: 30, display: "inline-flex" }}>
-            Katalogni ochish
-          </Link>
-        </div>
-      </section>
     </>
   );
 }
