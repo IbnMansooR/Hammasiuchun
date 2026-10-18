@@ -269,8 +269,11 @@ function pickStyles(styles: Styled[]): Styled[] {
   const nearest = (list: Styled[], w: number) => [...list].sort((a, b) => Math.abs(a.weight - w) - Math.abs(b.weight - w))[0];
   const up = styles.filter((s) => !s.italic), it = styles.filter((s) => s.italic);
   const out: Styled[] = [];
-  if (up.length) out.push(nearest(up, 400));
-  if (up.length) { const b = nearest(up, 700); if (b && b.weight >= 600 && !out.includes(b)) out.push(b); }
+  // light, regular, medium and bold, each only when the family really has a weight close to it
+  for (const w of [400, 300, 500, 700]) {
+    const b = up.length ? nearest(up, w) : null;
+    if (b && Math.abs(b.weight - w) <= (w === 400 ? 1000 : 100) && !out.includes(b)) out.push(b);
+  }
   if (it.length) out.push(nearest(it, 400));
   return out.length ? out : styles.slice(0, 1);
 }
