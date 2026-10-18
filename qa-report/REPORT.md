@@ -1252,3 +1252,11 @@ The card keeps the row layout (icon tile, command, a few words) but is compact: 
 - **Accuracy test** (e2e-find): Chromium draws five words in each of 11 fonts (independent of our rasterizer); the right font is first in 54 of 55 pictures (the one miss was a word cut by the screenshot's edge, answered with a clear message). Also working: light text on a dark background, a 300 px JPEG at quality 55, a blurred picture, a text that doesn't match (line mode), no text, a blank picture, a file that isn't a picture, a swear as the text. The first search after a restart takes about half a second for 15 families.
 - **Limits.** One line of text per picture; handwriting, heavy effects and photos of curved surfaces are out of reach for this method. Every search reads the candidate fonts (cached per instance), which is fine for a catalogue of a few hundred families; a much larger one would need precomputed letter bitmaps.
 - `sharp` is now an explicit dependency.
+
+#### 26.10.1 Real pictures from the internet (production, `/api/find-font`)
+
+Pictures taken from the fonts' own GitHub repositories (Inter `misc/readme/intro.png`, Montserrat `documentation/MONTSERRAT_02.png`), cropped to one line and sent to production (Wikimedia answered 429 from this network, so no pictures from there).
+- Inter (4 crops): an Inter-family font was first in 3 of 4 (Inter Tight / Inter UI / Inter, which are near-identical designs); the fourth (bold, `ABCDEFGHIJKLMN`) put Inter Tight first and Inter second. "The user" (bold) put Manrope first, Inter second.
+- Montserrat (4 lines, thin / light / medium / bold): first in 3 of 4 at first; the medium line missed (the finder tried only regular and bold). After adding the light and medium weights as candidates (up to five styles per family) all four are first. The local suite stayed at 28/28.
+- Failures that remain by design: a line longer than 24 characters is refused, and a crop with an underline or a stray mark ("MONTSERRAT!" with the underline) is not cut into letters.
+- Only two families were tested with real pictures, so this is a small sample.
