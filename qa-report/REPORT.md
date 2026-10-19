@@ -1260,3 +1260,10 @@ Pictures taken from the fonts' own GitHub repositories (Inter `misc/readme/intro
 - Montserrat (4 lines, thin / light / medium / bold): first in 3 of 4 at first; the medium line missed (the finder tried only regular and bold). After adding the light and medium weights as candidates (up to five styles per family) all four are first. The local suite stayed at 28/28.
 - Failures that remain by design: a line longer than 24 characters is refused, and a crop with an underline or a stray mark ("MONTSERRAT!" with the underline) is not cut into letters.
 - Only two families were tested with real pictures, so this is a small sample.
+
+#### 26.10.2 Several lines, columns and touching letters (after the owner said it works badly)
+
+- **What was wrong:** a picture with several lines was read as its heaviest line, whatever text had been typed; two columns side by side were read as one line; touching letters (tight bold type) left too few pieces, so the comparison fell back to the weaker whole-line mode; and texts over 24 characters were refused.
+- **Now:** every line (and every stretch cut off by a wide gap) is a candidate, and the one whose letter count matches the typed text wins; among near-equal ones the bigger type wins. Touching letters are cut where they are thinnest. The limit is 40 characters (the site input, the bot and both languages).
+- **Production, whole pictures from the font repositories:** Montserrat's five-line picture: the right font first for all four lines asked (thin, light, medium, bold). Inter's two-column picture: Inter first for `abcdefghijklmnopq` and `ABCDEFGHIJKLMN`. Not working: `OPQRSTUVWXYZ` in the whole Inter picture (the line also carries `.,` and ends up in the weaker mode), and a tight bold lowercase crop (`abcdefghijklmnopq`, bold), where letters still touch after cutting.
+- The local suite stays at 28/28 (it has no multi-line or touching-letter case yet).
