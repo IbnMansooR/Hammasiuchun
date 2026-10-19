@@ -28,6 +28,7 @@ const OK: Record<string, string> = {
   deleted: "Profil oʻchirildi: u boshqa taklif qilinmaydi.",
   added: "Saytga qoʻshildi ✓",
   addedposted: "Saytga qoʻshildi va kanalga chiqdi ✓",
+  channelonly: "Kanalga chiqdi (saytga qoʻshilmadi) ✓",
   trok: "Tarjima ishlayapti ✓",
 };
 const ERR: Record<string, string> = {
@@ -146,6 +147,7 @@ export default async function ContentAdmin({ searchParams }: { searchParams: Pro
                       <div className="adm-tg-link">
                         <button className="btn btn-accent btn-sm" formAction={decideNewsAction.bind(null, "both")}>✅ Sayt + kanal</button>
                         <button className="btn btn-sm" formAction={decideNewsAction.bind(null, "site")}>🌐 Faqat sayt</button>
+                        <button className="btn btn-sm" formAction={decideNewsAction.bind(null, "channel")}>📣 Faqat kanal</button>
                         <button className="btn btn-sm" formAction={decideNewsAction.bind(null, "reject")} formNoValidate>❌ Kerak emas</button>
                       </div>
                     </form>
@@ -157,7 +159,7 @@ export default async function ContentAdmin({ searchParams }: { searchParams: Pro
                       {o.designer!.portrait ? ` · rasm: ${o.designer!.portrait.credit}` : " · rasm topilmadi"}
                     </p>
                     <div className="adm-tg-link">
-                      {([["both", "✅ Sayt + kanal", "btn btn-accent btn-sm"], ["site", "🌐 Faqat sayt", "btn btn-sm"], ["reject", "❌ Kerak emas", "btn btn-sm"]] as const).map(([how, label, cls]) => (
+                      {([["both", "✅ Sayt + kanal", "btn btn-accent btn-sm"], ["site", "🌐 Faqat sayt", "btn btn-sm"], ["channel", "📣 Faqat kanal", "btn btn-sm"], ["reject", "❌ Kerak emas", "btn btn-sm"]] as const).map(([how, label, cls]) => (
                         <form key={how} action={decideContentAction}>
                           <input type="hidden" name="id" value={o.id} />
                           <input type="hidden" name="how" value={how} />

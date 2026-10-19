@@ -197,7 +197,7 @@ const offerKeyboard = (o: Offer): Keyboard => o.news && !o.news.uz ? [
   [{ text: "❌ Kerak emas", callback_data: `cs:r:${o.id}` }],
 ] : [
   [{ text: "✅ Sayt + kanal", callback_data: `cs:a:${o.id}` }, { text: "🌐 Faqat sayt", callback_data: `cs:s:${o.id}` }],
-  [{ text: "❌ Kerak emas", callback_data: `cs:r:${o.id}` }],
+  [{ text: "📣 Faqat kanal", callback_data: `cs:c:${o.id}` }, { text: "❌ Kerak emas", callback_data: `cs:r:${o.id}` }],
 ];
 
 async function sendOffer(o: Offer, admins: { chatId: string }[]): Promise<Msg[]> {
@@ -296,6 +296,26 @@ export async function publishNews(n: NewsOffer, edited?: UzText): Promise<{ slug
   };
 }
 
+/** The channel post without a site page: the buttons point at the source only. */
+function channelOnlyDraft(o: Offer, edited?: UzText): PostDraft {
+  if (o.news) {
+    const n = o.news;
+    const txt = edited ?? n.uz ?? { title: n.title, excerpt: n.excerpt };
+    return {
+      kind: "news", ref: `ch-${shortHash(n.link)}`, title: txt.title, image: null,
+      caption: [txt.title, "", txt.excerpt, "", `Manba: ${n.source}`, "#dizayn #yangilik #feekr"].join("\n").replace(/\n{3,}/g, "\n\n"),
+      keyboard: [[{ text: "Asl maqola ↗", url: n.link }]], backHref: "/admin/content",
+    };
+  }
+  const f = o.designer!.facts, portrait = o.designer!.portrait;
+  const keyboard: Keyboard = f.wikiUrl ? [[{ text: "Wikipedia ↗", url: f.wikiUrl }]] : [];
+  return {
+    kind: "designer", ref: `ch-${f.slug}`, title: f.name, image: portrait?.thumb ?? null,
+    caption: [`${f.name}${yearsOf(f) ? ` (${yearsOf(f)})` : ""}`, "", designerSummary(f).replace(/^[^—]*—\s*/, "").trim(), portrait ? `\nRasm: ${portrait.credit} · Wikimedia Commons` : "", "\n#dizayner #feekr"].join("\n").replace(/\n{3,}/g, "\n\n"),
+    keyboard, backHref: "/admin/content",
+  };
+}
+
 export async function publishDesigner(o: NonNullable<Offer["designer"]>): Promise<{ slug: string; draft: PostDraft } | null> {
   const f = o.facts;
   if (await db.designer.findFirst({ where: { OR: [{ wikidataId: f.wikidataId }, { slug: f.slug }] }, select: { id: true } })) return null;
@@ -332,7 +352,7 @@ const markOffer = async (o: Offer, keyboard: Keyboard) => {
 };
 const done = (text: string): Keyboard => [[{ text, callback_data: "cs:n:0" }]];
 
-export type Decision = "both" | "site" | "reject";
+export type Decision = "both" | "site" | "channel" | "reject";
 
 /** ✅ / ❌ from Telegram or the admin page. The offer leaves the waiting list first (one winner for a double press). */
 export async function decideContent(id: string, how: Decision, edited?: UzText): Promise<{ offer: Offer | null; result: Published | null }> {
@@ -340,13 +360,28 @@ export async function decideContent(id: string, how: Decision, edited?: UzText):
   await updateContent((s) => {
     taken = s.pending.find((p) => p.id === id) ?? null;
     s.pending = s.pending.filter((p) => p.id !== id);
-    if (taken && how === "reject") s.rejected.push(taken.designer ? taken.designer.facts.wikidataId : taken.news!.link);
+    if (taken && (how === "reject" || how === "channel")) s.rejected.push(taken.designer ? taken.designer.facts.wikidataId : taken.news!.link);
   });
   const o = taken as Offer | null;
   if (!o) return { offer: null, result: null };
   if (how === "reject") {
     await markOffer(o, done("❌ Rad etildi"));
     return { offer: o, result: null };
+  }
+  if (how === "channel") {
+    // Channel only: nothing is added to the site, so the buttons lead to the source.
+    const draft = channelOnlyDraft(o, edited);
+    const ok = (await postDraft(draft, draft.caption).catch(() => ({ ok: false as const }))).ok;
+    if (!ok) {
+      await updateContent((s) => {
+        s.rejected = s.rejected.filter((r) => r !== (o.designer ? o.designer.facts.wikidataId : o.news!.link));
+        if (!s.pending.some((x) => x.id === o.id)) s.pending.push(o);
+      });
+      await markOffer(o, offerKeyboard(o));
+      return { offer: o, result: { ok: false, reason: "failed" } };
+    }
+    await markOffer(o, done("✅ Kanalda"));
+    return { offer: o, result: { ok: true, kind: o.kind, slug: "", path: "", title: draft.title, posted: true } };
   }
   await markOffer(o, done("⏳ Saytga qoʻshilmoqda…"));
   const made = await (o.news ? publishNews(o.news, edited) : publishDesigner(o.designer!)).catch(() => undefined);
@@ -370,12 +405,12 @@ export async function decideContent(id: string, how: Decision, edited?: UzText):
 
 export async function handleContentCallback(q: CallbackQuery): Promise<void> {
   if (!(await adminPress(q))) return;
-  const m = /^cs:([asr]):([0-9a-f]{8})$/.exec(q.data ?? "");
+  const m = /^cs:([asrc]):([0-9a-f]{8})$/.exec(q.data ?? "");
   if (!m) {
     await answer(q.id, "");
     return;
   }
-  const how: Decision = m[1] === "a" ? "both" : m[1] === "s" ? "site" : "reject";
+  const how: Decision = m[1] === "a" ? "both" : m[1] === "s" ? "site" : m[1] === "c" ? "channel" : "reject";
   if (how !== "reject") {
     const cur = (await getContent()).pending.find((p) => p.id === m[2]);
     if (cur?.news && !cur.news.uz) {
@@ -383,7 +418,7 @@ export async function handleContentCallback(q: CallbackQuery): Promise<void> {
       return;
     }
   }
-  await answer(q.id, how === "reject" ? "Rad etildi" : "Saytga qoʻshilmoqda…");
+  await answer(q.id, how === "reject" ? "Rad etildi" : how === "channel" ? "Kanalga chiqarilmoqda…" : "Saytga qoʻshilmoqda…");
   const { offer, result } = await decideContent(m[2], how);
   if (!offer) {
     await setKeyboard(q, done("Bu taklif koʻrib chiqilgan"));
@@ -391,7 +426,9 @@ export async function handleContentCallback(q: CallbackQuery): Promise<void> {
   }
   if (how === "reject" || !result) return;
   const chat = String(q.from.id);
-  if (result.ok) {
+  if (result.ok && how === "channel") {
+    await sendMessage(chat, `📣 <b>${esc(result.title)}</b> kanalga chiqdi (saytga qoʻshilmadi).`).catch(() => null);
+  } else if (result.ok) {
     await sendMessage(chat, `✅ <b>${esc(result.title)}</b> saytga qoʻshildi${result.posted ? " va kanalga chiqdi" : how === "both" ? ", lekin kanalga chiqmadi (kanal ulanganini tekshiring)" : ""}.`, [[{ text: "Saytda koʻrish", url: siteLink(result.path) }]]).catch(() => null);
   } else if (result.reason === "failed") {
     await sendMessage(chat, "⚠️ Saqlashda xatolik: taklif roʻyxatda qoldi, keyinroq qayta bosing.").catch(() => null);

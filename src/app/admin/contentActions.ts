@@ -87,7 +87,7 @@ export async function decideContentAction(fd: FormData) {
   await requireAdmin();
   const id = str(fd, "id");
   const how = str(fd, "how") as Decision;
-  if (!/^[0-9a-f]{8}$/.test(id) || !["both", "site", "reject"].includes(how)) fail("gone", "#offers");
+  if (!/^[0-9a-f]{8}$/.test(id) || !["both", "site", "channel", "reject"].includes(how)) fail("gone", "#offers");
   let edited: { title: string; excerpt: string } | undefined;
   if (how !== "reject" && fd.has("title")) {
     const title = str(fd, "title").replace(/\s+/g, " ").slice(0, 200);
@@ -100,6 +100,7 @@ export async function decideContentAction(fd: FormData) {
   if (!offer) fail("gone", "#offers");
   if (how === "reject") redirect(`${BACK}?ok=rejected#offers`);
   if (result && !result.ok) fail(result.reason === "exists" ? "exists" : "failed", "#offers");
+  if (how === "channel") redirect(`${BACK}?ok=channelonly#offers`);
   redirect(`${BACK}?ok=${result?.ok && result.posted ? "addedposted" : "added"}&to=${encodeURIComponent(result?.ok ? result.path : "")}#offers`);
 }
 
