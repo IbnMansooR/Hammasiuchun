@@ -407,17 +407,28 @@ export async function findFonts(image: Buffer, textRaw: string): Promise<FindRes
   // the picture's letters: exactly the typed ones (touching ones cut apart, pieces of one letter joined), or else the whole line is compared
   const settle = (lines: Comp[][]): { letters: Comp[]; idx: number[]; boxes: Comp[] } => {
     const boxes = lines.map(boxOfLine);
-    const lineOf = (c: Comp) => { const y = (c.minY + c.maxY) / 2; let k = 0; for (let i = 1; i < boxes.length; i++) if (Math.abs(y - (boxes[i].minY + boxes[i].maxY) / 2) < Math.abs(y - (boxes[k].minY + boxes[k].maxY) / 2)) k = i; return k; };
-    let letters = lines.flat();
-    if (letters.length < chars.length) letters = splitTouching(ink, letters, chars.length);
-    letters.sort((p, q) => lineOf(p) - lineOf(q) || p.minX - q.minX);
-    while (letters.length > chars.length && letters.length > 1) {
-      let k = -1, gap = Infinity;
-      for (let i = 0; i + 1 < letters.length; i++) { if (lineOf(letters[i]) !== lineOf(letters[i + 1])) continue; const g = letters[i + 1].minX - letters[i].maxX; if (g < gap) { gap = g; k = i; } }
-      if (k < 0) break;
-      letters.splice(k, 2, unite(letters[k], letters[k + 1]));
+    // how many letters each line should have: the words of the text when there are as many words as lines, else in proportion to its pieces
+    const words = text.split(" ").map((w) => [...w].filter((c) => /[\p{L}\p{N}]/u.test(c) && c !== "ʻ" && c !== "ʼ").length).filter((n) => n > 0);
+    let targets: number[];
+    if (lines.length === 1) targets = [chars.length];
+    else if (words.length === lines.length) targets = words;
+    else {
+      const total = lines.reduce((n, l) => n + l.length, 0);
+      targets = lines.map((l) => Math.max(1, Math.round((chars.length * l.length) / total)));
+      targets[targets.length - 1] += chars.length - targets.reduce((n, t) => n + t, 0);
     }
-    return { letters, idx: letters.map(lineOf), boxes };
+    const letters: Comp[] = [], idx: number[] = [];
+    lines.forEach((line, k) => {
+      let ls = line.length < targets[k] ? splitTouching(ink, line, targets[k]) : [...line];
+      ls.sort((p, q) => p.minX - q.minX);
+      while (ls.length > targets[k] && ls.length > 1) {
+        let m = 0, gap = Infinity;
+        for (let i = 0; i + 1 < ls.length; i++) { const g = ls[i + 1].minX - ls[i].maxX; if (g < gap) { gap = g; m = i; } }
+        ls.splice(m, 2, unite(ls[m], ls[m + 1]));
+      }
+      for (const c of ls) { letters.push(c); idx.push(k); }
+    });
+    return { letters, idx, boxes };
   };
   let st = settle(sets);
   if (sets.length > 1 && st.letters.length !== chars.length) { sets = [sets.reduce((a, l) => (l.length > a.length ? l : a))]; st = settle(sets); }
