@@ -2,7 +2,7 @@ import Image from "next/image";
 
 // next/image only handles same-origin/local paths safely; admin-pasted external
 // URLs fall back to a plain <img> so they never break the render.
-const isLocal = (src: string) => src.startsWith("/") && !src.startsWith("//");
+const isLocal = (src: string) => src.startsWith("/") && !src.startsWith("//") && !src.startsWith("/api/");
 
 export function CardCover({ src, alt }: { src: string; alt: string }) {
   if (!isLocal(src)) return <img className="post-cover" src={src} alt={alt} />;

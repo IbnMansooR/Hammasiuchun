@@ -30,7 +30,7 @@ export default async function BlogPage({ searchParams }: { searchParams: Promise
     where: { isPublished: true, ...(type ? { type } : {}) },
     orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
     // Only the fields the card needs (skip the heavy markdown `body` column).
-    select: { id: true, slug: true, type: true, title: true, excerpt: true, coverImage: true, author: true, publishedAt: true },
+    select: { id: true, slug: true, type: true, title: true, excerpt: true, titleRu: true, excerptRu: true, bodyRu: true, coverImage: true, author: true, publishedAt: true },
     take: 60,
   });
 
@@ -60,11 +60,11 @@ export default async function BlogPage({ searchParams }: { searchParams: Promise
         <div className="posts">
           {posts.map((p) => (
             <Link key={p.id} href={`/blog/${p.slug}`} className="post-card">
-              {p.coverImage ? <CardCover src={p.coverImage} alt="" /> : <div className="post-cover typo" aria-hidden="true">{[...p.title][0]}</div>}
+              <CardCover src={p.coverImage || `/api/cover/${p.slug}${locale === "ru" && p.bodyRu ? "?l=ru" : ""}`} alt="" />
               <div className="post-body">
                 <span className="label">{typeLabel[p.type] ?? typeLabel.blog}</span>
-                <h2 lang="uz">{p.title}</h2>
-                {p.excerpt && <p lang="uz">{p.excerpt}</p>}
+                <h2 lang={locale === "ru" && p.bodyRu ? "ru" : "uz"}>{(locale === "ru" && p.bodyRu && p.titleRu) || p.title}</h2>
+                {(locale === "ru" && p.bodyRu ? p.excerptRu : p.excerpt) && <p lang={locale === "ru" && p.bodyRu ? "ru" : "uz"}>{locale === "ru" && p.bodyRu ? p.excerptRu : p.excerpt}</p>}
                 <span className="post-date">{formatDate(p.publishedAt, locale)} · {p.author}</span>
               </div>
             </Link>

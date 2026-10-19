@@ -6,7 +6,7 @@ import { HeroCover } from "@/components/Cover";
 import { formatDate } from "@/lib/format";
 import { renderMarkdown } from "@/lib/markdown";
 import { IconChevron } from "@/components/Icons";
-import { getLocale } from "@/i18n/server";
+import { alternates, getLocale } from "@/i18n/server";
 import { DICTS } from "@/i18n/dict";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -14,17 +14,22 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const locale = await getLocale();
   const p = await db.article.findUnique({
     where: { slug },
-    select: { title: true, excerpt: true, isPublished: true },
+    select: { title: true, excerpt: true, titleRu: true, excerptRu: true, bodyRu: true, coverImage: true, isPublished: true },
   });
-  // Don't leak draft titles/excerpts via 404 metadata.
-  return p && p.isPublished
-    ? {
-        title: p.title,
-        description: p.excerpt ?? undefined,
-        alternates: { canonical: `/blog/${slug}` },
-        ...(locale === "ru" ? { robots: { index: false, follow: true } } : {}),
-      }
-    : {};
+  if (!p || !p.isPublished) return {}; // don't leak draft titles/excerpts via 404 metadata
+  const ru = locale === "ru" && !!p.bodyRu;
+  const title = (ru && p.titleRu) || p.title;
+  const description = (ru ? p.excerptRu : p.excerpt) ?? undefined;
+  const image = p.coverImage || `/api/cover/${slug}${ru ? "?l=ru" : ""}`;
+  return {
+    title,
+    description,
+    openGraph: { title, description, images: [{ url: image, width: 1200, height: 675 }] },
+    twitter: { card: "summary_large_image", images: [image] },
+    // Translated: a real Russian page with its own address. Not yet: the Uzbek page stays the one in search.
+    alternates: p.bodyRu ? await alternates(`/blog/${slug}`) : { canonical: `/blog/${slug}` },
+    ...(locale === "ru" && !p.bodyRu ? { robots: { index: false, follow: true } } : {}),
+  };
 }
 
 export default async function ArticlePage({ params }: { params: Promise<{ slug: string }> }) {
@@ -34,6 +39,10 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
   const locale = await getLocale();
   const t = DICTS[locale].blog;
   const typeLabel = DICTS[locale].home.postType;
+  const ru = locale === "ru" && !!p.bodyRu;
+  const title = (ru && p.titleRu) || p.title;
+  const excerpt = ru ? p.excerptRu : p.excerpt;
+  const body = ru ? p.bodyRu! : p.body;
 
   return (
     <article className="container">
@@ -43,15 +52,15 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           <IconChevron />
           <span>{typeLabel[p.type] ?? typeLabel.blog}</span>
         </nav>
-        {t.langNote && <p className="muted" style={{ marginTop: 16 }}>{t.langNote}</p>}
-        <div lang="uz">
+        {t.langNote && !ru && <p className="muted" style={{ marginTop: 16 }}>{t.langNote}</p>}
+        <div lang={ru ? "ru" : "uz"}>
         <header style={{ padding: "32px 0 36px" }}>
-          <h1 className="display" style={{ fontSize: "clamp(40px, 5.4vw, 72px)" }}>{p.title}</h1>
-          {p.excerpt && <p className="lead" style={{ marginTop: 20 }}>{p.excerpt}</p>}
+          <h1 className="display" style={{ fontSize: "clamp(40px, 5.4vw, 72px)" }}>{title}</h1>
+          {excerpt && <p className="lead" style={{ marginTop: 20 }}>{excerpt}</p>}
           <div className="label" style={{ marginTop: 20 }}>{formatDate(p.publishedAt, locale)} · {p.author}</div>
         </header>
-        {p.coverImage && <HeroCover src={p.coverImage} alt={p.title} />}
-        <div className="prose" style={{ paddingTop: 8, borderTop: "1px solid var(--line)" }} dangerouslySetInnerHTML={{ __html: renderMarkdown(p.body) }} />
+        {p.coverImage && <HeroCover src={p.coverImage} alt={title} />}
+        <div className="prose" style={{ paddingTop: 8, borderTop: "1px solid var(--line)" }} dangerouslySetInnerHTML={{ __html: renderMarkdown(body) }} />
         {p.sourceUrl && /^https?:\/\//.test(p.sourceUrl) && (
           <p className="source-note">
             <a className="btn btn-sm" href={p.sourceUrl} target="_blank" rel="noopener nofollow">{`${locale === "ru" ? "Оригинал" : "Asl maqolani oʻqish"}${p.sourceName ? ` · ${p.sourceName}` : ""} ↗`}</a>

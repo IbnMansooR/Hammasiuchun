@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import crypto from "node:crypto";
 import { draftFontTexts, pairFonts, readDraft } from "@/lib/aiFonts";
 import { dropQuoteDraft, draftArticle, draftQuotes, getArticleAuto, readQuoteDrafts, saveArticleAuto } from "@/lib/aiIdeas";
+import { translatePending } from "@/lib/articleRu";
 import { updateTgState, isClock, ALL_DAYS } from "@/lib/tgState";
 
 const BACK = "/admin/ai-texts";
@@ -82,4 +83,10 @@ export async function draftArticleNowAction() {
   await requireAdmin();
   const r = await draftArticle();
   done(r.id ? "ok=article" : `error=article&detail=${encodeURIComponent(r.reason ?? "qoralama yaratilmadi")}`);
+}
+
+export async function translateArticlesAction() {
+  await requireAdmin();
+  const r = await translatePending(3);
+  done(r.done ? `ok=translated&n=${r.done}` : `error=translate&detail=${encodeURIComponent(r.detail ?? "tarjima qilinadigan maqola qolmadi")}`);
 }

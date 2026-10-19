@@ -1,4 +1,5 @@
 "use server";
+import { translateSoon } from "@/lib/articleRu";
 import { redirect } from "next/navigation";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { cookies, headers } from "next/headers";
@@ -218,10 +219,14 @@ export async function saveArticleAction(fd: FormData) {
     // Avoid a P2002 crash if the (new) slug collides with a different article.
     const clash = await db.article.findUnique({ where: { slug } });
     if (clash && clash.id !== id) { slug = `${slug}-${shortHash(String(id))}`; data.slug = slug; }
-    await db.article.update({ where: { id }, data });
+    // An edited Uzbek text invalidates its Russian copy: it is translated again once the article is live.
+    const changed = existing.title !== data.title || existing.excerpt !== data.excerpt || existing.body !== data.body;
+    await db.article.update({ where: { id }, data: changed ? { ...data, titleRu: null, excerptRu: null, bodyRu: null } : data });
+    if (published && (changed || !existing.bodyRu)) translateSoon(id);
   } else {
     if (await db.article.findUnique({ where: { slug } })) slug = `${slug}-${Date.now().toString(36)}`;
-    await db.article.create({ data: { ...data, slug } });
+    const made = await db.article.create({ data: { ...data, slug } });
+    if (published) translateSoon(made.id);
   }
   revalidateTag(CATALOG_TAG);
   revalidatePath("/blog");

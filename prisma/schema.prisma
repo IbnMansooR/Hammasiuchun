@@ -82,6 +82,10 @@ model Article {
   title       String
   excerpt     String?
   body        String    @default("")
+  // Russian version (lib/translate: Claude translates when the article goes live); null until then.
+  titleRu     String?
+  excerptRu   String?
+  bodyRu      String?
   coverImage  String?
   author      String    @default("Feekr")
   tags        String    @default("")

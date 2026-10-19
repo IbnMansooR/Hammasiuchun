@@ -3,7 +3,7 @@ import { PUBLIC_FAMILY } from "@/lib/license";
 import { readDraft } from "@/lib/aiFonts";
 import { getArticleAuto, readQuoteDrafts } from "@/lib/aiIdeas";
 import { MOOD_LABEL } from "@/lib/quotes";
-import { acceptDraftAction, acceptQuoteAction, draftArticleNowAction, draftFontsAction, draftQuotesAction, pairFontsAction, rejectDraftAction, rejectQuoteAction, saveArticleAutoAction } from "@/app/admin/fontAiActions";
+import { acceptDraftAction, acceptQuoteAction, draftArticleNowAction, draftFontsAction, draftQuotesAction, pairFontsAction, rejectDraftAction, rejectQuoteAction, saveArticleAutoAction, translateArticlesAction } from "@/app/admin/fontAiActions";
 import Notice from "@/components/admin/Notice";
 import SubmitButton from "@/components/SubmitButton";
 
@@ -13,10 +13,11 @@ export const maxDuration = 120;
 export default async function AiTexts({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string; detail?: string; n?: string }> }) {
   const { ok, error, detail, n } = await searchParams;
   const [quotes, auto] = await Promise.all([readQuoteDrafts(), getArticleAuto()]);
-  const [pending, noRu, noPairs] = await Promise.all([
+  const [pending, noRu, noPairs, artNoRu] = await Promise.all([
     db.family.findMany({ where: { aiDraft: { not: null }, NOT: { aiDraft: "-" } }, select: { slug: true, name: true, tagline: true, description: true, aiDraft: true }, take: 20 }),
     db.family.count({ where: { ...PUBLIC_FAMILY, descriptionRu: null } }),
     db.family.count({ where: { ...PUBLIC_FAMILY, pairs: null } }),
+    db.article.count({ where: { isPublished: true, bodyRu: null } }),
   ]);
   return (
     <>
@@ -30,6 +31,8 @@ export default async function AiTexts({ searchParams }: { searchParams: Promise<
       {ok === "paired" && <Notice>{`${n} ta shrift uchun juftlik topildi, shrift sahifalarida koʻrinadi.`}</Notice>}
       {ok === "accepted" && <Notice>Tasdiqlandi.</Notice>}
       {ok === "rejected" && <Notice>Rad etildi.</Notice>}
+      {ok === "translated" && <Notice>{`${n} ta maqola ruschaga tarjima qilindi: /ru/blog da koʻrinadi.`}</Notice>}
+      {error === "translate" && <Notice tone="error">{`Bajarilmadi: ${(detail ?? "").slice(0, 200)}`}</Notice>}
       {ok === "quotes" && <Notice>{`${n} ta ibora tayyor, pastda koʻring.`}</Notice>}
       {ok === "quoteadded" && <Notice>Ibora qoʻshildi: postlarda ishlatiladi.</Notice>}
       {ok === "saved" && <Notice>Saqlandi.</Notice>}
@@ -60,6 +63,12 @@ export default async function AiTexts({ searchParams }: { searchParams: Promise<
             </div>
           </div>
         ))}
+      </section>
+
+      <section className="adm-card adm-pad" aria-labelledby="h-ru">
+        <h2 className="adm-h2" id="h-ru">Maqolalarning ruscha nusxasi</h2>
+        <p className="adm-text">Yangi maqola va yangilik chop etilganda ruscha tarjimasi oʻzi tayyorlanadi (Sonnet bilan, taxminan $0.02 dan $0.05 gacha). Tarjimasi yoʻq maqolalar: <strong>{artNoRu}</strong>. Oʻzbekcha matni tahrirlansa, tarjima qayta qilinadi.</p>
+        <form action={translateArticlesAction}><SubmitButton className="btn btn-sm" pendingLabel="Tarjima qilinmoqda…">3 ta maqolani tarjima qilish</SubmitButton></form>
       </section>
 
       <section className="adm-card adm-pad" aria-labelledby="h-art">

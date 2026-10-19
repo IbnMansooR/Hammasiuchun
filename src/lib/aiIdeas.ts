@@ -13,6 +13,7 @@ import { dueSlots } from "./tgAutopost";
 import { absoluteImage, esc, pause, sendMessage, siteLink, type Keyboard } from "./telegram";
 import { answer, adminPress, setKeyboard, type CallbackQuery } from "./tgAdmin";
 import { submitIndexNow } from "./indexnow";
+import { translateSoon } from "./articleRu";
 
 async function readSetting<T>(key: string, fallback: T): Promise<T> {
   try {
@@ -241,6 +242,7 @@ export async function handleArticleCallback(q: CallbackQuery): Promise<void> {
     return;
   }
   await db.article.update({ where: { id }, data: { isPublished: true, publishedAt: new Date() } });
+  translateSoon(id);
   for (const p of ["/", "/blog", `/blog/${art.slug}`, "/admin/articles"]) revalidatePath(p);
   void submitIndexNow([`/blog/${art.slug}`]).catch(() => null);
   await answer(q.id, "Chop etildi");

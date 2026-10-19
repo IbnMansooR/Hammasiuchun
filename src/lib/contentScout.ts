@@ -10,6 +10,7 @@ import { db } from "./db";
 import { casUpdate, readSetting } from "./settingCas";
 import { tashkentDay } from "./analytics";
 import { shortHash, slugify } from "./fontmeta";
+import { translateSoon } from "./articleRu";
 import { CATALOG_TAG } from "./stats";
 import { submitIndexNow } from "./indexnow";
 import { fetchFeed, shorten, type FeedItem } from "./rssFeed";
@@ -280,7 +281,7 @@ export async function publishNews(n: NewsOffer, edited?: UzText): Promise<{ slug
   const slug = await articleSlug(n.title, n.link);
   const excerpt = shorten(txt.excerpt, 240);
   const translated = txt.title !== n.title;
-  await db.article.create({
+  const created = await db.article.create({
     data: {
       slug, type: "news", title: txt.title, excerpt: excerpt || null,
       body: `${txt.excerpt}\n\n${translated ? `*Asl sarlavhasi: ${n.title.replace(/[*_\[\]]/g, "")}*\n\n` : ""}**Manba:** [${n.source}](${n.link}). Maqolaning toʻliq matni va rasmlari manba saytida.`,
@@ -288,10 +289,11 @@ export async function publishNews(n: NewsOffer, edited?: UzText): Promise<{ slug
     },
   });
   refresh([`/blog/${slug}`]);
+  translateSoon(created.id);
   return {
     slug,
     draft: {
-      kind: "news", ref: slug, title: txt.title, image: null,
+      kind: "news", ref: slug, title: txt.title, image: absoluteImage(`/api/cover/${slug}`),
       caption: [txt.title, "", txt.excerpt, "", `Manba: ${n.source}`, "#dizayn #yangilik #feekr"].filter((l) => l !== null).join("\n").replace(/\n{3,}/g, "\n\n"),
       keyboard: [[{ text: "Feekr’da oʻqish", url: siteLink(`/blog/${slug}`, "channel") }, { text: "Asl maqola ↗", url: n.link }]],
       backHref: "/admin/content",
