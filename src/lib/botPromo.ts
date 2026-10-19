@@ -3,30 +3,34 @@
 // a few variants so it is never the same twice in a row; the admin can write their own instead.
 import { db } from "./db";
 import { absoluteImage, botUsername, esc, sendPhotoOrText } from "./telegram";
-import { getTgState, isClock } from "./tgState";
-import { HELP_IMAGE_VERSION } from "./tgHelp";
-import { dueSlots } from "./tgAutopost";
+import { ALL_DAYS, AUTOPOST_MAX_TIMES, getTgState, isClock } from "./tgState";
+import { dueSlots, nextRun } from "./tgAutopost";
 
-export type BotPromo = { on: boolean; day: number; time: string; text: string; lastAt: string | null; lastMessageId: number | null; count: number };
+/** Like the font posts: up to four times a day (Tashkent) on the chosen weekdays. */
+export type BotPromo = { on: boolean; times: string[]; days: number[]; text: string; lastAt: string | null; lastMessageId: number | null; count: number };
 export const PROMO_TEXT_MAX = 600;
 const KEY = "bot-promo";
-const DEFAULT: BotPromo = { on: true, day: 3, time: "12:00", text: "", lastAt: null, lastMessageId: null, count: 0 };
-const MIN_GAP_MS = 5 * 24 * 3600 * 1000; // never twice within five days, whatever the settings
+const DEFAULT: BotPromo = { on: true, times: ["12:00"], days: [1], text: "", lastAt: null, lastMessageId: null, count: 0 };
+const MIN_GAP_MS = 30 * 60 * 1000; // never two within half an hour, whatever the settings
 
+// Short on purpose: a bold first line, one plain sentence, the button does the rest.
 export const PROMO_VARIANTS = [
-  "🤖 <b>Bizning botimiz ham bor!</b>\n\nIstalgan matn yozing: uni bizning shriftlarda rasm qilib qaytaradi. Bepul, roʻyxatdan oʻtish shart emas.\n\nSinab koʻring 👇",
-  "🎯 <b>Botimizda har kuni viktorina!</b>\n\nRasmdagi shriftni toping, ball va streak yigʻing, haftalik reytingda bellashing. Botda fon rasmi, brend nomi va shrift topish ham bor.\n\nBoshlang 👇",
-  "🔍 <b>Shriftni topib beradigan bot</b>\n\nRasmdagi yozuvni yuboring: saytimizdagi eng oʻxshash bepul shriftlarni koʻrsatadi. Matningizni 4 xil shriftda ham koʻrsatib beradi.\n\nSinab koʻring 👇",
-  "🖼 <b>Matningizni fon rasmiga aylantiring</b>\n\nFeekr botiga istalgan ibora yozing: u telefoningiz uchun fon rasmiga aylanadi. Brend nomingizga mos shriftni ham tanlab beradi.\n\nBotni oching 👇",
-  "🎭 <b>Qaysi shrift sensan?</b>\n\n5 ta savolga javob bering, shaxsiy shriftingizni bilib oling va doʻstlaringizga yuboring. Hammasi Feekr botida, bepul.\n\nSinab koʻring 👇",
+  "<b>Bizning botimiz ham bor</b>\nIstalgan matn yozing: uni shriftlarimizda rasm qilib qaytaradi. Bepul.",
+  "<b>Rasmdagi shrift qaysi?</b>\nBotga rasm yuboring: saytimizdagi eng oʻxshash bepul shriftlarni topib beradi.",
+  "<b>Har kuni yangi viktorina</b>\nRasmdagi shriftni toping, ball yigʻing, haftalik reytingda bellashing.",
+  "<b>Matn: telefoningiz fon rasmi</b>\nIbora yozing, bot uni chiroyli shriftda fon rasmiga aylantiradi.",
+  "<b>Qaysi shrift sensan?</b>\n5 ta savol: shaxsiy shriftingiz tayyor. Doʻstlaringizga yuboring.",
 ];
+export const PROMO_IMAGE = "/api/tg-image/botpromo?v=1";
 
 export function readBotPromo(raw: unknown): BotPromo {
-  const v = (raw && typeof raw === "object" ? raw : {}) as Partial<BotPromo>;
+  const v = (raw && typeof raw === "object" ? raw : {}) as Partial<BotPromo> & { day?: number; time?: string };
+  const times = Array.isArray(v.times) ? v.times.filter((t): t is string => typeof t === "string" && isClock(t)) : typeof v.time === "string" && isClock(v.time) ? [v.time] : [];
+  const days = Array.isArray(v.days) ? v.days.map(Number).filter((d) => ALL_DAYS.includes(d)) : Number.isInteger(v.day) && ALL_DAYS.includes(v.day!) ? [v.day!] : [];
   return {
     on: typeof v.on === "boolean" ? v.on : DEFAULT.on,
-    day: Number.isInteger(v.day) && v.day! >= 1 && v.day! <= 7 ? v.day! : DEFAULT.day,
-    time: typeof v.time === "string" && isClock(v.time) ? v.time : DEFAULT.time,
+    times: times.length ? [...new Set(times)].sort().slice(0, AUTOPOST_MAX_TIMES) : [...DEFAULT.times],
+    days: days.length ? [...new Set(days)].sort() : [...DEFAULT.days],
     text: typeof v.text === "string" ? v.text.slice(0, PROMO_TEXT_MAX) : "",
     lastAt: typeof v.lastAt === "string" ? v.lastAt : null,
     lastMessageId: typeof v.lastMessageId === "number" ? v.lastMessageId : null,
@@ -56,16 +60,19 @@ export function promoCaption(p: BotPromo): string {
   return p.text.trim() ? esc(p.text.trim()) : PROMO_VARIANTS[p.count % PROMO_VARIANTS.length];
 }
 
-export type PromoResult = { posted: boolean; reason?: "off" | "nochannel" | "notdue" | "busy" | "recent" | "send" };
+export type PromoResult = { posted: boolean; reason?: "off" | "nochannel" | "notdue" | "busy" | "recent" | "send"; detail?: string };
 
-/** Posts when the day and time have come (once; `force` = the admin's "send now"). */
+/** The next time it goes out (for the admin page). */
+export const promoNext = (p: BotPromo, now = Date.now()) => nextRun({ on: p.on, times: p.times, days: p.days, lastAt: null, skip: [] }, now);
+
+/** Posts when one of the set times has come (each claimed once; `force` = the admin's "send now"). */
 export async function runBotPromo({ force = false, now = Date.now() }: { force?: boolean; now?: number } = {}): Promise<PromoResult> {
   const p = await getBotPromo();
   if (!force && (!p.on || process.env.BOT_PROMO === "off")) return { posted: false, reason: "off" };
   const { channel } = await getTgState();
   if (!channel) return { posted: false, reason: "nochannel" };
   if (!force) {
-    const due = dueSlots({ on: true, times: [p.time], days: [p.day], lastAt: null, skip: [] }, now);
+    const due = dueSlots({ on: true, times: p.times, days: p.days, lastAt: null, skip: [] }, now);
     if (due.length === 0) return { posted: false, reason: "notdue" };
     let claimed = false;
     for (const d of due) {
@@ -76,8 +83,8 @@ export async function runBotPromo({ force = false, now = Date.now() }: { force?:
     if (p.lastAt && now - Date.parse(p.lastAt) < MIN_GAP_MS) return { posted: false, reason: "recent" };
   }
   const link = `https://t.me/${botUsername()}?start=kanalpost`;
-  const r = await sendPhotoOrText(channel.id, absoluteImage(`/api/tg-image/help?v=${HELP_IMAGE_VERSION}`), promoCaption(p), [[{ text: "🤖 Botni ochish", url: link }]]).catch(() => null);
-  if (!r?.ok) return { posted: false, reason: "send" };
+  const r = await sendPhotoOrText(channel.id, absoluteImage(PROMO_IMAGE), promoCaption(p), [[{ text: "🤖 Botni ochish", url: link }]]).catch((e) => ({ ok: false as const, code: 0, description: String(e).slice(0, 120) }));
+  if (!r.ok) return { posted: false, reason: "send", detail: ("description" in r ? r.description : "Telegram javob bermadi").slice(0, 160) };
   const messageId = (r.result as { message_id: number }).message_id;
   await updateBotPromo((s) => { s.lastAt = new Date(now).toISOString(); s.lastMessageId = messageId; s.count += 1; });
   return { posted: true };

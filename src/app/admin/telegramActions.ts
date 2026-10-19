@@ -318,16 +318,21 @@ const PBACK = `${BACK}#botpromo`;
 
 export async function saveBotPromoAction(fd: FormData) {
   await requireAdmin();
-  const time = str(fd, "time");
-  const day = Number(str(fd, "day"));
+  const raw = fd.getAll("time").map((v) => String(v).trim()).filter(Boolean);
+  if (raw.some((t) => !isClock(t)) || raw.length > AUTOPOST_MAX_TIMES) fail("promotime", PBACK);
+  const times = [...new Set(raw)].sort();
+  if (times.length === 0) fail("autonotime", PBACK);
+  const mins = times.map((t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3)));
+  const gaps = mins.map((m, i) => (i ? m - mins[i - 1] : m + 1440 - mins[mins.length - 1]));
+  if (mins.length > 1 && Math.min(...gaps) < AUTOPOST_MIN_GAP) fail("autogap", PBACK);
+  const days = [...new Set(fd.getAll("day").map(Number).filter((d) => ALL_DAYS.includes(d)))].sort();
+  if (days.length === 0) fail("autodays", PBACK);
   const text = String(fd.get("text") ?? "").replace(/\r/g, "").trim();
-  if (!isClock(time)) fail("promotime", PBACK);
-  if (!ALL_DAYS.includes(day)) fail("promoday", PBACK);
   if (text.length > PROMO_TEXT_MAX) fail("promotext", PBACK);
   await updateBotPromo((s) => {
     s.on = fd.get("on") === "on";
-    s.time = time;
-    s.day = day;
+    s.times = times;
+    s.days = days;
     s.text = text;
   });
   revalidatePath(BACK);
@@ -337,8 +342,8 @@ export async function saveBotPromoAction(fd: FormData) {
 export async function botPromoNowAction() {
   await requireAdmin();
   if (!(await getTgState()).channel) fail("channelfirst", PBACK);
-  const r = await runBotPromo({ force: true }).catch(() => null);
+  const r = await runBotPromo({ force: true }).catch((e) => ({ posted: false as const, detail: `xato: ${String(e).slice(0, 100)}` }));
   revalidatePath(BACK);
-  if (!r?.posted) fail("promosend", PBACK);
+  if (!r?.posted) return redirect(`${BACK}?error=promosend&detail=${encodeURIComponent((r?.detail ?? "Telegram javob bermadi").slice(0, 120))}#botpromo`);
   redirect(`${BACK}?ok=botpromoposted#botpromo`);
 }

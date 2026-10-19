@@ -20,7 +20,7 @@ import { SCOUT_PER_DAY, getScout, previewUrl } from "@/lib/fontScout";
 import { gfPage } from "@/lib/googleFonts";
 import { KIND_LABEL, botStats } from "@/lib/botStats";
 import { channelQuizLink, getChannelQuiz } from "@/lib/channelQuiz";
-import { PROMO_TEXT_MAX, getBotPromo, promoCaption } from "@/lib/botPromo";
+import { PROMO_IMAGE, PROMO_TEXT_MAX, getBotPromo, promoCaption, promoNext } from "@/lib/botPromo";
 
 export const metadata = { title: "Admin — Telegram" };
 export const maxDuration = 60; // "post now" sends an album of rendered posters
@@ -70,7 +70,7 @@ const ERR: Record<string, string> = {
   promotime: "Vaqtni SS:DD koʻrinishida kiriting (masalan 12:00).",
   promoday: "Haftaning kunini tanlang.",
   promotext: "Matn juda uzun: 600 belgigacha yozing.",
-  promosend: "Reklama kanalga chiqmadi: bot kanalda admin ekanini tekshiring.",
+  promosend: "Reklama kanalga chiqmadi.",
   cquiztime: "Vaqtlarni SS:DD koʻrinishida kiriting (masalan 19:00 va 09:00).",
   cquizbusy: "Bugungi savol kanalga allaqachon chiqqan.",
   cquizsend: "Savol kanalga chiqmadi: bot kanalda admin ekanini va savol tayyor ekanini tekshiring.",
@@ -85,8 +85,8 @@ const ERR: Record<string, string> = {
 
 type WebhookInfo = { url: string; pending_update_count: number; last_error_message?: string; last_error_date?: number };
 
-export default async function TelegramAdmin({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string; n?: string; slug?: string }> }) {
-  const { ok, error, n, slug } = await searchParams;
+export default async function TelegramAdmin({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string; n?: string; slug?: string; detail?: string }> }) {
+  const { ok, error, n, slug, detail } = await searchParams;
   const enabled = botEnabled();
   const bot = botUsername();
   const expected = `${SITE_URL}/api/telegram/webhook`;
@@ -137,7 +137,7 @@ export default async function TelegramAdmin({ searchParams }: { searchParams: Pr
       {ok === "scoutsent" && <Notice>{`${n ?? 0} ta yangi shrift taklif qilindi: pastdagi roʻyxatda va Telegramingizda.`}</Notice>}
       {ok === "scoutadded" && slug && /^[a-z0-9-]+$/.test(slug) && <Notice><Link href={`/fonts/${slug}`} className="link">Saytda koʻrish ↗</Link></Notice>}
       {ok && OK[ok] && <Notice>{OK[ok]}</Notice>}
-      {error && <Notice tone="error">{ERR[error] ?? "Xatolik yuz berdi."}</Notice>}
+      {error && <Notice tone="error">{ERR[error] ?? "Xatolik yuz berdi."}{error === "promosend" && detail ? ` Telegram: ${detail.slice(0, 120)}` : ""}</Notice>}
 
       {!enabled ? (
         <Notice tone="warn">Bot sozlanmagan: Vercel’ga TELEGRAM_BOT_TOKEN va TELEGRAM_BOT_USERNAME qoʻshing.</Notice>
@@ -443,22 +443,28 @@ export default async function TelegramAdmin({ searchParams }: { searchParams: Pr
           <section className="adm-card adm-pad" id="botpromo" aria-labelledby="h-botpromo">
             <h2 className="adm-h2" id="h-botpromo">Bot reklamasi (kanalda)</h2>
             <p className="adm-text">
-              Haftada bir marta kanalga “botimiz ham bor, sinab koʻring” posti chiqadi: botning yordam rasmi, qisqa matn va “Botni ochish”
-              tugmasi. Matn oʻzi almashib turadi (5 xil), xohlasangiz oʻz matningizni yozing. Botga shu post orqali kelganlar statistikada
-              “kanalpost” manbasi bilan koʻrinadi.
+              Bot kanalga oʻzini reklama qiladi: rasm, qisqa matn va “Botni ochish” tugmasi. Shrift postlaridagi kabi vaqt va kunlarni
+              belgilaysiz (odatda haftada bir marta). Matn oʻzi almashib turadi (5 xil); xohlasangiz oʻz matningizni yozing. Shu post
+              orqali kelganlar bot statistikasida “kanalpost” manbasi bilan koʻrinadi.
             </p>
             <form action={saveBotPromoAction} className="adm-tg-auto-form">
               <label className="check"><input type="checkbox" name="on" defaultChecked={promo.on} /> Yoqilgan</label>
-              <label className="adm-tg-scout-field">
-                <span>Kuni</span>
-                <select name="day" className="sel" defaultValue={String(promo.day)}>
-                  {DAY_LABEL.map(([d, , full]) => <option key={d} value={d}>{full}</option>)}
-                </select>
-              </label>
-              <label className="adm-tg-scout-field">
-                <span>Vaqti (Toshkent)</span>
-                <input type="time" name="time" defaultValue={promo.time} required />
-              </label>
+              <fieldset className="adm-tg-times">
+                <legend>Post vaqtlari (Toshkent vaqti)</legend>
+                {Array.from({ length: AUTOPOST_MAX_TIMES }, (_, i) => (
+                  <input key={i} type="time" name="time" defaultValue={promo.times[i] ?? ""} aria-label={`Reklama ${i + 1}-vaqti`} />
+                ))}
+                <span className="adm-meta">Kuniga 4 tagacha; keraksizini boʻsh qoldiring. Post belgilangan vaqtdan 5 daqiqa ichida chiqadi.</span>
+              </fieldset>
+              <fieldset className="adm-tg-days">
+                <legend>Kunlar</legend>
+                {DAY_LABEL.map(([n, short, full]) => (
+                  <label key={n} className="adm-tg-day" title={full}>
+                    <input type="checkbox" name="day" value={n} defaultChecked={promo.days.includes(n)} />
+                    <span>{short}</span>
+                  </label>
+                ))}
+              </fieldset>
               <label className="adm-tg-scout-field">
                 <span>Oʻz matningiz (boʻsh qolsa, tayyor matnlar navbat bilan)</span>
                 <textarea name="text" rows={4} maxLength={PROMO_TEXT_MAX} defaultValue={promo.text} />
@@ -466,10 +472,13 @@ export default async function TelegramAdmin({ searchParams }: { searchParams: Pr
               <SubmitButton className="btn btn-sm" pendingLabel="…">Saqlash</SubmitButton>
             </form>
             <p className="adm-meta">
-              {!state.channel ? "Avval kanalni ulang (3-boʻlim). " : promo.on ? `Har ${DAY_LABEL.find(([d]) => d === promo.day)?.[2].toLowerCase()} kuni ${promo.time} da. ` : "Oʻchirilgan. "}
-              {promo.lastAt ? `Oxirgi post: ${formatDateTime(promo.lastAt)}. ` : "Hali chiqmagan. "}
-              {`Keyingi post matni: “${promoCaption(promo).replace(/<[^>]+>/g, "").replace(/\s+/g, " ").slice(0, 90)}…”`}
+              {!state.channel ? "Kanal ulanmaguncha post chiqmaydi. " : promo.on ? `Keyingi post: ${promoNext(promo) ? formatDateTime(promoNext(promo)!) : "—"}. Haftasiga ${promo.times.length * promo.days.length} ta. ` : "Oʻchirilgan: post faqat “Hozir yuborish” bilan chiqadi. "}
+              {promo.lastAt ? `Oxirgisi: ${formatDateTime(promo.lastAt)}. ` : "Hali chiqmagan. "}
+              {`Keyingi matn: “${promoCaption(promo).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 80)}…”`}
             </p>
+            <div className="adm-tg-album" aria-label="Reklama rasmi">
+              <img src={PROMO_IMAGE} alt="Bot reklamasi rasmi" loading="lazy" />
+            </div>
             <form action={botPromoNowAction}>
               <SubmitButton className="btn btn-sm" pendingLabel="Yuborilmoqda…">Hozir yuborish</SubmitButton>
             </form>
