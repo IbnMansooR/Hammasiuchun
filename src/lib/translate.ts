@@ -56,3 +56,24 @@ export async function translateNews(src: UzText): Promise<UzText | null> {
     return null;
   }
 }
+
+export type TranslationTest = { ok: true; title: string; model: string } | { ok: false; reason: "nokey" | "key" | "money" | "limit" | "model" | "other"; detail: string };
+
+/** One tiny real call for the admin's "test the translation" button: says what is wrong, never shows the key. */
+export async function testTranslation(): Promise<TranslationTest> {
+  if (!translationOn()) return { ok: false, reason: "nokey", detail: "ANTHROPIC_API_KEY sozlanmagan" };
+  try {
+    const client = new Anthropic({ maxRetries: 0, timeout: 30_000, baseURL: process.env.ANTHROPIC_BASE_URL || undefined });
+    const src = { title: "Typography is the art of arranging type", excerpt: "" };
+    const res = await client.messages.create({ model: MODEL(), max_tokens: 400, system: SYSTEM, messages: [{ role: "user", content: `<item>\n<title>${src.title}</title>\n<excerpt></excerpt>\n</item>` }] });
+    const out = parseTranslation(res.content.map((b) => (b.type === "text" ? b.text : "")).join(""), src);
+    if (!out) return { ok: false, reason: "other", detail: "kalit ishladi, lekin javob kutilgan koʻrinishda emas" };
+    return { ok: true, title: out.title, model: MODEL() };
+  } catch (e) {
+    const err = e as { status?: number; message?: string };
+    const msg = String(err.message ?? e).replace(/sk-ant-[A-Za-z0-9_-]+/g, "sk-ant-…").slice(0, 160);
+    const status = err.status ?? 0;
+    const reason = status === 401 || status === 403 ? "key" : status === 402 || /credit|balance|billing/i.test(msg) ? "money" : status === 429 ? "limit" : status === 404 || /model/i.test(msg) ? "model" : "other";
+    return { ok: false, reason, detail: `${status || "xato"}: ${msg}` };
+  }
+}

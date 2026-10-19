@@ -9,6 +9,7 @@ import {
   DESIGNER_EVERY, NEWS_PER_DAY, addDesignerById, decideContent, feedUrlOk, runContentScout, updateContent, type Decision,
 } from "@/lib/contentScout";
 import { fetchFeed } from "@/lib/rssFeed";
+import { testTranslation } from "@/lib/translate";
 
 const BACK = "/admin/content";
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
@@ -166,4 +167,13 @@ export async function deleteDesignerAction(fd: FormData) {
 export async function decideNewsAction(how: string, fd: FormData) {
   fd.set("how", how);
   return decideContentAction(fd);
+}
+
+/** "Tarjimani sinash": one tiny real call, and what came of it. */
+export async function testTranslationAction() {
+  await requireAdmin();
+  const r = await testTranslation();
+  revalidatePath(BACK);
+  if (!r.ok) redirect(`${BACK}?error=tr${r.reason}&detail=${encodeURIComponent(r.detail)}#settings`);
+  redirect(`${BACK}?ok=trok&detail=${encodeURIComponent(`${r.model}: “${r.title}”`)}#settings`);
 }

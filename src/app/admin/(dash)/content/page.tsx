@@ -6,7 +6,7 @@ import { searchPeople } from "@/lib/wikidata";
 import { DESIGNER_EVERY, NEWS_PER_DAY, getContent } from "@/lib/contentScout";
 import {
   addDesignerAction, addFeedAction, decideContentAction, decideNewsAction, deleteDesignerAction, removeFeedAction, runContentNowAction,
-  saveContentSettingsAction, saveDesignerAction, searchDesignerAction, toggleDesignerAction, toggleFeedAction,
+  saveContentSettingsAction, saveDesignerAction, searchDesignerAction, testTranslationAction, toggleDesignerAction, toggleFeedAction,
 } from "@/app/admin/contentActions";
 import Notice from "@/components/admin/Notice";
 import SubmitButton from "@/components/SubmitButton";
@@ -28,6 +28,7 @@ const OK: Record<string, string> = {
   deleted: "Profil oʻchirildi: u boshqa taklif qilinmaydi.",
   added: "Saytga qoʻshildi ✓",
   addedposted: "Saytga qoʻshildi va kanalga chiqdi ✓",
+  trok: "Tarjima ishlayapti ✓",
 };
 const ERR: Record<string, string> = {
   time: "Vaqtni SS:DD koʻrinishida kiriting (masalan 12:00).",
@@ -47,10 +48,16 @@ const ERR: Record<string, string> = {
   notdesigner: "Wikidata javob bermadi yoki bu odam dizayner sifatida topilmadi.",
   q: "Ismni yozing (kamida 2 harf).",
   summary: "Matn boʻsh boʻlmasin.",
+  trnokey: "Tarjima kaliti yoʻq: Vercel’da ANTHROPIC_API_KEY ni qoʻshing va qayta deploy qiling.",
+  trkey: "Anthropic kalitni qabul qilmadi (noto‘g‘ri, muddati tugagan yoki ruxsati yoʻq). Konsolda yangi kalit yarating va Vercel’da almashtiring.",
+  trmoney: "Anthropic hisobida mablagʻ yoki kredit yetarli emas: console.anthropic.com → Billing.",
+  trlimit: "Anthropic soʻrovlar chegarasiga yetdi. Birozdan keyin qayta urinib koʻring.",
+  trmodel: "Model topilmadi yoki ruxsat yoʻq. Vercel’da ANTHROPIC_MODEL ni tekshiring.",
+  trother: "Tarjima sinovi muvaffaqiyatsiz tugadi.",
 };
 
-export default async function ContentAdmin({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string; n?: string; d?: string; q?: string; to?: string }> }) {
-  const { ok, error, n, d, q, to } = await searchParams;
+export default async function ContentAdmin({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string; n?: string; d?: string; q?: string; to?: string; detail?: string }> }) {
+  const { ok, error, n, d, q, to, detail } = await searchParams;
   const [st, tg, designers, results] = await Promise.all([
     getContent(),
     getTgState(),
@@ -68,8 +75,8 @@ export default async function ContentAdmin({ searchParams }: { searchParams: Pro
         <Link href="/dizaynerlar/profil" className="btn btn-sm">Profillar sahifasi ↗</Link>
       </div>
       {ok === "offered" && <Notice>{`${n ?? 0} ta yangilik va ${d ?? 0} ta dizayner taklif qilindi: pastdagi roʻyxatda va Telegramingizda.`}</Notice>}
-      {ok && OK[ok] && <Notice>{OK[ok]}{to && /^\/[A-Za-z0-9/_-]+$/.test(to) && <> <Link href={to} className="link">Koʻrish ↗</Link></>}</Notice>}
-      {error && <Notice tone="error">{ERR[error] ?? "Xatolik yuz berdi."}</Notice>}
+      {ok && OK[ok] && <Notice>{OK[ok]}{ok === "trok" && detail ? ` ${detail.slice(0, 200)}` : ""}{to && /^\/[A-Za-z0-9/_-]+$/.test(to) && <> <Link href={to} className="link">Koʻrish ↗</Link></>}</Notice>}
+      {error && <Notice tone="error">{ERR[error] ?? "Xatolik yuz berdi."}{error.startsWith("tr") && detail ? ` (${detail.slice(0, 180)})` : ""}</Notice>}
 
       <section className="adm-card adm-pad" id="settings" aria-labelledby="h-set">
         <h2 className="adm-h2" id="h-set">1. Sozlama</h2>
@@ -110,6 +117,9 @@ export default async function ContentAdmin({ searchParams }: { searchParams: Pro
           <SubmitButton className="btn btn-sm" pendingLabel="…">Saqlash</SubmitButton>
         </form>
         <p className="adm-meta">{translationOn() ? "Yangiliklar avtomatik oʻzbekchaga tarjima qilinadi; ✅ dan oldin matnni tahrirlash mumkin." : "Avtomatik tarjima oʻchiq (ANTHROPIC_API_KEY qoʻyilmagan): yangilik matnini oʻzingiz oʻzbekchaga yozasiz."}</p>
+        <form action={testTranslationAction}>
+          <SubmitButton className="btn btn-sm" pendingLabel="Sinalmoqda…">Tarjimani sinash</SubmitButton>
+        </form>
         <p className="adm-meta">{tg.admins.length === 0 ? "Telegramingiz ulanmagan: takliflar faqat shu yerda chiqadi." : st.on && st.times.length > 0 ? `Takliflar ${st.days.length === 7 ? "har kuni" : "tanlangan kunlari"} ${st.times.join(", ")} da Telegramingizga keladi.` : "Oʻchirilgan: takliflar faqat “Hozir taklif olish” bilan."}</p>
       </section>
 

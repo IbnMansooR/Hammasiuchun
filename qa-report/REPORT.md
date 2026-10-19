@@ -1319,3 +1319,9 @@ Pictures taken from the fonts' own GitHub repositories (Inter `misc/readme/intro
 - **Cause:** the count was refreshed only by the 5-minute cron, and at most every 10 minutes.
 - **Fix:** every answer in the channel now edits the post's caption at once (after the popup is sent, so the player isn't kept waiting). Telegram throttles edits of one message, so presses closer than 2.5 s wait their turn and the last of a burst always shows; the cron still brings a skipped one up to date (every 5 minutes, at most once a minute). The count is the number of people who have answered that day's question, in the bot or in the channel.
 - **Tests:** e2e-cquiz 45 (live edit after the first answer, after a later one, a burst of three presses, the stored count, the cron path, no repeated edit); e2e-quiz 26 and e2e-tg 74 unchanged.
+
+#### 26.7.1 "Tarjimani sinash" (translation check) in Admin → Yangilik va profillar
+
+- The owner got an Anthropic API key (and $100 of API credit, valid to 14 Nov 2026 per the console). The key goes into Vercel as `ANTHROPIC_API_KEY` (never into the repository or chat) and the site is redeployed.
+- A "Tarjimani sinash" button makes one tiny real call with the configured key and model and shows either the model and the Uzbek title it produced, or what is wrong: no key, key refused (401/403), no credit (402 or a billing message), rate limit, unknown model, or an unexpected answer, with the API's own short message (key text removed).
+- e2e-content 100 (the button against the fake API: success shows the model and the Uzbek title; a refused key is explained and nothing like a key is printed).
