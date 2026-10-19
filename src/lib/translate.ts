@@ -1,13 +1,11 @@
 // English → natural Uzbek for the news offers (title + the publisher's short summary).
 // Claude does the translating. Without ANTHROPIC_API_KEY (or when the call fails) nothing is
 // translated and the admin edits the text by hand before ✅.
-import Anthropic from "@anthropic-ai/sdk";
+import { ai, aiOn } from "./ai";
 
 export type UzText = { title: string; excerpt: string };
 
-export const translationOn = () => !!process.env.ANTHROPIC_API_KEY;
-
-const MODEL = () => process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5";
+export const translationOn = aiOn;
 
 const SYSTEM = `You translate short design-news items from English into Uzbek for the Feekr font and design website (feekrfont.uz) and its Telegram channel.
 
@@ -39,41 +37,19 @@ export function parseTranslation(raw: string, src: UzText): UzText | null {
   return { title, excerpt };
 }
 
-/** Uzbek title + summary, or null (no key, API error, or an unusable answer). */
+/** Uzbek title + summary, or null (no key, API error, budget used up, or an unusable answer). */
 export async function translateNews(src: UzText): Promise<UzText | null> {
-  if (!translationOn()) return null;
-  try {
-    const client = new Anthropic({ maxRetries: 2, timeout: 45_000, baseURL: process.env.ANTHROPIC_BASE_URL || undefined });
-    const res = await client.messages.create({
-      model: MODEL(),
-      max_tokens: 8000,
-      system: SYSTEM,
-      messages: [{ role: "user", content: `<item>\n<title>${src.title}</title>\n<excerpt>${src.excerpt}</excerpt>\n</item>` }],
-    });
-    const text = res.content.map((b) => (b.type === "text" ? b.text : "")).join("");
-    return parseTranslation(text, src);
-  } catch {
-    return null;
-  }
+  const r = await ai({ task: "translate", system: SYSTEM, user: `<item>\n<title>${src.title}</title>\n<excerpt>${src.excerpt}</excerpt>\n</item>`, maxTokens: 4000 });
+  return r.ok ? parseTranslation(r.text, src) : null;
 }
 
 export type TranslationTest = { ok: true; title: string; model: string } | { ok: false; reason: "nokey" | "key" | "money" | "limit" | "model" | "other"; detail: string };
 
 /** One tiny real call for the admin's "test the translation" button: says what is wrong, never shows the key. */
 export async function testTranslation(): Promise<TranslationTest> {
-  if (!translationOn()) return { ok: false, reason: "nokey", detail: "ANTHROPIC_API_KEY sozlanmagan" };
-  try {
-    const client = new Anthropic({ maxRetries: 0, timeout: 30_000, baseURL: process.env.ANTHROPIC_BASE_URL || undefined });
-    const src = { title: "Typography is the art of arranging type", excerpt: "" };
-    const res = await client.messages.create({ model: MODEL(), max_tokens: 400, system: SYSTEM, messages: [{ role: "user", content: `<item>\n<title>${src.title}</title>\n<excerpt></excerpt>\n</item>` }] });
-    const out = parseTranslation(res.content.map((b) => (b.type === "text" ? b.text : "")).join(""), src);
-    if (!out) return { ok: false, reason: "other", detail: "kalit ishladi, lekin javob kutilgan koʻrinishda emas" };
-    return { ok: true, title: out.title, model: MODEL() };
-  } catch (e) {
-    const err = e as { status?: number; message?: string };
-    const msg = String(err.message ?? e).replace(/sk-ant-[A-Za-z0-9_-]+/g, "sk-ant-…").slice(0, 160);
-    const status = err.status ?? 0;
-    const reason = status === 401 || status === 403 ? "key" : status === 402 || /credit|balance|billing/i.test(msg) ? "money" : status === 429 ? "limit" : status === 404 || /model/i.test(msg) ? "model" : "other";
-    return { ok: false, reason, detail: `${status || "xato"}: ${msg}` };
-  }
+  const src = { title: "Typography is the art of arranging type", excerpt: "" };
+  const r = await ai({ task: "test", system: SYSTEM, user: `<item>\n<title>${src.title}</title>\n<excerpt></excerpt>\n</item>`, maxTokens: 800, timeoutMs: 30_000 });
+  if (!r.ok) return { ok: false, reason: r.reason === "off" || r.reason === "budget" ? "other" : r.reason, detail: r.detail };
+  const out = parseTranslation(r.text, src);
+  return out ? { ok: true, title: out.title, model: r.model } : { ok: false, reason: "other", detail: "kalit ishladi, lekin javob kutilgan koʻrinishda emas" };
 }

@@ -504,3 +504,16 @@ model BotQuiz {
   @@index([wKey, wScore])
   @@index([lastDay])
 }
+
+// What the AI calls cost, per day, task and model (lib/ai): tokens and calls, never any text.
+model AiUsage {
+  day      String // Tashkent date
+  task     String
+  model    String
+  calls    Int    @default(0)
+  inTok    Int    @default(0)
+  outTok   Int    @default(0)
+  failures Int    @default(0)
+
+  @@id([day, task, model])
+}
