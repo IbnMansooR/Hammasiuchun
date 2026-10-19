@@ -3,6 +3,8 @@
 import { absoluteImage, botUsername, esc, sendPhotoOrText, siteLink, tg, type Keyboard } from "./telegram";
 import { sendMessage } from "./telegram";
 import { db } from "./db";
+import { MENU, menuCommand, menuMarkup } from "./tgMenu";
+export { MENU, menuCommand };
 import { getTgState } from "./tgState";
 import { sendUzbekLetters } from "./tgSamples";
 import { startAdFlow } from "./tgAdFlow";
@@ -35,26 +37,16 @@ export async function setBotProfile(): Promise<void> {
 /** Telegram keeps a picture it has fetched for a URL; a new number here makes it fetch the new design. */
 export const HELP_IMAGE_VERSION = 6;
 
-/** The button menu under the input field: label → the command it stands for. */
-export const MENU: [string, string][][] = [
-  [["🎯 Viktorina", "/viktorina"], ["🎭 Qaysi shrift sen?", "/test"]],
-  [["🖼 Fon rasmi", "/fon"], ["🏷 Brend nomi", "/brend"]],
-  [["🏆 Reyting", "/reyting"], ["🔤 Harflar", "/harflar"]],
-  [["🔍 Shrift topish", "/topish"], ["📣 Reklama", "/reklama"]],
-  [["ℹ️ Yordam", "/help"]],
-];
-const MENU_TEXT = new Map(MENU.flat());
-/** A tapped menu button arrives as its label: the command it means, or null. */
-export const menuCommand = (text: string): string | null => MENU_TEXT.get(text.trim()) ?? null;
-
-/** Send the button menu once to everybody (the keyboard then stays under the input field). */
-export async function ensureMenu(chatId: string): Promise<void> {
+/** Send the button menu once to everybody; `force` sends it again (on /start), for a keyboard that went missing. */
+export async function ensureMenu(chatId: string, force = false): Promise<void> {
   if (process.env.BOT_MENU === "off") return;
-  const claimed = await db.botUser.updateMany({ where: { chatId, menuShown: false }, data: { menuShown: true } });
-  if (claimed.count === 0) return;
-  await sendMessage(chatId, "Menyu pastda 👇 Tugmalarni bosing yoki istalgan matnni yozing: uni shriftlarda koʻrsataman.", undefined, {
-    reply_markup: { keyboard: MENU.map((row) => row.map(([label]) => ({ text: label }))), resize_keyboard: true, is_persistent: true, input_field_placeholder: "Matn yozing: shriftda koʻrsataman" },
-  });
+  if (!force) {
+    const claimed = await db.botUser.updateMany({ where: { chatId, menuShown: false }, data: { menuShown: true } });
+    if (claimed.count === 0) return;
+  } else {
+    await db.botUser.updateMany({ where: { chatId }, data: { menuShown: true } });
+  }
+  await sendMessage(chatId, "Menyu pastda 👇 Tugmalarni bosing yoki istalgan matnni yozing: uni shriftlarda koʻrsataman.", undefined, menuMarkup());
 }
 
 export async function sendHelp(chatId: string): Promise<void> {

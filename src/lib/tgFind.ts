@@ -3,6 +3,7 @@
 // The matching is lib/fontFinder (no AI); the picture is only read, never stored.
 import { db } from "./db";
 import { esc, downloadFile, sendMessage, sendPhotoOrText, siteLink, type Keyboard } from "./telegram";
+import { menuMarkup, setAsk } from "./tgMenu";
 import { FIND_TEXT_MAX, findFonts } from "./fontFinder";
 import { cleanSampleText, sampleFonts, sampleImageUrl, uzbekize } from "./fontSamples";
 import { hasProfanity } from "./profanity";
@@ -33,7 +34,8 @@ export async function handlePhoto(chatId: string, fileId: string, caption: strin
   const text = uzbekize(cleanSampleText(caption ?? "")).slice(0, FIND_TEXT_MAX).trim();
   if (text.length >= 2) return runFind(chatId, fileId, text);
   await db.botFind.upsert({ where: { chatId }, create: { chatId, fileId }, update: { fileId, at: new Date() } });
-  await sendMessage(chatId, `${FIND_ASK} (2–${FIND_TEXT_MAX} belgi).\nShu xabarga javob (reply) qilib yozing: rasmda nima yozilgan boʻlsa, shuni.`, undefined, { reply_markup: { force_reply: true, input_field_placeholder: "Rasmdagi matn" } });
+  await setAsk(chatId, "find");
+  await sendMessage(chatId, `${FIND_ASK} (2–${FIND_TEXT_MAX} belgi).\nMatnni shu yerga yozing: rasmda nima yozilgan boʻlsa, shuni.`, undefined, menuMarkup("Rasmdagi matn"));
 }
 
 /** The reply to the question above. */

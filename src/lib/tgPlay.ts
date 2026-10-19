@@ -5,6 +5,7 @@
 // Nothing is stored: the questions travel in the buttons, the text travels in the caption.
 import { db } from "./db";
 import { esc, sendAlbum, sendMessage, sendPhotoOrText, siteLink, tg, botUsername, type Keyboard } from "./telegram";
+import { menuMarkup, setAsk } from "./tgMenu";
 import { cleanSampleText, sampleFonts, uzbekize, type SampleFont } from "./fontSamples";
 import { CARD_TEXT_MAX, PALETTE_COUNT, TYPES, cardUrl, isType, type TypeCode } from "./playCards";
 import { hasProfanity } from "./profanity";
@@ -107,13 +108,14 @@ export async function handleTestCallback(q: PlayCb): Promise<void> {
 
 /* ---------------- wallpaper ---------------- */
 
-const forceReply = (placeholder: string) => ({ reply_markup: { force_reply: true, input_field_placeholder: placeholder } });
 
 export async function askWallpaper(chatId: string): Promise<void> {
-  await sendMessage(chatId, `${WALL_ASK}\nShu xabarga javob (reply) qilib yozing: masalan “Bugun mening kunim”.`, undefined, forceReply("Fon uchun matn"));
+  await setAsk(chatId, "wall");
+  await sendMessage(chatId, `${WALL_ASK}\nMatnni shu yerga yozing: masalan “Bugun mening kunim”.`, undefined, menuMarkup("Fon uchun matn"));
 }
 export async function askBrand(chatId: string): Promise<void> {
-  await sendMessage(chatId, `${BRAND_ASK}\nShu xabarga javob (reply) qilib yozing: masalan “Nur Cafe”.`, undefined, forceReply("Brend nomi"));
+  await setAsk(chatId, "brand");
+  await sendMessage(chatId, `${BRAND_ASK}\nNomni shu yerga yozing: masalan “Nur Cafe”.`, undefined, menuMarkup("Brend nomi"));
 }
 
 async function fontsFor(text: string): Promise<SampleFont[]> {

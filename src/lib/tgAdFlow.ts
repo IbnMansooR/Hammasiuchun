@@ -4,6 +4,7 @@
 import { db } from "./db";
 import { AD_PLACE_LABEL, AD_PLACES, createAdRequest, firstLink, getAdOffer, getAudience, type AdPlace } from "./adSales";
 import { esc, sendMessage, siteLink, tg, type Keyboard } from "./telegram";
+import { menuMarkup } from "./tgMenu";
 import { formatNumber } from "./format";
 
 type Step = "what" | "place" | "timing" | "contact" | "confirm";
@@ -34,7 +35,8 @@ const endFlow = (chatId: string) => db.setting.deleteMany({ where: { key: key(ch
 export const inAdFlow = async (chatId: string) => !!(await getFlow(chatId));
 
 const CANCEL: Keyboard = [[{ text: "❌ Bekor qilish", callback_data: "ad:f:c" }]];
-const NO_KEYBOARD = { reply_markup: { remove_keyboard: true } };
+
+const NO_KEYBOARD = menuMarkup();
 
 export async function startAdFlow(from: From): Promise<void> {
   const chatId = String(from.id);

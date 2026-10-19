@@ -440,6 +440,8 @@ model BotUser {
   source    String? // where they came from: the ?start= label (reklama, site, channel …)
   blockedAt DateTime? // the person blocked the bot
   menuShown Boolean   @default(false) // the button menu under the input field was sent
+  ask       String? // what the next plain text is the answer to: wall, brand or find
+  askAt     DateTime?
 
   @@index([firstAt])
   @@index([lastAt])

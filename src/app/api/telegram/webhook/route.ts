@@ -14,6 +14,7 @@ import { handleContentCallback } from "@/lib/contentScout";
 import { handleAdFlowCallback, handleAdFlowMessage, inAdFlow, startAdFlow } from "@/lib/tgAdFlow";
 import { handleAdRequestCallback } from "@/lib/channelAds";
 import { ensureMenu, handleHelpCallback, menuCommand, sendHelp, setBotCommands } from "@/lib/tgHelp";
+import { clearAsk, takeAsk } from "@/lib/tgMenu";
 import { askFind, FIND_ASK, handleFindReply, handlePhoto } from "@/lib/tgFind";
 import { handleQuizCallback, showDaily, showLeaderboard } from "@/lib/tgQuiz";
 import { askBrand, askWallpaper, handleBrandCallback, handleTestCallback, handleWallCallback, isPlayReply, makeBrand, makeWallpaper, startTest } from "@/lib/tgPlay";
@@ -98,8 +99,12 @@ async function onPrivateMessage(from: From, textIn: string, replyText?: string) 
   // A tap on the button menu arrives as the button's label: treat it as the command it stands for.
   const text = menuCommand(textIn) ?? textIn;
   // Everybody gets the button menu once, a moment after the answer.
-  after(async () => { await pause(1500); await ensureMenu(chatId).catch(() => {}); });
+  // On /start the menu is sent again (a keyboard that went missing comes back); otherwise once, after the answer.
+  const isStart = /^\/start(\s|$)/.test(text.trim());
+  after(async () => { await pause(1500); await ensureMenu(chatId, isStart).catch(() => {}); });
   const [cmd, payload = ""] = text.trim().split(/\s+/, 2);
+  // A command (or a menu button) cancels a question that was waiting for its text.
+  if (cmd.startsWith("/")) await clearAsk(chatId);
 
   // Count the use (kinds only, never the text). /stat is the admin's own tool and is not counted.
   if (cmd !== "/stat") {
@@ -125,9 +130,11 @@ async function onPrivateMessage(from: From, textIn: string, replyText?: string) 
   if (cmd === "/reyting" || (cmd === "/start" && payload === "reyting")) return showLeaderboard(from);
   if (cmd === "/fon") return askWallpaper(chatId);
   if (cmd === "/brend") return askBrand(chatId);
-  // A reply to the /fon or /brend question (the picture takes a few seconds: Telegram gets its answer first).
-  if (!text.trim().startsWith("/") && replyText?.startsWith(FIND_ASK)) { after(() => handleFindReply(chatId, text).catch(() => {})); return; }
-  const played = !text.trim().startsWith("/") ? isPlayReply(replyText) : null;
+  // The answer to a /fon, /brend or picture question: the next plain text (or a reply to the question itself).
+  // The picture takes a few seconds, so Telegram gets its answer first.
+  const pending = !text.trim().startsWith("/") ? await takeAsk(chatId) : null;
+  if (!text.trim().startsWith("/") && (pending === "find" || replyText?.startsWith(FIND_ASK))) { after(() => handleFindReply(chatId, text).catch(() => {})); return; }
+  const played = !text.trim().startsWith("/") ? (pending === "wall" || pending === "brand" ? pending : isPlayReply(replyText)) : null;
   if (played === "wall") { after(() => makeWallpaper(chatId, text).catch(() => {})); return; }
   if (played === "brand") { after(() => makeBrand(chatId, text).catch(() => {})); return; }
   if (cmd === "/stat") {

@@ -9,7 +9,7 @@ import { ogFonts } from "./og";
 import { readFont } from "./storage";
 import { SITE_URL } from "./site";
 import { botUsername } from "./telegram";
-import { sampleFonts, type SampleFont } from "./fontSamples";
+import { staticFont, sampleFonts, type SampleFont } from "./fontSamples";
 import { MARK, WORD } from "@/components/Logo";
 
 export type CardKind = "test" | "wall" | "brand" | "quiz";
@@ -55,6 +55,21 @@ export function verifyCard(k: string, t: string, f: string, v: string, s: string
 /** Size that keeps a short text on a few lines of a `width` px box. */
 const fit = (len: number, max: number, min: number, width: number) => Math.max(min, Math.min(max, Math.floor((width * 1.7) / Math.max(3, len))));
 
+/** The size at which the text really fits `width` (measured in the font itself, not guessed from the letter count):
+ * a text without spaces on one line, otherwise its longest word (the rest wraps at spaces). */
+function fitMeasured(data: Buffer, text: string, max: number, min: number, width: number): number {
+  const guess = fit(text.length, max, min, width);
+  try {
+    const f = staticFont(data);
+    if (!f) return guess;
+    const em = (s: string) => f.layout(s).advanceWidth / f.unitsPerEm;
+    const widest = Math.max(...text.split(/\s+/).filter(Boolean).map(em), 0.01);
+    return Math.max(min, Math.min(guess, max, Math.floor((width * 0.97) / widest)));
+  } catch {
+    return guess;
+  }
+}
+
 const SIZES: Record<CardKind, [number, number]> = { test: [1080, 1920], wall: [1080, 2340], brand: [1080, 1080], quiz: [1080, 1350] };
 
 function Logo({ p, w = 200 }: { p: Palette; w?: number }) {
@@ -90,7 +105,7 @@ export async function renderCard(kind: CardKind, text: string, slug: string, var
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 34 }}>
           <span style={{ display: "flex", fontSize: 44, color: p.muted }}>Sen shunday shriftsan:</span>
-          <span style={{ display: "flex", fontFamily: S, fontSize: fit(text.length, 300, 120, 900), lineHeight: 1.02, wordBreak: "break-word", color: p.fg }}>{text}</span>
+          <span style={{ display: "flex", fontFamily: S, fontSize: fitMeasured(data, text, 300, 48, 900), lineHeight: 1.02, wordBreak: "break-word", color: p.fg }}>{text}</span>
           <span style={{ display: "flex", alignSelf: "flex-start", fontSize: 34, fontWeight: 600, letterSpacing: 4, padding: "12px 28px", background: p.accent, color: p.bg === "#ffe27a" || p.bg === "#ff6b4a" ? p.bg : p.bg, borderRadius: 999 }}>{t.label}</span>
           <span style={{ display: "flex", fontFamily: "Feekr Display", fontSize: 64, lineHeight: 1.12, maxWidth: 900 }}>{t.line}</span>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
@@ -114,7 +129,7 @@ export async function renderCard(kind: CardKind, text: string, slug: string, var
     tree = (
       <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", alignItems: "center", background: p.bg, color: p.fg, padding: "300px 80px 170px", fontFamily: "Feekr Sans" }}>
         <span style={{ display: "flex", height: 6, width: 120, background: p.accent, borderRadius: 3 }} />
-        <span style={{ display: "flex", textAlign: "center", justifyContent: "center", fontFamily: S, fontSize: fit(text.length, 250, 84, 880), lineHeight: 1.08, wordBreak: "break-word", maxWidth: 920 }}>{text}</span>
+        <span style={{ display: "flex", textAlign: "center", justifyContent: "center", fontFamily: S, fontSize: fitMeasured(data, text, 250, 48, 880), lineHeight: 1.08, wordBreak: "break-word", maxWidth: 920 }}>{text}</span>
         <span style={{ display: "flex", fontSize: 28, letterSpacing: 2, color: p.muted }}>feekrfont.uz</span>
       </div>
     );
@@ -130,7 +145,7 @@ export async function renderCard(kind: CardKind, text: string, slug: string, var
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
           <span style={{ display: "flex", fontSize: 44, color: p.muted }}>{reveal ? "Javob:" : "Bu qaysi shrift?"}</span>
-          <span style={{ display: "flex", fontFamily: S, fontSize: fit(text.length, 260, 100, 920), lineHeight: 1.05, wordBreak: "break-word" }}>{text}</span>
+          <span style={{ display: "flex", fontFamily: S, fontSize: fitMeasured(data, text, 260, 48, 920), lineHeight: 1.05, wordBreak: "break-word" }}>{text}</span>
           {reveal && <span style={{ display: "flex", fontFamily: nameInFont ? S : "Feekr Display", fontSize: 76, color: p.accent }}>{font.name}</span>}
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", borderTop: `3px solid ${p.fg}`, paddingTop: 26, fontSize: 32, color: p.muted }}>
@@ -148,7 +163,7 @@ export async function renderCard(kind: CardKind, text: string, slug: string, var
           <span style={{ display: "flex", width: 22, height: 22, borderRadius: 11, background: p.accent }} />
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 26 }}>
-          <span style={{ display: "flex", fontFamily: S, fontSize: fit(text.length, 300, 90, 900), lineHeight: 1.02, wordBreak: "break-word" }}>{text}</span>
+          <span style={{ display: "flex", fontFamily: S, fontSize: fitMeasured(data, text, 300, 48, 900), lineHeight: 1.02, wordBreak: "break-word" }}>{text}</span>
           <span style={{ display: "flex", height: 8, width: 200, background: p.accent, borderRadius: 4 }} />
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", borderTop: `3px solid ${p.fg}`, paddingTop: 28, fontSize: 30 }}>
