@@ -228,10 +228,15 @@ export function cutLine(ink: Ink, want = 0): Comp[] | null {
   // the line: components whose centres lie near each other vertically; the heaviest group wins
   const sorted = [...comps].sort((a, b) => a.minY + a.maxY - (b.minY + b.maxY));
   const groups: Comp[][] = [];
+  const span: { top: number; bottom: number }[] = [];
   for (const c of sorted) {
     const g = groups[groups.length - 1];
+    const sp = span[span.length - 1];
     const yc = (c.minY + c.maxY) / 2;
-    if (g && yc - (g[0].minY + g[0].maxY) / 2 < medH * 0.7) g.push(c); else groups.push([c]); // measured from the line's first piece, so stacked small lines don't chain into one
+    // chained by centre, but a line is never taller than ascender-to-descender, so stacked small lines don't chain into one
+    if (g && yc - (g[g.length - 1].minY + g[g.length - 1].maxY) / 2 < medH * 0.7 && Math.max(sp.bottom, c.maxY) - Math.min(sp.top, c.minY) < medH * 2.6) {
+      g.push(c); sp.top = Math.min(sp.top, c.minY); sp.bottom = Math.max(sp.bottom, c.maxY);
+    } else { groups.push([c]); span.push({ top: c.minY, bottom: c.maxY }); }
   }
   // a picture can hold several lines: take the one that has as many letters as the typed text (else the heaviest)
   const weight = (g: Comp[]) => g.reduce((s, c) => s + c.area, 0);
