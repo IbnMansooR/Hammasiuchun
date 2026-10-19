@@ -17,6 +17,17 @@ import { TZ_OFFSET_MS, tashkentDay } from "./analytics";
 import { formatDate } from "./format";
 import { sampleFonts, sampleImageUrl } from "./fontSamples";
 
+/** Renders each poster once ourselves, so the CDN has it when Telegram asks: Telegram gives up on a picture
+ * that takes a few seconds to draw (a big font on a cold start), and one failed picture fails the whole album. */
+async function warmPosters(urls: string[]): Promise<void> {
+  await Promise.all(urls.map(async (u) => {
+    for (let i = 0; i < 2; i++) {
+      const ok = await fetch(u, { cache: "no-store", signal: AbortSignal.timeout(20_000) }).then(async (r) => { await r.arrayBuffer(); return r.ok; }, () => false);
+      if (ok) return;
+    }
+  }));
+}
+
 export const CAPTION_MAX = 1000; // Telegram's photo caption limit is 1024 characters
 
 export type PostDraft = {
@@ -230,7 +241,13 @@ export async function postDraft(draft: PostDraft, caption: string, silent = fals
   }
   let messageId: number | null = null;
   if (draft.album && draft.album.length >= 2) {
-    const a = await sendAlbum(channel.id, draft.album, html, extra);
+    await warmPosters(draft.album);
+    let a = await sendAlbum(channel.id, draft.album, html, extra);
+    // One more try before the single card: a picture Telegram couldn't fetch in time is usually ready by now.
+    if (!a.ok && a.code === 400 && !notAdmin(a.description, a.code)) {
+      await warmPosters(draft.album);
+      a = await sendAlbum(channel.id, draft.album, html, extra);
+    }
     if (a.ok) {
       messageId = a.result[0]?.message_id ?? null;
       const q = draft.quote;

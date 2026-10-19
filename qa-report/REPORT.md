@@ -1284,3 +1284,9 @@ Pictures taken from the fonts' own GitHub repositories (Inter `misc/readme/intro
 - **Privacy:** `/maxfiylik` (uz/ru) now says the channel quiz keeps only the chosen option.
 - **Tests:** e2e-cquiz, 41 checks (off by default, post and its buttons, same question as the bot, right and wrong popups, a second press, forged buttons, count edit, reveal with percentages, Monday ranking with hidden names and week filter, no repeats, closed questions, answers after midnight, admin form and "now", axe). e2e-quiz 26, e2e-auto 83, e2e-tg 74, e2e-play 41, e2e-scout 62, e2e-ads 82 and e2e-content 98 still pass (e2e-content now switches the font scout off, as its result depended on the time of day).
 - **Not covered:** a real channel press (the fake Telegram only simulates it); the first real post will show how Telegram renders the card and popup.
+
+#### 26.11.1 Channel post with a single card instead of the album (M PLUS Rounded 1c)
+
+- **Case (owner's screenshots):** Open Sans went out as the five-poster album; M PLUS Rounded 1c as the plain single card.
+- **Cause:** the family's posters do render (checked on production: cover, letters, styles all 200), but the font is large (3–3.6 MB per style), so a cold render takes 2–5 s and one request hung for 30 s in a test. Telegram fetches all five pictures at once and gives up on a slow one (400 "failed to get HTTP URL content"); one failed picture fails the whole album, and the code then fell back to the single card.
+- **Fix:** before sending, each poster is fetched once by the server itself (so the CDN holds it), and when Telegram still answers 400 the posters are warmed again and the album is sent once more before the single card is used. A timeout still never leads to a second post. e2e-auto gained a check for "album refused once → retried → album" (84 checks).
