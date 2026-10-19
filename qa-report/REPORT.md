@@ -1312,3 +1312,10 @@ Pictures taken from the fonts' own GitHub repositories (Inter `misc/readme/intro
 - **Picture and text:** its own picture (`/api/tg-image/botpromo`, 1080×1080, Feekr green: "Feekr boti", three rows with drawn icons, the bot's name) instead of the help card, shown in the admin section; five short texts (a bold first line and one plain sentence) in turn, or the admin's own.
 - **"Send now":** it worked in the local suite, and the cron posted the same message on production, so the cause of the failure on production is not known. A failed send now shows Telegram's own reason in the notice (and an exception its text), so the next failure names itself.
 - **Tests:** e2e-promo 23 (times and days saved sorted, spacing and "no days" refused like the font posts, picture renders, variants, 30-minute guard, own text escaped, axe); e2e-cquiz 41 and e2e-auto 84 unchanged.
+
+#### 26.11.2 The answer count on the channel post was stale
+
+- **Case (owner's screenshot):** the post said "3 kishi javob berdi" (edited 17:45) while the database held 6 answers for the day.
+- **Cause:** the count was refreshed only by the 5-minute cron, and at most every 10 minutes.
+- **Fix:** every answer in the channel now edits the post's caption at once (after the popup is sent, so the player isn't kept waiting). Telegram throttles edits of one message, so presses closer than 2.5 s wait their turn and the last of a burst always shows; the cron still brings a skipped one up to date (every 5 minutes, at most once a minute). The count is the number of people who have answered that day's question, in the bot or in the channel.
+- **Tests:** e2e-cquiz 45 (live edit after the first answer, after a later one, a burst of three presses, the stored count, the cron path, no repeated edit); e2e-quiz 26 and e2e-tg 74 unchanged.

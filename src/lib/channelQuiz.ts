@@ -3,6 +3,7 @@
 // popup tells them how they did, points and streak are shared with the bot); next morning the post
 // is edited to show the answer and how the votes went; on Monday the finished week's top ten is
 // posted. Only the answer counts: nothing but the pressed button's number is kept per player.
+import { after } from "next/server";
 import { db } from "./db";
 import { tashkentDay } from "./analytics";
 import { botUsername, esc, pause, sendMessage, tg, sendPhotoOrText, type Keyboard } from "./telegram";
@@ -18,7 +19,8 @@ export type ChannelQuiz = { on: boolean; time: string; reveal: string; weekly: b
 const KEY = "channel-quiz";
 const DEFAULT: ChannelQuiz = { on: false, time: "19:00", reveal: "09:00", weekly: true, posts: {} };
 const KEEP_DAYS = 14;
-const EDIT_EVERY = 10 * 60 * 1000;
+const EDIT_EVERY = 60 * 1000; // the cron catches up on a count the live update skipped
+const LIVE_EDIT_GAP = 2500; // Telegram throttles edits of one message: a burst of presses is one edit
 
 export function readChannelQuiz(raw: unknown): ChannelQuiz {
   const v = (raw && typeof raw === "object" ? raw : {}) as Partial<ChannelQuiz>;
@@ -143,17 +145,12 @@ export async function runChannelQuiz({ force = false, now = Date.now() }: { forc
     await pause(40);
   }
 
-  // 2. The count of answers on the open post (not too often).
+  // 2. The count of answers on the open post (the live update after each press may have been skipped).
   const today = tashkentDay(new Date(now));
   for (const day of [shiftDay(today, -1), today]) {
     const p = cq.posts[day];
     if (!p || p.revealed || now - p.editedAt < EDIT_EVERY) continue;
-    const n = await db.botQuizPick.count({ where: { day } });
-    if (n === p.count) continue;
-    const q = await dailyQuestion(day);
-    if (!q) continue;
-    await tg("editMessageCaption", { chat_id: p.chatId, message_id: p.messageId, caption: openCaption(cq, n), parse_mode: "HTML", reply_markup: { inline_keyboard: openKeyboard(day, q.options.map((o) => o.name)) } });
-    await updateChannelQuiz((s) => { if (s.posts[day]) { s.posts[day].count = n; s.posts[day].editedAt = now; } });
+    await refreshCount(day, now);
   }
 
   // 3. The new question.
@@ -175,6 +172,31 @@ export async function runChannelQuiz({ force = false, now = Date.now() }: { forc
   return out;
 }
 
+/** The open post's caption with the number of people who have answered, edited right after an answer
+ * (at most once every couple of seconds; the cron's 5-minute pass brings a skipped one up to date). */
+export async function refreshCount(day: string, now = Date.now(), wait = false): Promise<boolean> {
+  let cq = await getChannelQuiz();
+  let p = cq.posts[day];
+  if (!p || p.revealed) return false;
+  if (now - p.editedAt < LIVE_EDIT_GAP) {
+    // Too soon after the last edit: the live path waits its turn (so the last press of a burst always shows), the cron path leaves it.
+    if (!wait) return false;
+    await pause(LIVE_EDIT_GAP - (now - p.editedAt) + 150);
+    now = Date.now();
+    cq = await getChannelQuiz();
+    p = cq.posts[day];
+    if (!p || p.revealed || now - p.editedAt < LIVE_EDIT_GAP) return false;
+  }
+  const n = await db.botQuizPick.count({ where: { day } });
+  if (n === p.count) return false;
+  const q = await dailyQuestion(day);
+  if (!q) return false;
+  // Marked first, so a burst of presses doesn't send an edit each.
+  await updateChannelQuiz((s) => { if (s.posts[day]) { s.posts[day].count = n; s.posts[day].editedAt = now; } });
+  await tg("editMessageCaption", { chat_id: p.chatId, message_id: p.messageId, caption: openCaption(cq, n), parse_mode: "HTML", reply_markup: { inline_keyboard: openKeyboard(day, q.options.map((o) => o.name)) } });
+  return true;
+}
+
 /** q:c:<yyyymmdd>:<option> — a button on the channel post. The popup is the only answer the player gets. */
 export async function answerChannelQuiz(q: QuizCb): Promise<void> {
   const m = /^q:c:(\d{8}):([0-3])$/.exec(q.data ?? "");
@@ -189,6 +211,7 @@ export async function answerChannelQuiz(q: QuizCb): Promise<void> {
   if (!qs || pick >= qs.options.length) { await answer(q.id, ""); return; }
   const res = await scoreDaily(q.from, day, qs, pick, true);
   if (!res) { await answer(q.id, "Bu kunga javob berib boʻlgansiz. Yangi savol — keyingi postda.", true); return; }
+  after(() => refreshCount(day, Date.now(), true).catch(() => {}));
   await answer(
     q.id,
     res.right
