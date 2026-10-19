@@ -120,7 +120,7 @@ function lineOf(font: fontkit.Font, text: string): { bm: Float32Array; w: number
 
 /* ---------------- the picture ---------------- */
 
-type Comp = { id: number; minX: number; maxX: number; minY: number; maxY: number; area: number; ids: number[] };
+type Comp = { id: number; minX: number; maxX: number; minY: number; maxY: number; area: number; ids: number[]; x0?: number; x1?: number }; // x0..x1: only this stretch of the pieces (a cut through touching letters)
 type Ink = { labels: Int32Array; w: number; h: number; comps: Comp[] };
 
 /** Black-and-white: ink is whatever differs from the background (the border's median), by Otsu's threshold. */
@@ -185,7 +185,39 @@ export async function readInk(buf: Buffer): Promise<Ink | null> {
 }
 
 const median = (a: number[]) => { const s = [...a].sort((x, y) => x - y); return s[s.length >> 1] ?? 0; };
-const unite = (a: Comp, b: Comp): Comp => ({ id: a.id, minX: Math.min(a.minX, b.minX), maxX: Math.max(a.maxX, b.maxX), minY: Math.min(a.minY, b.minY), maxY: Math.max(a.maxY, b.maxY), area: a.area + b.area, ids: [...a.ids, ...b.ids] });
+const unite = (a: Comp, b: Comp): Comp => {
+  const clipped = a.x0 !== undefined || b.x0 !== undefined;
+  return { id: a.id, minX: Math.min(a.minX, b.minX), maxX: Math.max(a.maxX, b.maxX), minY: Math.min(a.minY, b.minY), maxY: Math.max(a.maxY, b.maxY), area: a.area + b.area, ids: [...a.ids, ...b.ids],
+    ...(clipped ? { x0: Math.min(a.x0 ?? a.minX, b.x0 ?? b.minX), x1: Math.max(a.x1 ?? a.maxX, b.x1 ?? b.maxX) } : {}) };
+};
+
+/** Letters that touch come out of the labelling as one piece: cut the widest ones where they are thinnest. */
+export function splitTouching(ink: Ink, letters: Comp[], want: number): Comp[] {
+  const out = [...letters];
+  while (out.length < want) {
+    const widths = out.map((c) => c.maxX - c.minX + 1);
+    const medW = median(widths);
+    let k = 0;
+    for (let i = 1; i < out.length; i++) if (widths[i] > widths[k]) k = i;
+    const c = out[k];
+    if (widths[k] < medW * 1.45) break;
+    const member = new Set(c.ids);
+    const lo = c.x0 ?? c.minX, hi = c.x1 ?? c.maxX;
+    const colInk = (x: number) => { let n = 0; for (let y = c.minY; y <= c.maxY; y++) if (member.has(ink.labels[y * ink.w + x])) n++; return n; };
+    const from = Math.floor(lo + (hi - lo) * 0.3), to = Math.ceil(lo + (hi - lo) * 0.7);
+    let cut = from, least = Infinity;
+    for (let x = from; x <= to; x++) { const n = colInk(x); if (n < least) { least = n; cut = x; } }
+    const part = (xa: number, xb: number): Comp => {
+      let minX = xb, maxX = xa, minY = c.maxY, maxY = c.minY, area = 0;
+      for (let y = c.minY; y <= c.maxY; y++) for (let x = xa; x <= xb; x++) if (member.has(ink.labels[y * ink.w + x])) { area++; if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+      return { ...c, minX, maxX, minY, maxY, area, x0: xa, x1: xb };
+    };
+    const left = part(lo, cut - 1), right = part(cut, hi);
+    if (left.area < 8 || right.area < 8) break;
+    out.splice(k, 1, left, right);
+  }
+  return out;
+}
 
 /** The main line of text as letters left to right (dots, accents and ʻ marks joined to their letter). */
 export function cutLine(ink: Ink, want = 0): Comp[] | null {
@@ -247,14 +279,20 @@ function lettersOf(group: Comp[], medH: number): Comp[] | null {
 /** A set of components as an area-averaged W×H bitmap of their bounding box. */
 function bitmapOf(ink: Ink, set: Comp[], box: Comp, W: number, H: number): Float32Array {
   const member = new Uint8Array(ink.comps.length + 1);
-  for (const c of set) for (const id of c.ids) member[id] = 1;
+  const clipLo = new Int32Array(ink.comps.length + 1).fill(-1), clipHi = new Int32Array(ink.comps.length + 1).fill(1 << 30);
+  for (const c of set) for (const id of c.ids) {
+    if (c.x0 === undefined) { member[id] = 1; clipLo[id] = -1; clipHi[id] = 1 << 30; continue; }
+    if (member[id] && clipLo[id] === -1 && clipHi[id] === 1 << 30) continue; // a whole piece is already in
+    clipLo[id] = member[id] ? Math.min(clipLo[id], c.x0) : c.x0; clipHi[id] = member[id] ? Math.max(clipHi[id], c.x1!) : c.x1!;
+    member[id] = 1;
+  }
   const out = new Float32Array(W * H);
   const bw = box.maxX - box.minX + 1, bh = box.maxY - box.minY + 1;
   for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) {
     const xa = box.minX + Math.floor((tx * bw) / W), xb = box.minX + Math.max(Math.floor(((tx + 1) * bw) / W), Math.floor((tx * bw) / W) + 1);
     const ya = box.minY + Math.floor((ty * bh) / H), yb = box.minY + Math.max(Math.floor(((ty + 1) * bh) / H), Math.floor((ty * bh) / H) + 1);
     let n = 0, s = 0;
-    for (let y = ya; y < yb && y < ink.h; y++) for (let x = xa; x < xb && x < ink.w; x++) { n++; if (member[ink.labels[y * ink.w + x]]) s++; }
+    for (let y = ya; y < yb && y < ink.h; y++) for (let x = xa; x < xb && x < ink.w; x++) { n++; { const L = ink.labels[y * ink.w + x]; if (member[L] && x >= clipLo[L] && x <= clipHi[L]) s++; } }
     out[ty * W + tx] = n ? s / n : 0;
   }
   return out;
@@ -334,6 +372,7 @@ export async function findFonts(image: Buffer, textRaw: string): Promise<FindRes
   if (!ink) return { ok: false, reason: "image" };
   let letters = cutLine(ink, chars.length);
   if (!letters) return { ok: false, reason: "letters" };
+  if (letters.length < chars.length) letters = splitTouching(ink, letters, chars.length);
   const box = letters.reduce((a, c) => unite(a, c));
   // the picture's letters: exactly the typed ones, or else the whole line is compared
   while (letters.length > chars.length && letters.length > 1) {
