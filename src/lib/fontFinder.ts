@@ -124,7 +124,7 @@ type Comp = { id: number; minX: number; maxX: number; minY: number; maxY: number
 type Ink = { labels: Int32Array; w: number; h: number; comps: Comp[] };
 
 /** Black-and-white: ink is whatever differs from the background (the border's median), by Otsu's threshold. */
-async function readInk(buf: Buffer): Promise<Ink | null> {
+export async function readInk(buf: Buffer): Promise<Ink | null> {
   let raw: { data: Buffer; info: { width: number; height: number } };
   try {
     raw = await sharp(buf, { failOn: "none", limitInputPixels: 50e6 }).rotate().flatten({ background: "#ffffff" }).resize({ width: 1200, height: 1200, fit: "inside" }).greyscale().raw().toBuffer({ resolveWithObject: true });
@@ -188,7 +188,7 @@ const median = (a: number[]) => { const s = [...a].sort((x, y) => x - y); return
 const unite = (a: Comp, b: Comp): Comp => ({ id: a.id, minX: Math.min(a.minX, b.minX), maxX: Math.max(a.maxX, b.maxX), minY: Math.min(a.minY, b.minY), maxY: Math.max(a.maxY, b.maxY), area: a.area + b.area, ids: [...a.ids, ...b.ids] });
 
 /** The main line of text as letters left to right (dots, accents and ʻ marks joined to their letter). */
-function cutLine(ink: Ink, want = 0): Comp[] | null {
+export function cutLine(ink: Ink, want = 0): Comp[] | null {
   let comps = ink.comps.filter((c) => c.area >= 8);
   if (comps.length < 2) return null;
   const maxH = Math.max(...comps.map((c) => c.maxY - c.minY + 1));
@@ -199,16 +199,33 @@ function cutLine(ink: Ink, want = 0): Comp[] | null {
   for (const c of sorted) {
     const g = groups[groups.length - 1];
     const yc = (c.minY + c.maxY) / 2;
-    if (g && yc - (g[g.length - 1].minY + g[g.length - 1].maxY) / 2 < medH * 0.7) g.push(c); else groups.push([c]);
+    if (g && yc - (g[0].minY + g[0].maxY) / 2 < medH * 0.7) g.push(c); else groups.push([c]); // measured from the line's first piece, so stacked small lines don't chain into one
   }
   // a picture can hold several lines: take the one that has as many letters as the typed text (else the heaviest)
   const weight = (g: Comp[]) => g.reduce((s, c) => s + c.area, 0);
-  const lines = groups.filter((g) => g.length >= 2).sort((a, b) => weight(b) - weight(a)).slice(0, 8).map((g) => lettersOf(g, medH)).filter((l): l is Comp[] => !!l);
+  // side-by-side columns share a band, so each stretch cut off by a wide gap is a candidate too
+  const pieces: Comp[][] = [];
+  for (const g of groups.filter((g) => g.length >= 2).sort((a, b) => weight(b) - weight(a)).slice(0, 8)) {
+    pieces.push(g);
+    const byX = [...g].sort((a, b) => a.minX - b.minX);
+    let seg: Comp[] = [byX[0]], reach = byX[0].maxX;
+    const segs: Comp[][] = [];
+    for (const c of byX.slice(1)) {
+      if (c.minX - reach > medH * 1.0) { segs.push(seg); seg = [c]; } else seg.push(c);
+      reach = Math.max(reach, c.maxX);
+    }
+    segs.push(seg);
+    if (segs.length > 1) for (const sg of segs) if (sg.length >= 2) pieces.push(sg);
+  }
+  const lines = pieces.map((g) => lettersOf(g, medH)).filter((l): l is Comp[] => !!l);
   if (!lines.length) return null;
   if (!want) return lines[0];
-  // a line with too few letters can't be the text; one with more is merged down to size later, so it is the second choice
-  const dist = (l: Comp[]) => (l.length < want ? (want - l.length) * 2 + 1 : l.length - want);
-  return lines.reduce((best, l) => (dist(l) < dist(best) ? l : best));
+  // touching letters make a line look shorter than it is, so a line with a few too few letters stays in the running;
+  // among near-equal ones the bigger type wins (the text people ask about is rarely the small print)
+  const dist = (l: Comp[]) => (l.length < want ? want - l.length + 0.5 : l.length - want);
+  const hOf = (l: Comp[]) => median(l.map((c) => c.maxY - c.minY + 1));
+  const bestD = Math.min(...lines.map(dist));
+  return lines.filter((l) => dist(l) <= bestD + 0.6).reduce((best, l) => (hOf(l) > hOf(best) ? l : best));
 }
 
 /** One line's pieces as letters, left to right (dots, accents and ʻ marks joined to their letter). */
