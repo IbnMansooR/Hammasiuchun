@@ -9,9 +9,10 @@ import { sampleFonts, uzbekize, type SampleFont } from "./fontSamples";
 import { PALETTE_COUNT, cardUrl } from "./playCards";
 import { hasProfanity } from "./profanity";
 import { answer } from "./tgAdmin";
+import { answerChannelQuiz } from "./channelQuiz";
 
-type Opt = { slug: string; name: string };
-type Question = { slug: string; word: string; options: Opt[]; correct: number; palette: number };
+export type Opt = { slug: string; name: string };
+export type Question = { slug: string; word: string; options: Opt[]; correct: number; palette: number };
 
 const WORDS = ["Toshkent", "Samarqand", "Bahor keldi", "Salom dunyo", "Feekr", "Navroʻz", "Oltin kuz", "Kitob", "Orzu", "Quyosh", "Yangi kun", "Dizayn", "Buxoro", "Marhamat"];
 const POOL = 150; // the most downloaded families make the questions
@@ -47,7 +48,7 @@ async function buildQuestion(seed: string): Promise<Question | null> {
   return { slug: target.slug, word, options, correct: options.findIndex((o) => o.slug === target.slug), palette: Math.floor(r() * PALETTE_COUNT) };
 }
 
-async function dailyQuestion(day: string): Promise<Question | null> {
+export async function dailyQuestion(day: string): Promise<Question | null> {
   const row = await db.botQuizDay.findUnique({ where: { day } });
   if (row) return { slug: row.slug, word: row.word, options: JSON.parse(row.options) as Opt[], correct: row.correct, palette: row.palette };
   const q = await buildQuestion(`day:${day}`);
@@ -56,10 +57,10 @@ async function dailyQuestion(day: string): Promise<Question | null> {
   return dailyQuestion(day);
 }
 
-const shiftDay = (day: string, n: number) => tashkentDay(new Date(Date.parse(`${day}T12:00:00+05:00`) + n * 864e5));
-const weekKey = (day: string) => shiftDay(day, -((new Date(`${day}T12:00:00+05:00`).getUTCDay() || 7) - 1)); // the Monday
-const compact = (day: string) => day.replace(/-/g, "");
-const expand = (c: string) => `${c.slice(0, 4)}-${c.slice(4, 6)}-${c.slice(6, 8)}`;
+export const shiftDay = (day: string, n: number) => tashkentDay(new Date(Date.parse(`${day}T12:00:00+05:00`) + n * 864e5));
+export const weekKey = (day: string) => shiftDay(day, -((new Date(`${day}T12:00:00+05:00`).getUTCDay() || 7) - 1)); // the Monday
+export const compact = (day: string) => day.replace(/-/g, "");
+export const expand = (c: string) => `${c.slice(0, 4)}-${c.slice(4, 6)}-${c.slice(6, 8)}`;
 
 // A soft per-instance brake: each question draws a picture.
 const recent = new Map<string, { n: number; t: number }>();
@@ -74,8 +75,8 @@ function tooMany(chatId: string): boolean {
   return ++r.n > 20;
 }
 
-type From = { id: number; first_name?: string; username?: string; is_bot?: boolean };
-type QuizCb = { id: string; from: From; data?: string; message?: { message_id: number; chat: { id: number; type: string }; caption?: string; text?: string; reply_markup?: { inline_keyboard?: { text: string }[][] } } };
+export type From = { id: number; first_name?: string; username?: string; is_bot?: boolean };
+export type QuizCb = { id: string; from: From; data?: string; message?: { message_id: number; chat: { id: number; type: string }; caption?: string; text?: string; reply_markup?: { inline_keyboard?: { text: string }[][] } } };
 
 const nameOf = (raw: string | undefined): string | null => {
   const s = uzbekize((raw ?? "").replace(/[^\p{L}ʻʼ' ]/gu, "").replace(/\s+/g, " ").trim()).slice(0, 14).trim();
@@ -106,25 +107,38 @@ export async function showDaily(from: From): Promise<void> {
   await sendPhotoOrText(chatId, cardUrl("quiz", q.word, q.slug, String(q.palette)), `🎯 <b>Kunlik viktorina</b>\n🔥 Streak: <b>${p.streak}</b> kun · ⭐ Ball: <b>${p.score}</b>\n\nBu qaysi shrift?`, optionRows(`q:d:${compact(day)}`, q.options));
 }
 
-/** q:d:<yyyymmdd>:<option> — the answer that counts. */
-async function answerDaily(q: QuizCb, dayC: string, pick: number): Promise<void> {
-  const chatId = String(q.from.id);
-  const day = expand(dayC);
-  if (day !== tashkentDay()) { await answer(q.id, "Bu savol eskirgan. Bugungi savol: /viktorina", true); return; }
-  const [prev, qs] = await Promise.all([player(q.from), dailyQuestion(day)]);
-  if (!qs || pick < 0 || pick >= qs.options.length) { await answer(q.id, ""); return; }
+/** The answer that counts, in the bot and in the channel: one a day, points and streak. null = already answered. */
+export async function scoreDaily(from: From, day: string, qs: Question, pick: number, channel = false): Promise<{ right: boolean; streak: number; points: number; total: number } | null> {
+  const chatId = String(from.id);
+  const prev = await player(from);
+  // From the channel an answer can come after midnight; never one for a day before what the player has already done.
+  if (channel && prev.lastDay && prev.lastDay > day) return null;
   // One answer a day: whoever claims the day first counts (a double press gives one).
   const claimed = await db.botQuiz.updateMany({ where: { chatId, OR: [{ lastDay: null }, { lastDay: { not: day } }] }, data: { lastDay: day } });
-  if (claimed.count === 0) { await answer(q.id, "Bugun javob berib boʻldingiz. Ertaga yangi savol!", true); return; }
+  if (claimed.count === 0) return null;
   const right = pick === qs.correct;
   const streak = prev.lastDay === shiftDay(day, -1) ? prev.streak + 1 : 1;
   const points = right ? 10 + Math.min(streak, 7) : 0;
   const wk = weekKey(day);
   const wScore = (prev.wKey === wk ? prev.wScore : 0) + points;
   await db.botQuiz.update({ where: { chatId }, data: { streak, best: Math.max(prev.best, streak), score: { increment: points }, wScore, wKey: wk, played: { increment: 1 }, correct: { increment: right ? 1 : 0 } } });
+  await db.botQuizPick.createMany({ data: [{ day, chatId, pick }], skipDuplicates: true });
+  return { right, streak, points, total: prev.score + points };
+}
+
+/** q:d:<yyyymmdd>:<option> — the answer that counts. */
+async function answerDaily(q: QuizCb, dayC: string, pick: number): Promise<void> {
+  const chatId = String(q.from.id);
+  const day = expand(dayC);
+  if (day !== tashkentDay()) { await answer(q.id, "Bu savol eskirgan. Bugungi savol: /viktorina", true); return; }
+  const qs = await dailyQuestion(day);
+  if (!qs || pick < 0 || pick >= qs.options.length) { await answer(q.id, ""); return; }
+  const res = await scoreDaily(q.from, day, qs, pick);
+  if (!res) { await answer(q.id, "Bugun javob berib boʻldingiz. Ertaga yangi savol!", true); return; }
+  const { right, streak, points, total } = res;
   await answer(q.id, right ? "To‘g‘ri! 🎉" : "Afsus 🙈");
   const name = qs.options[qs.correct].name;
-  const caption = `${right ? "✅ <b>Toʻgʻri!</b>" : "❌ <b>Afsus.</b>"} Bu — <b>${esc(name)}</b>\n🔥 Streak: <b>${streak}</b> kun${right ? ` · +${points} ball` : ""} · ⭐ Jami: <b>${prev.score + points}</b>\nErtaga yangi savol. Streakni uzmang!`;
+  const caption = `${right ? "✅ <b>Toʻgʻri!</b>" : "❌ <b>Afsus.</b>"} Bu — <b>${esc(name)}</b>\n🔥 Streak: <b>${streak}</b> kun${right ? ` · +${points} ball` : ""} · ⭐ Jami: <b>${total}</b>\nErtaga yangi savol. Streakni uzmang!`;
   const kb = afterRows(`Men ${streak} kunlik streakdaman! Sen ham sinab koʻr`);
   if (q.message) await tg("editMessageMedia", { chat_id: chatId, message_id: q.message.message_id, media: { type: "photo", media: cardUrl("quiz", qs.word, qs.slug, `${qs.palette}r`), caption, parse_mode: "HTML" }, reply_markup: { inline_keyboard: kb } });
   else await sendMessage(chatId, caption, kb);
@@ -171,6 +185,7 @@ export async function showLeaderboard(from: From): Promise<void> {
 
 export async function handleQuizCallback(q: QuizCb): Promise<void> {
   const data = q.data ?? "";
+  if (data.startsWith("q:c:")) return answerChannelQuiz(q);
   const d = /^q:d:(\d{8}):([0-3])$/.exec(data);
   const p = /^q:p:([0-3]):([0-3])$/.exec(data);
   if (d) return answerDaily(q, d[1], Number(d[2]));

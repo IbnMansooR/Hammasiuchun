@@ -10,7 +10,7 @@ import ConfirmButton from "@/components/ConfirmButton";
 import {
   addQuoteAction, chooseBaseAction, chooseChannelAction, clearBaseAction, clearChannelAction, createAdminLinkAction, postNextNowAction, removeQuoteAction, removeTgAdminAction,
   saveAutopostAction, setWebhookAction, skipAutopostAction, testAdminsAction, toggleQuoteAction, unskipAutopostAction,
-  decideScoutAction, saveScoutAction, scoutNowAction,
+  decideScoutAction, saveScoutAction, scoutNowAction, saveChannelQuizAction, channelQuizNowAction,
 } from "@/app/admin/telegramActions";
 import { autopostQueue, nextRun, postsPerWeek } from "@/lib/tgAutopost";
 import { AUTOPOST_MAX_TIMES } from "@/lib/tgState";
@@ -19,6 +19,7 @@ import { AUTHOR_MAX, BUILTIN_QUOTES, MOODS, MOOD_LABEL, QUOTE_MAX } from "@/lib/
 import { SCOUT_PER_DAY, getScout, previewUrl } from "@/lib/fontScout";
 import { gfPage } from "@/lib/googleFonts";
 import { KIND_LABEL, botStats } from "@/lib/botStats";
+import { channelQuizLink, getChannelQuiz } from "@/lib/channelQuiz";
 
 export const metadata = { title: "Admin — Telegram" };
 export const maxDuration = 60; // "post now" sends an album of rendered posters
@@ -40,6 +41,8 @@ const OK: Record<string, string> = {
   quote: "Iqtibos qoʻshildi. Keyingi postlarda birinchi navbatda ishlatiladi.",
   scout: "Yangi shrift takliflari sozlamasi saqlandi.",
   scoutrejected: "Taklif rad etildi: bu shrift boshqa taklif qilinmaydi.",
+  cquiz: "Kanal viktorinasi sozlamasi saqlandi.",
+  cquizposted: "Bugungi savol kanalga chiqdi ✓",
   scoutadded: "Shrift saytga qoʻshildi va kanal navbatiga tushdi ✓",
 };
 const ERR: Record<string, string> = {
@@ -61,6 +64,9 @@ const ERR: Record<string, string> = {
   basefile: "Shrift faylini fayl kanaliga yuklab boʻlmadi, post yuborilmadi. Bot u yerda admin ekanini tekshiring.",
   qempty: "Iqtibos matnini yozing.",
   qmood: "Iqtibos mavzusini tanlang.",
+  cquiztime: "Vaqtlarni SS:DD koʻrinishida kiriting (masalan 19:00 va 09:00).",
+  cquizbusy: "Bugungi savol kanalga allaqachon chiqqan.",
+  cquizsend: "Savol kanalga chiqmadi: bot kanalda admin ekanini va savol tayyor ekanini tekshiring.",
   scouttime: "Vaqtni SS:DD koʻrinishida kiriting (masalan 11:00).",
   scoutcount: "Kuniga 1 tadan 5 tagacha taklif tanlang.",
   scoutfull: "Koʻrib chiqilmagan takliflar koʻp (15 ta). Avval ularni qoʻshing yoki rad eting.",
@@ -77,7 +83,7 @@ export default async function TelegramAdmin({ searchParams }: { searchParams: Pr
   const enabled = botEnabled();
   const bot = botUsername();
   const expected = `${SITE_URL}/api/telegram/webhook`;
-  const [state, info, linked, subscribed, posts, waiting, scout, botUse] = await Promise.all([
+  const [state, info, linked, subscribed, posts, waiting, scout, botUse, cq] = await Promise.all([
     getTgState(),
     enabled ? tg<WebhookInfo>("getWebhookInfo") : Promise.resolve(null),
     db.user.count({ where: { telegramId: { not: null } } }),
@@ -86,6 +92,7 @@ export default async function TelegramAdmin({ searchParams }: { searchParams: Pr
     enabled ? autopostQueue(5) : Promise.resolve({ items: [], total: 0 }),
     getScout(),
     botStats(),
+    getChannelQuiz(),
   ]);
   const queue = waiting.items;
   const auto = state.autopost;
@@ -384,6 +391,44 @@ export default async function TelegramAdmin({ searchParams }: { searchParams: Pr
             )}
             <form action={scoutNowAction}>
               <SubmitButton className="btn btn-sm" pendingLabel="Qidirilmoqda…">Hozir taklif olish</SubmitButton>
+            </form>
+          </section>
+
+          <section className="adm-card adm-pad" id="cquiz" aria-labelledby="h-cquiz">
+            <h2 className="adm-h2" id="h-cquiz">Viktorina (kanalda)</h2>
+            <p className="adm-text">
+              Har kuni belgilangan vaqtda kanalga “Bu qaysi shrift?” savoli chiqadi (botdagi bugungi savol bilan bir xil). Kanal a’zolari tugmani
+              bossa, javobi ball va streak bilan hisoblanadi, natija ekranda oynada koʻrinadi. Javob ertasi kuni ertalab shu postning oʻzida
+              ochiladi (nechta odam qaysi variantni tanlagani bilan), dushanba kuni oʻtgan haftaning birinchi oʻnligi chiqadi.
+            </p>
+            <form action={saveChannelQuizAction} className="adm-tg-auto-form">
+              <label className="check"><input type="checkbox" name="on" defaultChecked={cq.on} /> Yoqilgan</label>
+              <label className="adm-tg-scout-field">
+                <span>Savol vaqti (Toshkent)</span>
+                <input type="time" name="time" defaultValue={cq.time} required />
+              </label>
+              <label className="adm-tg-scout-field">
+                <span>Javob ochilishi (ertasi kuni)</span>
+                <input type="time" name="reveal" defaultValue={cq.reveal} required />
+              </label>
+              <label className="check"><input type="checkbox" name="weekly" defaultChecked={cq.weekly} /> Dushanba kuni haftalik reyting</label>
+              <SubmitButton className="btn btn-sm" pendingLabel="…">Saqlash</SubmitButton>
+            </form>
+            <p className="adm-meta">
+              {!state.channel ? "Avval kanalni ulang (3-boʻlim)." : cq.on ? `Har kuni ${cq.time} da savol, ertasi kuni ${cq.reveal} da javob.` : "Oʻchirilgan: savol faqat “Hozir chiqarish” bilan chiqadi."}
+            </p>
+            {Object.keys(cq.posts).length > 0 && state.channel ? (
+              <ul className="adm-list">
+                {Object.entries(cq.posts).sort().reverse().slice(0, 5).map(([day, p]) => (
+                  <li key={day}>
+                    <a href={channelQuizLink(p.messageId, state.channel!)} target="_blank" rel="noopener" className="link">{day} ↗</a>
+                    {` · ${p.count} javob · ${p.revealed ? "javob ochilgan" : "ochiq"}`}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <form action={channelQuizNowAction}>
+              <SubmitButton className="btn btn-sm" pendingLabel="Yuborilmoqda…">Hozir chiqarish</SubmitButton>
             </form>
           </section>
 

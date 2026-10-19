@@ -12,6 +12,7 @@ import { CAPTION_MAX, digestDraft, fontDraft, postDraft, workDraft } from "@/lib
 import { AUTHOR_MAX, BUILTIN_QUOTES, MOODS, cleanQuote, isQuoteId, type Mood } from "@/lib/quotes";
 import { uzbekize } from "@/lib/fontSamples";
 import { SCOUT_PER_DAY, decide, runScout, updateScout } from "@/lib/fontScout";
+import { runChannelQuiz, updateChannelQuiz } from "@/lib/channelQuiz";
 
 const BACK = "/admin/telegram";
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
@@ -277,4 +278,35 @@ export async function decideScoutAction(fd: FormData) {
   if (!approve) redirect(`${BACK}?ok=scoutrejected#scout`);
   if (result && !result.ok && result.reason !== "exists") fail(`scout${result.reason}`, SBACK);
   redirect(`${BACK}?ok=scoutadded${result?.ok ? `&slug=${result.slug}` : ""}#scout`);
+}
+
+/* ---------------- the quiz in the channel ---------------- */
+
+const CQBACK = `${BACK}#cquiz`;
+
+export async function saveChannelQuizAction(fd: FormData) {
+  await requireAdmin();
+  const time = str(fd, "time");
+  const reveal = str(fd, "reveal");
+  if (!isClock(time) || !isClock(reveal)) fail("cquiztime", CQBACK);
+  const on = fd.get("on") === "on";
+  if (on && !(await getTgState()).channel) fail("channelfirst", CQBACK);
+  await updateChannelQuiz((s) => {
+    s.on = on;
+    s.time = time;
+    s.reveal = reveal;
+    s.weekly = fd.get("weekly") === "on";
+  });
+  revalidatePath(BACK);
+  redirect(`${BACK}?ok=cquiz#cquiz`);
+}
+
+/** Today's question into the channel now (once a day). */
+export async function channelQuizNowAction() {
+  await requireAdmin();
+  if (!(await getTgState()).channel) fail("channelfirst", CQBACK);
+  const r = await runChannelQuiz({ force: true }).catch(() => null);
+  revalidatePath(BACK);
+  if (!r?.posted) fail(r?.reason === "busy" ? "cquizbusy" : "cquizsend", CQBACK);
+  redirect(`${BACK}?ok=cquizposted#cquiz`);
 }

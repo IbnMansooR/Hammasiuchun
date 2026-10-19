@@ -9,6 +9,7 @@ import { runScout } from "@/lib/fontScout";
 import { runChannelAds } from "@/lib/channelAds";
 import { runContentScout } from "@/lib/contentScout";
 import { runQuizReminders } from "@/lib/tgQuiz";
+import { runChannelQuiz } from "@/lib/channelQuiz";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +25,9 @@ export async function GET(req: Request) {
   const scout = autopost.posted ? null : await runScout().catch(() => ({ sent: 0, reason: "error" as const }));
   // Designers and news, at their own time of day and never in a call that already did the heavy work.
   const content = autopost.posted || (scout && "sent" in scout && scout.sent) ? null : await runContentScout().catch(() => ({ news: 0, designers: 0, reason: "error" as const }));
+  // The quiz in the channel: the day's question, yesterday's answer, the weekly ranking. Light, but not after a font post.
+  const cquiz = autopost.posted ? null : await runChannelQuiz().catch(() => ({ posted: null, revealed: [], weekly: false, reason: "error" }));
   // A short evening nudge for players whose streak ends today.
   const quiz = await runQuizReminders().catch(() => ({ sent: 0 }));
-  return NextResponse.json({ ads, autopost, scout, content, quiz });
+  return NextResponse.json({ ads, autopost, scout, content, quiz, cquiz });
 }

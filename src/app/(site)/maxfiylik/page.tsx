@@ -48,7 +48,7 @@ function BodyUz() {
       <p>
         Botdan foydalansangiz, faqat suhbat raqamingiz, birinchi va oxirgi marta yozgan vaqtingiz, necha marta yozganingiz va botga qayerdan kelganingiz (masalan “reklama”) saqlanadi.
         Ismingiz, username va yozgan matningiz <strong>saqlanmaydi</strong>; botni bloklasangiz, buni bilamiz va xabar yuborishni toʻxtatamiz.
-        Faqat kunlik viktorinada oʻynasangiz, haftalik reyting uchun ismingiz, ballaringiz va ketma-ket kunlar soningiz saqlanadi (reytingda ismni yashirish mumkin).
+        Faqat kunlik viktorinada oʻynasangiz, haftalik reyting uchun ismingiz, ballaringiz va ketma-ket kunlar soningiz saqlanadi (reytingda ismni yashirish mumkin). Kanaldagi viktorinada ham shunday: tugmani bossangiz, javobingiz (qaysi variant) shu hisob uchun saqlanadi, boshqa hech narsa emas.
       </p>
 
       <h2>Hisob</h2>
@@ -83,7 +83,7 @@ function BodyRu() {
       <p>
         Если вы пользуетесь ботом, сохраняются только номер вашего чата, время первого и последнего обращения, их число и то, откуда вы пришли к боту (например, «reklama»).
         Имя, username и написанный вами текст <strong>не сохраняются</strong>; если вы заблокируете бота, мы это узнаем и перестанем писать.
-        Только если вы играете в ежедневной викторине, для недельного рейтинга сохраняются имя, баллы и число дней подряд (имя в рейтинге можно скрыть).
+        Только если вы играете в ежедневной викторине, для недельного рейтинга сохраняются имя, баллы и число дней подряд (имя в рейтинге можно скрыть). То же в викторине в канале: нажав кнопку, вы сохраняете только свой ответ (какой вариант) для этого подсчёта, ничего больше.
       </p>
 
       <h2>Аккаунт</h2>

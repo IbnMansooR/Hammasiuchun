@@ -121,8 +121,8 @@ async function onPrivateMessage(from: From, textIn: string, replyText?: string) 
   if (cmd === "/help") return sendHelp(chatId);
   if (cmd === "/test") return startTest(chatId);
   if (cmd === "/topish") return askFind(chatId);
-  if (cmd === "/viktorina") return showDaily(from);
-  if (cmd === "/reyting") return showLeaderboard(from);
+  if (cmd === "/viktorina" || (cmd === "/start" && payload === "viktorina")) return showDaily(from);
+  if (cmd === "/reyting" || (cmd === "/start" && payload === "reyting")) return showLeaderboard(from);
   if (cmd === "/fon") return askWallpaper(chatId);
   if (cmd === "/brend") return askBrand(chatId);
   // A reply to the /fon or /brend question (the picture takes a few seconds: Telegram gets its answer first).

@@ -473,6 +473,15 @@ model BotQuizDay {
   palette Int
 }
 
+// Which option each player picked on a day (bot and channel alike): counted when the answer is revealed.
+model BotQuizPick {
+  day    String
+  chatId String
+  pick   Int
+
+  @@id([day, chatId])
+}
+
 // One row per player: streak and points. The first name is kept for the weekly ranking (hidden on request).
 model BotQuiz {
   chatId      String   @id
