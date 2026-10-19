@@ -33,6 +33,10 @@ model Family {
   description String? // long editorial "CTA" text
   history     String?
   usage       String?
+  taglineRu     String? // Russian tagline/description (AI draft accepted by the admin)
+  descriptionRu String?
+  aiDraft       String? // JSON {tagline,description,taglineRu,descriptionRu} awaiting review
+  pairs         String? // JSON [{slug,why}] suggested companions
   priceCents  Int     @default(100)
   isFree      Boolean @default(false)
   tier        String  @default("demo") // free | demo | paid

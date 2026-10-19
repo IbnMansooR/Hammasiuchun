@@ -14,6 +14,7 @@ import Subnav from "@/components/specimen/Subnav";
 import DownloadBox from "@/components/DownloadBox";
 import FontCard from "@/components/FontCard";
 import WorkCard from "@/components/WorkCard";
+import { readPairs } from "@/lib/aiFonts";
 import { worksUsingFont } from "@/lib/works";
 import { IconArrow, IconChevron } from "@/components/Icons";
 import JsonLd from "@/components/JsonLd";
@@ -25,7 +26,7 @@ import type { Locale } from "@/i18n/config";
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const locale = await getLocale();
-  const f = await db.family.findUnique({ where: { slug }, select: { name: true, tagline: true, category: true, styleCount: true, hasCyrillic: true, isPublished: true, licenseClass: true } });
+  const f = await db.family.findUnique({ where: { slug }, select: { name: true, tagline: true, taglineRu: true, category: true, styleCount: true, hasCyrillic: true, isPublished: true, licenseClass: true } });
   // Don't leak unpublished/restricted family names via 404 metadata.
   return f && isPublicFamily(f)
     ? {
@@ -38,9 +39,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 
 // The admin-written tagline/description are Uzbek: Russian pages use the generated Russian text.
-function fontDescription(f: { name: string; tagline: string | null; category: string; styleCount: number; hasCyrillic: boolean }, locale: Locale): string {
+function fontDescription(f: { name: string; tagline: string | null; taglineRu?: string | null; category: string; styleCount: number; hasCyrillic: boolean }, locale: Locale): string {
   const base = DICTS[locale].font.desc(f.name, categoryLabel(f.category, locale), f.styleCount, f.hasCyrillic);
-  return f.tagline && locale === "uz" ? `${f.tagline.replace(/[.\s]+$/, "")}. ${base}` : base;
+  const line = locale === "uz" ? f.tagline : f.taglineRu;
+  return line ? `${line.replace(/[.\s]+$/, "")}. ${base}` : base;
 }
 
 function autoAbout(f: {
@@ -102,12 +104,15 @@ export default async function FontDetail({ params }: { params: Promise<{ slug: s
     worksUsingFont(slug),
   ]);
   const related = relatedRows.map(toCard);
+  const pairList = readPairs(f.pairs);
+  const pairRows = pairList.length ? await db.family.findMany({ where: { ...PUBLIC_FAMILY, slug: { in: pairList.map((p) => p.slug) } }, include: cardInclude }) : [];
+  const pairCards = pairList.flatMap((p) => { const r = pairRows.find((x) => x.slug === p.slug); return r ? [{ card: toCard(r), why: p.why }] : []; });
   const support = glyph?.support ?? null;
   const groups = glyph ? groupGlyphs(glyph.chars) : [];
   const cyrillicOnly = !f.hasLatin && f.hasCyrillic;
   const t = texts(support, cyrillicOnly, locale, f.hasCyrillic);
 
-  const faceCSS = fontFaceCSS(slug, cuts) + fontFaceCSSPerStyle(slug, cuts) + cardsFaceCSS(related);
+  const faceCSS = fontFaceCSS(slug, cuts) + fontFaceCSSPerStyle(slug, cuts) + cardsFaceCSS([...related, ...pairCards.map((p) => p.card)]);
   const family = `"${cssFamily(slug)}", var(--font)`;
   const pvFamily = pv ? `"${styleFamily(slug, pv.style)}", var(--font)` : family;
   const cat = categoryLabel(f.category, locale);
@@ -198,7 +203,7 @@ export default async function FontDetail({ params }: { params: Promise<{ slug: s
           <div className="fsec-head"><h2 id="h-haqida">{L.about(f.name)}</h2></div>
           <div className="about-grid">
             <div className="prose">
-              <p>{(locale === "uz" && f.description) || autoAbout(f, locale)}</p>
+              <p>{(locale === "uz" ? f.description : f.descriptionRu) || autoAbout(f, locale)}</p>
               {f.history && locale === "uz" && (<><h3>{L.history}</h3><p>{f.history}</p></>)}
               {f.usage && locale === "uz" && (<><h3>{L.usage}</h3><p>{f.usage}</p></>)}
             </div>
@@ -222,6 +227,16 @@ export default async function FontDetail({ params }: { params: Promise<{ slug: s
           </section>
         )}
 
+        {pairCards.length > 0 && locale === "uz" && (
+          <section className="fsec cv" aria-labelledby="h-pairs" style={{ paddingTop: 80 }}>
+            <div className="fsec-head"><h2 id="h-pairs">Mos juftliklar</h2></div>
+            <div className="fgrid">
+              {pairCards.map((p) => (
+                <div key={p.card.slug}><FontCard f={p.card} /><p style={{ margin: "8px 4px 0", fontSize: 13, color: "var(--ink-3, #666)" }}>{p.why}</p></div>
+              ))}
+            </div>
+          </section>
+        )}
         {related.length > 0 && (
           <section className="fsec cv" aria-labelledby="h-related" style={{ paddingTop: 80 }}>
             <div className="section-head">
