@@ -55,7 +55,10 @@ export const DESIGNER_EVERY = [0, 1, 2, 3, 7];
 
 export const DEFAULT_FEEDS: Feed[] = [
   { name: "Creative Boom", url: "https://www.creativeboom.com/feed/", on: true },
-  { name: "Designboom", url: "https://www.designboom.com/feed/", on: true },
+  { name: "Smashing Magazine", url: "https://www.smashingmagazine.com/feed/", on: true },
+  { name: "A List Apart", url: "https://alistapart.com/main/feed/", on: true },
+  { name: "UX Collective", url: "https://uxdesign.cc/feed", on: true },
+  { name: "Nielsen Norman Group", url: "https://www.nngroup.com/feed/rss/", on: true },
   { name: "Typographica", url: "https://typographica.org/feed/", on: true },
 ];
 

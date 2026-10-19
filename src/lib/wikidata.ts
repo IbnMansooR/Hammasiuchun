@@ -58,6 +58,12 @@ const ROLE_UZ: Record<string, string> = {
   "interior designer": "interyer dizayneri",
   "web designer": "veb-dizayner",
   "product designer": "mahsulot dizayneri",
+  "user interface designer": "UI dizayner",
+  "user experience designer": "UX dizayner",
+  "interaction designer": "interaksiya dizayneri",
+  "visual designer": "vizual dizayner",
+  "communication designer": "kommunikatsiya dizayneri",
+  "exhibition designer": "koʻrgazma dizayneri",
 };
 
 const COUNTRY_UZ: Record<string, string> = {
@@ -221,16 +227,24 @@ export async function savePortrait(p: Portrait, slug: string): Promise<string | 
 
 /* ---------------- picking ---------------- */
 
-/** Well-known designers and type designers. Each is looked up and verified on Wikidata when it is its turn. */
+/** Designers worth a profile for a site about graphic, web, UI and mobile design: the first steps of modern
+ * design (Bauhaus, the Swiss style, the early modernists), graphic and brand designers, and the people who
+ * shaped digital design. Each is looked up and verified on Wikidata when it is its turn. */
 export const SEED_NAMES = [
-  "Paul Rand", "Saul Bass", "Milton Glaser", "Massimo Vignelli", "Paula Scher", "Stefan Sagmeister", "Neville Brody", "David Carson",
-  "Alan Fletcher", "Josef Müller-Brockmann", "Armin Hofmann", "Adrian Frutiger", "Max Miedinger", "Hermann Zapf", "Matthew Carter", "Eric Gill",
-  "Jan Tschichold", "Herb Lubalin", "Paul Renner", "Giambattista Bodoni", "Claude Garamond", "Aldus Manutius", "John Baskerville", "Erik Spiekermann",
-  "Zuzana Licko", "Susan Kare", "Ellen Lupton", "Ivan Chermayeff", "Tom Geismar", "Chip Kidd", "Jessica Hische", "Dieter Rams", "Karl Gerstner",
-  "Wim Crouwel", "Piet Zwart", "El Lissitzky", "Alexander Rodchenko", "László Moholy-Nagy", "Herbert Bayer", "Lucian Bernhard", "Alphonse Mucha",
-  "Ikko Tanaka", "Shigeo Fukuda", "Yusaku Kamekura", "Kenya Hara", "Tadanori Yokoo", "Roman Cieślewicz", "Henryk Tomaszewski", "Otl Aicher",
-  "Bruno Munari", "Michael Bierut", "Sean Adams", "Gerard Unger", "Robert Slimbach", "Carol Twombly", "Jonathan Hoefler", "Tobias Frere-Jones",
-  "Sumner Stone", "Hermann Eidenbenz", "Emil Ruder", "Anton Stankowski", "Lester Beall", "Alvin Lustig", "Cipe Pineles", "Bob Gill",
+  // Bauhaus and the early modernists
+  "Herbert Bayer", "László Moholy-Nagy", "Josef Albers", "Joost Schmidt", "Marianne Brandt", "Jan Tschichold", "El Lissitzky", "Alexander Rodchenko",
+  "Piet Zwart", "Paul Renner", "Lucian Bernhard", "Ladislav Sutnar", "Lester Beall", "Alvin Lustig", "Cipe Pineles", "Max Bill", "Anton Stankowski",
+  // The Swiss style and its circle
+  "Josef Müller-Brockmann", "Armin Hofmann", "Emil Ruder", "Karl Gerstner", "Adrian Frutiger", "Max Miedinger", "Wim Crouwel", "Otl Aicher",
+  "Massimo Vignelli", "Lella Vignelli", "Bruno Munari", "Ernst Keller", "Dieter Rams", "Hans Neuburg",
+  // Graphic and brand designers
+  "Paul Rand", "Saul Bass", "Milton Glaser", "Paula Scher", "Michael Bierut", "Stefan Sagmeister", "Neville Brody", "David Carson", "April Greiman",
+  "Alan Fletcher", "Herb Lubalin", "Ivan Chermayeff", "Tom Geismar", "Ikko Tanaka", "Kenya Hara", "Yusaku Kamekura", "Shigeo Fukuda", "Chip Kidd",
+  "Jessica Hische", "Ellen Lupton", "Sean Adams", "Bob Gill", "Margaret Calvert", "Jock Kinneir", "Erik Spiekermann",
+  // Digital, web, UI and mobile
+  "Susan Kare", "John Maeda", "Jeffrey Zeldman", "Don Norman", "Jony Ive", "Khoi Vinh", "Luke Wroblewski", "Brad Frost", "Ethan Marcotte", "Jakob Nielsen",
+  "Alan Cooper", "Julie Zhuo", "Mike Matas", "Jason Santa Maria", "Dan Cederholm", "Zuzana Licko", "Matthew Carter", "Jonathan Hoefler", "Tobias Frere-Jones",
+  "Robert Slimbach", "Carol Twombly", "Yves Behar", "Aral Balkan", "Mike Monteiro",
 ].filter((v, i, a) => a.indexOf(v) === i);
 
 /** A person worth a profile for this name: the first search hit that is a designer (null: none;

@@ -96,7 +96,7 @@ export async function getArticleAuto(): Promise<ArticleAuto> {
     on: typeof v.on === "boolean" ? v.on : AA_DEFAULT.on,
     day: ALL_DAYS.includes(Number(v.day)) ? Number(v.day) : AA_DEFAULT.day,
     time: typeof v.time === "string" && isClock(v.time) ? v.time : AA_DEFAULT.time,
-    used: Array.isArray(v.used) ? v.used.filter((x): x is string => typeof x === "string").slice(-12) : [],
+    used: Array.isArray(v.used) ? v.used.filter((x): x is string => typeof x === "string").slice(-80) : [],
   };
 }
 export const saveArticleAuto = (a: ArticleAuto) => writeSetting(AA, a);
@@ -111,6 +111,37 @@ const TOPICS: Topic[] = [
   { id: "mono", title: "Dasturchilar uchun monospace shriftlar", where: { category: "Monospace" }, note: "Monospace shriftlar: kod yozish uchun." },
   { id: "new", title: "Saytga yangi qoʻshilgan shriftlar", where: { isNew: true }, note: "Yaqinda qoʻshilgan shriftlar." },
 ];
+
+/** Design themes for the weekly article: graphic, web, UI and mobile design. `cat`: fonts of this category may be named as examples. */
+type Theme = { id: string; title: string; cat?: string };
+const THEMES: Theme[] = [
+  { id: "t-grid", title: "Setka tizimi: Shveytsariya uslubidan zamonaviy veb-dizaynga", cat: "Sans" },
+  { id: "t-bauhaus", title: "Bauhaus nima berdi: zamonaviy dizaynning birinchi qadamlari", cat: "Sans" },
+  { id: "t-hierarchy", title: "UI dizaynda tipografik ierarxiya: sarlavha, matn va izoh", cat: "Sans" },
+  { id: "t-tap", title: "Mobil ilovada tugma va teginish maydoni oʻlchamlari" },
+  { id: "t-contrast", title: "Rang kontrasti va oʻqilishi: WCAG qoidalari oddiy tilda" },
+  { id: "t-responsive", title: "Responsiv dizayn asoslari: har ekranga mos sahifa" },
+  { id: "t-logo", title: "Logotip yaratish bosqichlari: brifdan tayyor belgigacha", cat: "Display" },
+  { id: "t-system", title: "Dizayn tizimi nima va kichik jamoaga u nima uchun kerak" },
+  { id: "t-dark", title: "Qorongʻi rejim dizayni: oddiy ranglarni teskari qilish yetmaydi" },
+  { id: "t-onboarding", title: "Ilovaga kirish ekranlari (onboarding): foydalanuvchini qanday yoʻqotmaslik kerak" },
+  { id: "t-poster", title: "Plakat kompozitsiyasi: diqqatni qanday boshqarish mumkin", cat: "Display" },
+  { id: "t-cyrillic", title: "Lotin va kirill aralash matnda tipografiya: oʻzbek dizaynerlari uchun maslahatlar", cat: "Sans" },
+  { id: "t-whitespace", title: "Boʻsh joy (white space) dizaynning eng kuchli vositasi" },
+  { id: "t-forms", title: "Forma dizayni: maydonlar, xatolar va yordamchi matnlar" },
+  { id: "t-icons", title: "Ikonka toʻplamini izchil qilish: chiziq qalinligi, burchaklar, tarmoq" },
+  { id: "t-speed", title: "Sayt tezligi va dizayn: shrift va rasmlar qanday ta’sir qiladi", cat: "Sans" },
+  { id: "t-motion", title: "Mikro-animatsiyalar: qachon yordam beradi, qachon xalaqit beradi" },
+  { id: "t-color", title: "Brend uchun rang palitrasi tuzish: asosiy, yordamchi va holat ranglari" },
+  { id: "t-portfolio", title: "Dizayner portfoliosi: nimani koʻrsatish va nimani tashlab yuborish" },
+  { id: "t-ux-copy", title: "UX matnlar: tugma va xabarlarni yozishning oddiy qoidalari" },
+  { id: "t-kerning", title: "Kerning, tracking va leading: harflar orasidagi masofa sirlari", cat: "Serif" },
+  { id: "t-a11y", title: "Hamma uchun dizayn: ekran oʻqiydigan dasturlar va klaviatura bilan ishlash" },
+];
+
+const THEME_SYSTEM = `You write a short helpful article in Uzbek (Latin, oʻ gʻ with U+02BB) for the blog of feekrfont.uz, a free Uzbek font library whose readers are young designers (graphic, web, UI and mobile design).
+You get a topic and optionally a few real fonts from our library (JSON: slug, name, category). Explain the topic with general, well-established design principles and practical advice. Never invent statistics, studies, dates, quotes, company claims or names of people; if you are not sure a fact is true, leave it out. You may mention the given fonts at most once each as examples, linked as [Name](/fonts/slug) with exactly the given slug; no other links.
+Format: "TITLE: …" (up to 90 characters), "EXCERPT: …" (up to 200 characters), then "BODY:" and Markdown: short intro, 3-5 sections with "## " headings, concrete tips, a short closing. About 400-550 words. No emoji, no hashtags, no exclamation marks. Plain, friendly voice.`;
 
 const ART_SYSTEM = `You write a short helpful article in Uzbek (Latin, oʻ gʻ with U+02BB) for the blog of feekrfont.uz, a free Uzbek font library.
 You get a topic and a list of real fonts from our library (JSON: slug, name, category, styles, cyrillic, designer). Write about ONLY those fonts and only from those facts plus general typographic knowledge about the category. Never invent years, histories, awards or famous uses.
@@ -136,8 +167,23 @@ const reviewKeyboard = (id: number): Keyboard => [
 /** One draft (unpublished) and a message to the admins. Returns the article's id or a reason. */
 export async function draftArticle(): Promise<{ id?: number; reason?: string }> {
   const auto = await getArticleAuto();
-  const order = [...TOPICS.filter((t) => !auto.used.includes(t.id)), ...TOPICS.filter((t) => auto.used.includes(t.id))];
-  for (const topic of order) {
+  // Mostly design themes; after every three of them, one roundup of real fonts from the library.
+  const mixed: ({ kind: "theme"; t: Theme } | { kind: "fonts"; t: Topic })[] = [];
+  THEMES.forEach((t, i) => { mixed.push({ kind: "theme", t }); if (i % 3 === 2 && TOPICS[Math.floor(i / 3)]) mixed.push({ kind: "fonts", t: TOPICS[Math.floor(i / 3)] }); });
+  const fresh = mixed.filter((m) => !auto.used.includes(m.t.id));
+  const order = fresh.length ? fresh : mixed;
+  const base = fresh.length ? auto.used : [];
+  for (const pick of order) {
+    if (pick.kind === "theme") {
+      const t = pick.t;
+      const ex = t.cat ? await db.family.findMany({ where: { ...PUBLIC_FAMILY, category: t.cat }, orderBy: [{ downloads: "desc" }, { popularity: "desc" }], take: 3, select: { slug: true, name: true, category: true } }) : [];
+      const r = await ai({ task: "article", system: THEME_SYSTEM, user: JSON.stringify({ topic: t.title, fonts: ex }), maxTokens: 4000, effort: "medium", timeoutMs: 100_000 });
+      if (!r.ok) return { reason: r.detail };
+      const a = parseArticle(r.text, new Set(ex.map((f) => f.slug)));
+      if (!a) return { reason: "javob kutilgan koʻrinishda emas" };
+      return finishDraft(a, t.id, [...base, t.id]);
+    }
+    const topic = pick.t;
     const rows = await db.family.findMany({
       where: { ...PUBLIC_FAMILY, ...topic.where }, orderBy: [{ downloads: "desc" }, { popularity: "desc" }], take: 5,
       select: { slug: true, name: true, category: true, styleCount: true, hasCyrillic: true, designer: true },
@@ -147,16 +193,21 @@ export async function draftArticle(): Promise<{ id?: number; reason?: string }> 
     if (!r.ok) return { reason: r.detail };
     const a = parseArticle(r.text, new Set(rows.map((f) => f.slug)));
     if (!a) return { reason: "javob kutilgan koʻrinishda emas" };
-    const slug = `${a.title.toLowerCase().normalize("NFKD").replace(/[ʻʼ'‘’]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60)}-${crypto.randomBytes(2).toString("hex")}`;
-    const art = await db.article.create({ data: { slug, type: "blog", title: a.title, excerpt: a.excerpt, body: a.body, author: "Feekr", tags: `shrift,${topic.id}`, isPublished: false } });
-    await saveArticleAuto({ ...auto, used: [...auto.used, topic.id] });
-    const { admins } = await getTgState();
-    const html = `📝 <b>Haftalik maqola qoralamasi</b>\n\n<b>${esc(a.title)}</b>\n${esc(a.excerpt)}\n\n<i>AI yozdi. Chop etishdan oldin oʻqib chiqing.</i>`;
-    for (const ad of admins) { await sendMessage(ad.chatId, html, reviewKeyboard(art.id)).catch(() => null); await pause(40); }
-    revalidatePath("/admin/articles");
-    return { id: art.id };
+    return finishDraft(a, topic.id, [...base, topic.id]);
   }
-  return { reason: "mavzu uchun yetarli shrift yoʻq" };
+  return { reason: "mavzu qolmadi" };
+}
+
+async function finishDraft(a: { title: string; excerpt: string; body: string }, topicId: string, used: string[]): Promise<{ id?: number; reason?: string }> {
+  const auto = await getArticleAuto();
+  const slug = `${a.title.toLowerCase().normalize("NFKD").replace(/[ʻʼ'‘’]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60)}-${crypto.randomBytes(2).toString("hex")}`;
+  const art = await db.article.create({ data: { slug, type: "blog", title: a.title, excerpt: a.excerpt, body: a.body, author: "Feekr", tags: `dizayn,${topicId}`, isPublished: false } });
+  await saveArticleAuto({ ...auto, used });
+  const { admins } = await getTgState();
+  const html = `📝 <b>Haftalik maqola qoralamasi</b>\n\n<b>${esc(a.title)}</b>\n${esc(a.excerpt)}\n\n<i>AI yozdi. Chop etishdan oldin oʻqib chiqing.</i>`;
+  for (const ad of admins) { await sendMessage(ad.chatId, html, reviewKeyboard(art.id)).catch(() => null); await pause(40); }
+  revalidatePath("/admin/articles");
+  return { id: art.id };
 }
 
 /** Weekly, at the admin's day and time; each slot claimed once. */
