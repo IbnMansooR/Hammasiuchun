@@ -11,6 +11,7 @@ import { handleSampleCallback, sendSample, sendUzbekLetters } from "@/lib/tgSamp
 import { handleInlineQuery } from "@/lib/tgInline";
 import { handleScoutCallback } from "@/lib/fontScout";
 import { handleContentCallback } from "@/lib/contentScout";
+import { handleArticleCallback } from "@/lib/aiIdeas";
 import { handleAdFlowCallback, handleAdFlowMessage, inAdFlow, startAdFlow } from "@/lib/tgAdFlow";
 import { handleAdRequestCallback } from "@/lib/channelAds";
 import { ensureMenu, handleHelpCallback, menuCommand, sendHelp, setBotCommands } from "@/lib/tgHelp";
@@ -62,6 +63,7 @@ export async function POST(req: NextRequest) {
     else if (cb?.data?.startsWith("ad:f:")) await handleAdFlowCallback(cb);
     else if (cb?.data?.startsWith("ad:")) await handleAdRequestCallback(cb);
     else if (cb?.data?.startsWith("cs:")) after(() => handleContentCallback(cb).catch(() => {})); // saving a profile downloads a picture
+    else if (cb?.data?.startsWith("aa:")) await handleArticleCallback(cb);
     else if (cb?.data?.startsWith("gf:")) after(() => handleScoutCallback(cb).catch(() => {})); // adding a font takes a while
     else if (cb) await handleAdminCallback(cb);
     else if (update.inline_query) {

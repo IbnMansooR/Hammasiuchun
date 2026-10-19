@@ -1,7 +1,9 @@
 import { db } from "@/lib/db";
 import { PUBLIC_FAMILY } from "@/lib/license";
 import { readDraft } from "@/lib/aiFonts";
-import { acceptDraftAction, draftFontsAction, pairFontsAction, rejectDraftAction } from "@/app/admin/fontAiActions";
+import { getArticleAuto, readQuoteDrafts } from "@/lib/aiIdeas";
+import { MOOD_LABEL } from "@/lib/quotes";
+import { acceptDraftAction, acceptQuoteAction, draftArticleNowAction, draftFontsAction, draftQuotesAction, pairFontsAction, rejectDraftAction, rejectQuoteAction, saveArticleAutoAction } from "@/app/admin/fontAiActions";
 import Notice from "@/components/admin/Notice";
 import SubmitButton from "@/components/SubmitButton";
 
@@ -10,6 +12,7 @@ export const maxDuration = 120;
 
 export default async function AiTexts({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string; detail?: string; n?: string }> }) {
   const { ok, error, detail, n } = await searchParams;
+  const [quotes, auto] = await Promise.all([readQuoteDrafts(), getArticleAuto()]);
   const [pending, noRu, noPairs] = await Promise.all([
     db.family.findMany({ where: { aiDraft: { not: null }, NOT: { aiDraft: "-" } }, select: { slug: true, name: true, tagline: true, description: true, aiDraft: true }, take: 20 }),
     db.family.count({ where: { ...PUBLIC_FAMILY, descriptionRu: null } }),
@@ -27,6 +30,11 @@ export default async function AiTexts({ searchParams }: { searchParams: Promise<
       {ok === "paired" && <Notice>{`${n} ta shrift uchun juftlik topildi, shrift sahifalarida koʻrinadi.`}</Notice>}
       {ok === "accepted" && <Notice>Tasdiqlandi.</Notice>}
       {ok === "rejected" && <Notice>Rad etildi.</Notice>}
+      {ok === "quotes" && <Notice>{`${n} ta ibora tayyor, pastda koʻring.`}</Notice>}
+      {ok === "quoteadded" && <Notice>Ibora qoʻshildi: postlarda ishlatiladi.</Notice>}
+      {ok === "saved" && <Notice>Saqlandi.</Notice>}
+      {ok === "article" && <Notice>Maqola qoralamasi tayyor: Telegramda va “Maqolalar” boʻlimida.</Notice>}
+      {(error === "quotes" || error === "article" || error === "sched") && <Notice tone="error">{`Bajarilmadi: ${(detail ?? "").slice(0, 200)}`}</Notice>}
       {(error === "draft" || error === "pair") && <Notice tone="error">{`Bajarilmadi: ${(detail ?? "").slice(0, 200)}`}</Notice>}
       {error === "gone" && <Notice tone="error">Qoralama topilmadi.</Notice>}
 
@@ -37,6 +45,33 @@ export default async function AiTexts({ searchParams }: { searchParams: Promise<
           <form action={draftFontsAction}><SubmitButton className="btn btn-sm" pendingLabel="…">4 ta tavsif qoralamasi</SubmitButton></form>
           <form action={pairFontsAction}><SubmitButton className="btn btn-sm" pendingLabel="…">6 ta shrift uchun juftlik</SubmitButton></form>
         </div>
+      </section>
+
+      <section className="adm-card adm-pad" aria-labelledby="h-quotes">
+        <h2 className="adm-h2" id="h-quotes">Iqtibos gʻoyalari</h2>
+        <p className="adm-text">Poster uchun yangi oʻzbekcha iboralar (muallifsiz, toʻqima). Qoʻshsangiz, Telegram postlarida ishlatiladi. Bosish: 8 ta ibora, taxminan $0.01.</p>
+        <form action={draftQuotesAction}><SubmitButton className="btn btn-sm" pendingLabel="…">8 ta ibora yozish</SubmitButton></form>
+        {quotes.map((q) => (
+          <div key={q.id} style={{ marginTop: 14 }}>
+            <p className="adm-text">«{q.text}» <span className="adm-meta">{MOOD_LABEL[q.mood]}</span></p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <form action={acceptQuoteAction}><input type="hidden" name="id" value={q.id} /><SubmitButton className="btn btn-sm" pendingLabel="…">Qoʻshish</SubmitButton></form>
+              <form action={rejectQuoteAction}><input type="hidden" name="id" value={q.id} /><SubmitButton className="btn btn-sm" pendingLabel="…">Rad etish</SubmitButton></form>
+            </div>
+          </div>
+        ))}
+      </section>
+
+      <section className="adm-card adm-pad" aria-labelledby="h-art">
+        <h2 className="adm-h2" id="h-art">Haftalik maqola qoralamasi</h2>
+        <p className="adm-text">Haftada bir marta AI saytdagi haqiqiy shriftlar haqida maqola yozadi. U <strong>chop etilmaydi</strong>: sizga Telegramda keladi, ✅ bossangiz saytga chiqadi. Har biri taxminan $0.03.</p>
+        <form action={saveArticleAutoAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+          <label><input type="checkbox" name="on" defaultChecked={auto.on} /> Yoqilgan</label>
+          <label>Kun <select name="day" defaultValue={auto.day}>{["Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba", "Yakshanba"].map((d, i) => <option key={d} value={i + 1}>{d}</option>)}</select></label>
+          <label>Vaqt <input type="time" name="time" defaultValue={auto.time} required /></label>
+          <SubmitButton className="btn btn-sm" pendingLabel="…">Saqlash</SubmitButton>
+        </form>
+        <form action={draftArticleNowAction} style={{ marginTop: 10 }}><SubmitButton className="btn btn-sm" pendingLabel="Yozilmoqda…">Hozir qoralama yozish</SubmitButton></form>
       </section>
 
       {pending.map((f) => {

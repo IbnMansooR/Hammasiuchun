@@ -8,6 +8,7 @@ import { runAutopost } from "@/lib/tgAutopost";
 import { runScout } from "@/lib/fontScout";
 import { runChannelAds } from "@/lib/channelAds";
 import { runContentScout } from "@/lib/contentScout";
+import { runArticleDraft } from "@/lib/aiIdeas";
 import { runQuizReminders } from "@/lib/tgQuiz";
 import { runChannelQuiz } from "@/lib/channelQuiz";
 import { runBotPromo } from "@/lib/botPromo";
@@ -30,7 +31,9 @@ export async function GET(req: Request) {
   const cquiz = autopost.posted ? null : await runChannelQuiz().catch(() => ({ posted: null, revealed: [], weekly: false, reason: "error" }));
   // Once a week the channel is told about the bot.
   const promo = autopost.posted ? null : await runBotPromo().catch(() => ({ posted: false, reason: "error" }));
+  // A weekly article draft for the admins to approve (heavy: not after a post).
+  const article = autopost.posted ? null : await runArticleDraft().catch(() => ({ made: false, reason: "error" }));
   // A short evening nudge for players whose streak ends today.
   const quiz = await runQuizReminders().catch(() => ({ sent: 0 }));
-  return NextResponse.json({ ads, autopost, scout, content, quiz, cquiz, promo });
+  return NextResponse.json({ ads, autopost, scout, content, quiz, cquiz, promo, article });
 }

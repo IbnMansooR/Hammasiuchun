@@ -3,7 +3,10 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/adminGuard";
 import { db } from "@/lib/db";
+import crypto from "node:crypto";
 import { draftFontTexts, pairFonts, readDraft } from "@/lib/aiFonts";
+import { dropQuoteDraft, draftArticle, draftQuotes, getArticleAuto, readQuoteDrafts, saveArticleAuto } from "@/lib/aiIdeas";
+import { updateTgState, isClock, ALL_DAYS } from "@/lib/tgState";
 
 const BACK = "/admin/ai-texts";
 const done = (q: string) => { revalidatePath(BACK); redirect(`${BACK}?${q}`); };
@@ -42,4 +45,41 @@ export async function rejectDraftAction(fd: FormData) {
   await requireAdmin();
   await db.family.update({ where: { slug: String(fd.get("slug") ?? "") }, data: { aiDraft: "-" } }).catch(() => null);
   done("ok=rejected");
+}
+
+export async function draftQuotesAction() {
+  await requireAdmin();
+  const r = await draftQuotes();
+  done(r.made ? `ok=quotes&n=${r.made}` : `error=quotes&detail=${encodeURIComponent(r.detail ?? "ibora qolmadi")}`);
+}
+
+export async function acceptQuoteAction(fd: FormData) {
+  await requireAdmin();
+  const id = String(fd.get("id") ?? "");
+  const d = (await readQuoteDrafts()).find((x) => x.id === id);
+  if (d) {
+    await updateTgState((s) => { s.quotes.custom = [{ id: `c${crypto.randomBytes(4).toString("hex")}`, text: d.text, author: null, mood: d.mood }, ...s.quotes.custom].slice(0, 200); });
+    await dropQuoteDraft(id);
+  }
+  done("ok=quoteadded");
+}
+
+export async function rejectQuoteAction(fd: FormData) {
+  await requireAdmin();
+  await dropQuoteDraft(String(fd.get("id") ?? ""));
+  done("ok=rejected");
+}
+
+export async function saveArticleAutoAction(fd: FormData) {
+  await requireAdmin();
+  const day = Number(fd.get("day")), time = String(fd.get("time") ?? "");
+  if (!ALL_DAYS.includes(day) || !isClock(time)) done("error=sched&detail=kun+yoki+vaqt+notoʻgʻri");
+  await saveArticleAuto({ ...(await getArticleAuto()), on: fd.get("on") === "on", day, time });
+  done("ok=saved");
+}
+
+export async function draftArticleNowAction() {
+  await requireAdmin();
+  const r = await draftArticle();
+  done(r.id ? "ok=article" : `error=article&detail=${encodeURIComponent(r.reason ?? "qoralama yaratilmadi")}`);
 }

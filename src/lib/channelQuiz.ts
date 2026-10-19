@@ -10,6 +10,7 @@ import { botUsername, esc, pause, sendMessage, tg, sendPhotoOrText, type Keyboar
 import { getTgState, isClock } from "./tgState";
 import { cardUrl } from "./playCards";
 import { answer } from "./tgAdmin";
+import { fontFact } from "./aiIdeas";
 import { compact, dailyQuestion, expand, scoreDaily, shiftDay, weekKey, type QuizCb } from "./tgQuiz";
 import { dueSlots } from "./tgAutopost";
 
@@ -104,7 +105,8 @@ async function revealPost(day: string): Promise<boolean> {
   const total = counts.reduce((a, b) => a + b, 0);
   const pct = (n: number) => (total ? Math.round((100 * n) / total) : 0);
   const lines = q.options.map((o, i) => `${i === q.correct ? "✅" : "▫️"} ${esc(o.name)} — ${pct(counts[i])}%`).join("\n");
-  const caption = `✅ <b>Javob: ${esc(q.options[q.correct].name)}</b>\n\n${total ? `👥 ${total} kishi javob berdi, ${pct(counts[q.correct])}% toʻgʻri topdi:\n${lines}` : "Bu safar hech kim javob bermadi."}\n\nYangi savol bugun ${cq.time} da. Reyting va mashq — botda.`;
+  const fact = await fontFact(q.slug).catch(() => null);
+  const caption = `✅ <b>Javob: ${esc(q.options[q.correct].name)}</b>\n\n${fact ? `💡 ${esc(fact)}\n\n` : ""}${total ? `👥 ${total} kishi javob berdi, ${pct(counts[q.correct])}% toʻgʻri topdi:\n${lines}` : "Bu safar hech kim javob bermadi."}\n\nYangi savol bugun ${cq.time} da. Reyting va mashq — botda.`;
   const r = await tg("editMessageMedia", { chat_id: post.chatId, message_id: post.messageId, media: { type: "photo", media: cardUrl("quiz", q.word, q.slug, `${q.palette}r`), caption, parse_mode: "HTML" }, reply_markup: { inline_keyboard: [linkRow()] } });
   await updateChannelQuiz((s) => { if (s.posts[day]) s.posts[day].revealed = true; });
   return r.ok;
