@@ -60,6 +60,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           <div className="label" style={{ marginTop: 20 }}>{formatDate(p.publishedAt, locale)} · {p.author}</div>
         </header>
         {p.coverImage && <HeroCover src={p.coverImage} alt={title} />}
+        {p.coverImage && p.sourceName && !p.coverImage.startsWith("/") && <p className="muted" style={{ margin: "-18px 0 24px", fontSize: 13 }}>{locale === "ru" ? "Фото" : "Rasm"}: {p.sourceName}</p>}
         <div className="prose" style={{ paddingTop: 8, borderTop: "1px solid var(--line)" }} dangerouslySetInnerHTML={{ __html: renderMarkdown(body) }} />
         {p.sourceUrl && /^https?:\/\//.test(p.sourceUrl) && (
           <p className="source-note">

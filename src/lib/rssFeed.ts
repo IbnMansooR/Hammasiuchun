@@ -1,7 +1,7 @@
 // Reading a news feed (RSS 2.0 or Atom): title, link, date and the publisher's own short summary.
 // Only that summary, cut short, is ever used, always with the link to the original.
 
-export type FeedItem = { title: string; link: string; date: Date | null; excerpt: string };
+export type FeedItem = { title: string; link: string; date: Date | null; excerpt: string; image?: string };
 
 const MAX_BYTES = 3_000_000;
 
@@ -49,6 +49,25 @@ function linkOf(block: string): string | null {
   return null;
 }
 
+const attr = (tagText: string, name: string) => new RegExp(`${name}\\s*=\\s*["']([^"']+)["']`, "i").exec(tagText)?.[1];
+
+/** The item's own picture: media:content / media:thumbnail / an image enclosure, else the first <img> of its text. */
+export function imageOf(block: string): string | undefined {
+  const cands: (string | undefined)[] = [];
+  for (const m of block.matchAll(/<media:(?:content|thumbnail)\b[^>]*>/gi)) {
+    const t = m[0], type = attr(t, "type"), medium = attr(t, "medium");
+    if (!type || /^image\//i.test(type) || medium === "image" || /media:thumbnail/i.test(t)) cands.push(attr(t, "url"));
+  }
+  for (const m of block.matchAll(/<enclosure\b[^>]*>/gi)) if (/^image\//i.test(attr(m[0], "type") ?? "")) cands.push(attr(m[0], "url"));
+  const raw = decode(block);
+  cands.push(/<img\b[^>]*?\bsrc\s*=\s*["']([^"']+)["']/i.exec(raw)?.[1]);
+  for (const c of cands) {
+    const u = c && decode(c).trim();
+    if (u && /^https?:\/\//i.test(u) && u.length <= 500 && !/\.(svg|gif)(\?|$)/i.test(u) && !/(pixel|tracking|spacer|1x1|avatar|gravatar|logo)/i.test(u)) return u;
+  }
+  return undefined;
+}
+
 export function parseFeed(xml: string): FeedItem[] {
   const blocks = [...xml.matchAll(/<(item|entry)(?:\s[^>]*)?>([\s\S]*?)<\/\1>/gi)].slice(0, 40).map((m) => m[2]);
   const out: FeedItem[] = [];
@@ -59,7 +78,7 @@ export function parseFeed(xml: string): FeedItem[] {
     const when = tag(b, "pubDate") ?? tag(b, "published") ?? tag(b, "updated") ?? tag(b, "dc:date");
     const d = when ? new Date(plain(when)) : null;
     const summary = tag(b, "description") ?? tag(b, "summary") ?? tag(b, "content:encoded") ?? tag(b, "content") ?? "";
-    out.push({ title: title.slice(0, 200), link: link.slice(0, 500), date: d && !Number.isNaN(d.getTime()) ? d : null, excerpt: plain(summary) });
+    out.push({ title: title.slice(0, 200), link: link.slice(0, 500), date: d && !Number.isNaN(d.getTime()) ? d : null, excerpt: plain(summary), image: imageOf(b) });
   }
   return out;
 }
@@ -77,5 +96,40 @@ export async function fetchFeed(url: string): Promise<FeedItem[]> {
     return parseFeed(new TextDecoder().decode(buf));
   } catch {
     return [];
+  }
+}
+
+/** The page's own social picture (og:image / twitter:image), when the feed had none. */
+export async function ogImage(pageUrl: string): Promise<string | undefined> {
+  try {
+    const res = await fetch(pageUrl, { headers: { "user-agent": "FeekrBot/1.0 (+https://feekrfont.uz)", accept: "text/html" }, signal: AbortSignal.timeout(8_000), cache: "no-store" });
+    if (!res.ok) return undefined;
+    const head = (await res.text()).slice(0, 200_000);
+    for (const m of head.matchAll(/<meta\b[^>]*>/gi)) {
+      const t = m[0];
+      if (!/(property|name)\s*=\s*["'](og:image(:secure_url)?|twitter:image)["']/i.test(t)) continue;
+      const c = attr(t, "content");
+      if (c) { try { return new URL(decode(c).trim(), pageUrl).toString(); } catch { /* next */ } }
+    }
+  } catch { /* none */ }
+  return undefined;
+}
+
+const LOCAL_OK = (u: URL) => process.env.CONTENT_ALLOW_LOCAL === "1" && u.protocol === "http:" && u.hostname === "127.0.0.1";
+
+/** A picture we will show: a real image of a sensible size that answers right now (never stored, only linked). */
+export async function usableImage(src: string | undefined): Promise<string | null> {
+  if (!src) return null;
+  try {
+    const u = new URL(src);
+    if (u.protocol !== "https:" && !LOCAL_OK(u)) return null;
+    const res = await fetch(u, { headers: { "user-agent": "FeekrBot/1.0 (+https://feekrfont.uz)", accept: "image/*" }, signal: AbortSignal.timeout(8_000), cache: "no-store" });
+    const type = res.headers.get("content-type") ?? "";
+    const len = Number(res.headers.get("content-length") ?? 0);
+    void res.body?.cancel().catch(() => null);
+    if (!res.ok || !/^image\/(jpeg|png|webp|avif)/i.test(type) || len > 8_000_000) return null;
+    return u.toString();
+  } catch {
+    return null;
   }
 }

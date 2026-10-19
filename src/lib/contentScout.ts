@@ -13,7 +13,7 @@ import { shortHash, slugify } from "./fontmeta";
 import { translateSoon } from "./articleRu";
 import { CATALOG_TAG } from "./stats";
 import { submitIndexNow } from "./indexnow";
-import { fetchFeed, shorten, type FeedItem } from "./rssFeed";
+import { fetchFeed, ogImage, shorten, usableImage, type FeedItem } from "./rssFeed";
 import { translateNews, type UzText } from "./translate";
 import { absoluteImage, esc, pause, sendMessage, sendPhotoOrText, siteLink, tg, type Keyboard } from "./telegram";
 import { ALL_DAYS, AUTOPOST_MAX_TIMES, getTgState, isClock } from "./tgState";
@@ -26,7 +26,7 @@ import { SEED_NAMES, WikiUnavailable, designerFacts, designerSummary, findDesign
 
 export type Feed = { name: string; url: string; on: boolean };
 type Msg = { chatId: string; messageId: number };
-export type NewsOffer = { title: string; link: string; source: string; excerpt: string; date: string | null; uz?: UzText };
+export type NewsOffer = { title: string; link: string; source: string; excerpt: string; date: string | null; uz?: UzText; /** The source's own picture (linked, never copied). */ image?: string };
 export type Offer = {
   id: string;
   kind: "news" | "designer";
@@ -127,7 +127,9 @@ export async function pickNews(st: ContentState, n: number): Promise<NewsOffer[]
     for (const q of queues) {
       const i = q.items[round];
       if (!i || out.length >= n) continue;
-      out.push({ title: i.title, link: i.link, source: q.f.name, excerpt: shorten(i.excerpt, 280), date: i.date?.toISOString() ?? null });
+      // The picture of the original article: the feed's own, else the page's social image; only if it really loads.
+      const image = (await usableImage(i.image ?? (await ogImage(i.link)))) ?? undefined;
+      out.push({ title: i.title, link: i.link, source: q.f.name, excerpt: shorten(i.excerpt, 280), date: i.date?.toISOString() ?? null, ...(image ? { image } : {}) });
     }
   }
   return out;
@@ -206,7 +208,7 @@ const offerKeyboard = (o: Offer): Keyboard => o.news && !o.news.uz ? [
 
 async function sendOffer(o: Offer, admins: { chatId: string }[]): Promise<Msg[]> {
   const msgs: Msg[] = [];
-  const photo = o.designer?.portrait?.thumb ?? null;
+  const photo = o.designer?.portrait?.thumb ?? o.news?.image ?? null;
   for (const a of admins) {
     const r = await (photo ? sendPhotoOrText(a.chatId, photo, offerHtml(o), offerKeyboard(o)) : sendMessage(a.chatId, offerHtml(o), offerKeyboard(o))).catch(() => null);
     if (r?.ok) msgs.push({ chatId: a.chatId, messageId: (r.result as { message_id: number }).message_id });
@@ -283,7 +285,7 @@ export async function publishNews(n: NewsOffer, edited?: UzText): Promise<{ slug
   const translated = txt.title !== n.title;
   const created = await db.article.create({
     data: {
-      slug, type: "news", title: txt.title, excerpt: excerpt || null,
+      slug, type: "news", title: txt.title, excerpt: excerpt || null, coverImage: n.image ?? null,
       body: `${txt.excerpt}\n\n${translated ? `*Asl sarlavhasi: ${n.title.replace(/[*_\[\]]/g, "")}*\n\n` : ""}**Manba:** [${n.source}](${n.link}). Maqolaning toʻliq matni va rasmlari manba saytida.`,
       author: "Feekr", tags: "yangilik,dizayn", sourceName: n.source, sourceUrl: n.link, isPublished: true, publishedAt: new Date(),
     },
@@ -293,7 +295,7 @@ export async function publishNews(n: NewsOffer, edited?: UzText): Promise<{ slug
   return {
     slug,
     draft: {
-      kind: "news", ref: slug, title: txt.title, image: absoluteImage(`/api/cover/${slug}`),
+      kind: "news", ref: slug, title: txt.title, image: n.image ?? absoluteImage(`/api/cover/${slug}`),
       caption: [txt.title, "", txt.excerpt, "", `Manba: ${n.source}`, "#dizayn #yangilik #feekr"].filter((l) => l !== null).join("\n").replace(/\n{3,}/g, "\n\n"),
       keyboard: [[{ text: "Feekr’da oʻqish", url: siteLink(`/blog/${slug}`, "channel") }, { text: "Asl maqola ↗", url: n.link }]],
       backHref: "/admin/content",
@@ -307,7 +309,7 @@ function channelOnlyDraft(o: Offer, edited?: UzText): PostDraft {
     const n = o.news;
     const txt = edited ?? n.uz ?? { title: n.title, excerpt: n.excerpt };
     return {
-      kind: "news", ref: `ch-${shortHash(n.link)}`, title: txt.title, image: null,
+      kind: "news", ref: `ch-${shortHash(n.link)}`, title: txt.title, image: n.image ?? null,
       caption: [txt.title, "", txt.excerpt, "", `Manba: ${n.source}`, "#dizayn #yangilik #feekr"].join("\n").replace(/\n{3,}/g, "\n\n"),
       keyboard: [[{ text: "Asl maqola ↗", url: n.link }]], backHref: "/admin/content",
     };
