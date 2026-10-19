@@ -1267,3 +1267,10 @@ Pictures taken from the fonts' own GitHub repositories (Inter `misc/readme/intro
 - **Now:** every line (and every stretch cut off by a wide gap) is a candidate, and the one whose letter count matches the typed text wins; among near-equal ones the bigger type wins. Touching letters are cut where they are thinnest. The limit is 40 characters (the site input, the bot and both languages).
 - **Production, whole pictures from the font repositories:** Montserrat's five-line picture: the right font first for all four lines asked (thin, light, medium, bold). Inter's two-column picture: Inter first for `abcdefghijklmnopq` and `ABCDEFGHIJKLMN`. Not working: `OPQRSTUVWXYZ` in the whole Inter picture (the line also carries `.,` and ends up in the weaker mode), and a tight bold lowercase crop (`abcdefghijklmnopq`, bold), where letters still touch after cutting.
 - The local suite stays at 28/28 (it has no multi-line or touching-letter case yet).
+
+#### 26.10.3 Several lines of text, and the percentage (owner's picture "Raventy Refract")
+
+- **Case:** the owner sent a two-line picture of a font that is on the site (Raventy Refracted demo; sliced letters, light-on-colour). The bot answered with unrelated fonts at 10–11%.
+- **Causes:** the text ran over two lines but only one line was read; and sliced letters give more pieces than letters.
+- **Fix:** when the best single line has clearly too few pieces for the typed text, runs of lines of the same size, one under another, are tried as a whole; the letters are then split line by line using the word lengths (7 + 7 here), each line normalised on its own. The percentage is now `100·(1 − score/1.4)` instead of `100·e^(−2.2·score)`, so a good match no longer reads as 10%.
+- **Production, with the owner's picture (cropped from the screenshot, chat labels painted out):** the Raventy font is first for the whole two-line picture (score 1.05 against 1.09 for the next), and first by a wide margin for each line alone (0.80 against 0.92 / 0.84). The margin for the two lines together is small, because the sliced letters merge unevenly.

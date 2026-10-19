@@ -478,7 +478,7 @@ export async function findFonts(image: Buffer, textRaw: string): Promise<FindRes
   const best = new Map<string, { c: Candidate; score: number }>();
   for (const s of scored) { const b = best.get(s.c.slug); if (!b || s.score < b.score) best.set(s.c.slug, s); }
   const fonts = [...best.values()].sort((a, b) => a.score - b.score).slice(0, 8).map(({ c, score }) => ({
-    slug: c.slug, name: c.name, category: c.category, score, pct: Math.max(1, Math.min(99, Math.round(100 * Math.exp(-score * 2.2)))),
+    slug: c.slug, name: c.name, category: c.category, score, pct: Math.max(1, Math.min(99, Math.round(100 * (1 - score / 1.4)))),
   }));
   return { ok: true, mode: byLetter ? "letters" : "line", fonts };
 }
