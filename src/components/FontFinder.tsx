@@ -61,7 +61,7 @@ export default function FontFinder() {
         )}
         <label className="finder-field">
           <span>{t.textLabel}</span>
-          <input value={text} onChange={(e) => setText(e.target.value)} maxLength={24} className="input" autoComplete="off" />
+          <input value={text} onChange={(e) => setText(e.target.value)} maxLength={40} className="input" autoComplete="off" />
           <small>{t.textHelp}</small>
         </label>
         <button className="btn btn-accent" disabled={busy} aria-busy={busy}>{busy ? t.working : t.go}</button>

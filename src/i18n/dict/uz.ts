@@ -400,7 +400,7 @@ export const uz = {
     pick: "Rasm tanlash",
     picked: "Tanlandi:",
     textLabel: "Rasmdagi matn",
-    textHelp: "Rasmda nima yozilgan boʻlsa, shuni yozing (masalan: Toshkent). Bitta qator, 24 belgigacha.",
+    textHelp: "Rasmda nima yozilgan boʻlsa, shuni yozing (masalan: Toshkent). Bitta qator, 40 belgigacha.",
     go: "Shriftni topish",
     working: "Qidirilmoqda…",
     results: "Eng oʻxshash shriftlar",

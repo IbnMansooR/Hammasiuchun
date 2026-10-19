@@ -11,7 +11,7 @@ import { PUBLIC_FAMILY } from "./license";
 import { readFont } from "./storage";
 import { staticFont } from "./fontSamples";
 
-export const FIND_TEXT_MAX = 24;
+export const FIND_TEXT_MAX = 40;
 const LW = 32; // a letter is compared as a 32×32 bitmap
 const LINE_H = 40; // a line as 40 px high
 
@@ -188,7 +188,7 @@ const median = (a: number[]) => { const s = [...a].sort((x, y) => x - y); return
 const unite = (a: Comp, b: Comp): Comp => ({ id: a.id, minX: Math.min(a.minX, b.minX), maxX: Math.max(a.maxX, b.maxX), minY: Math.min(a.minY, b.minY), maxY: Math.max(a.maxY, b.maxY), area: a.area + b.area, ids: [...a.ids, ...b.ids] });
 
 /** The main line of text as letters left to right (dots, accents and ʻ marks joined to their letter). */
-function cutLine(ink: Ink): Comp[] | null {
+function cutLine(ink: Ink, want = 0): Comp[] | null {
   let comps = ink.comps.filter((c) => c.area >= 8);
   if (comps.length < 2) return null;
   const maxH = Math.max(...comps.map((c) => c.maxY - c.minY + 1));
@@ -201,8 +201,19 @@ function cutLine(ink: Ink): Comp[] | null {
     const yc = (c.minY + c.maxY) / 2;
     if (g && yc - (g[g.length - 1].minY + g[g.length - 1].maxY) / 2 < medH * 0.7) g.push(c); else groups.push([c]);
   }
-  comps = groups.sort((a, b) => b.reduce((s, c) => s + c.area, 0) - a.reduce((s, c) => s + c.area, 0))[0].sort((a, b) => a.minX - b.minX);
-  // join what sits above or below another piece (i, j, ʻ, accents)
+  // a picture can hold several lines: take the one that has as many letters as the typed text (else the heaviest)
+  const weight = (g: Comp[]) => g.reduce((s, c) => s + c.area, 0);
+  const lines = groups.filter((g) => g.length >= 2).sort((a, b) => weight(b) - weight(a)).slice(0, 8).map((g) => lettersOf(g, medH)).filter((l): l is Comp[] => !!l);
+  if (!lines.length) return null;
+  if (!want) return lines[0];
+  // a line with too few letters can't be the text; one with more is merged down to size later, so it is the second choice
+  const dist = (l: Comp[]) => (l.length < want ? (want - l.length) * 2 + 1 : l.length - want);
+  return lines.reduce((best, l) => (dist(l) < dist(best) ? l : best));
+}
+
+/** One line's pieces as letters, left to right (dots, accents and ʻ marks joined to their letter). */
+function lettersOf(group: Comp[], medH: number): Comp[] | null {
+  const comps = [...group].sort((a, b) => a.minX - b.minX);
   const out: Comp[] = [];
   for (const c of comps) {
     const last = out[out.length - 1];
@@ -304,7 +315,7 @@ export async function findFonts(image: Buffer, textRaw: string): Promise<FindRes
   if (chars.length < 2 || text.length > FIND_TEXT_MAX) return { ok: false, reason: "text" };
   const ink = await readInk(image);
   if (!ink) return { ok: false, reason: "image" };
-  let letters = cutLine(ink);
+  let letters = cutLine(ink, chars.length);
   if (!letters) return { ok: false, reason: "letters" };
   const box = letters.reduce((a, c) => unite(a, c));
   // the picture's letters: exactly the typed ones, or else the whole line is compared
