@@ -13,6 +13,7 @@ import { AUTHOR_MAX, BUILTIN_QUOTES, MOODS, cleanQuote, isQuoteId, type Mood } f
 import { uzbekize } from "@/lib/fontSamples";
 import { SCOUT_PER_DAY, decide, runScout, updateScout } from "@/lib/fontScout";
 import { runChannelQuiz, updateChannelQuiz } from "@/lib/channelQuiz";
+import { PROMO_TEXT_MAX, runBotPromo, updateBotPromo } from "@/lib/botPromo";
 
 const BACK = "/admin/telegram";
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
@@ -309,4 +310,35 @@ export async function channelQuizNowAction() {
   revalidatePath(BACK);
   if (!r?.posted) fail(r?.reason === "busy" ? "cquizbusy" : "cquizsend", CQBACK);
   redirect(`${BACK}?ok=cquizposted#cquiz`);
+}
+
+/* ---------------- the bot's own advertisement in the channel ---------------- */
+
+const PBACK = `${BACK}#botpromo`;
+
+export async function saveBotPromoAction(fd: FormData) {
+  await requireAdmin();
+  const time = str(fd, "time");
+  const day = Number(str(fd, "day"));
+  const text = String(fd.get("text") ?? "").replace(/\r/g, "").trim();
+  if (!isClock(time)) fail("promotime", PBACK);
+  if (!ALL_DAYS.includes(day)) fail("promoday", PBACK);
+  if (text.length > PROMO_TEXT_MAX) fail("promotext", PBACK);
+  await updateBotPromo((s) => {
+    s.on = fd.get("on") === "on";
+    s.time = time;
+    s.day = day;
+    s.text = text;
+  });
+  revalidatePath(BACK);
+  redirect(`${BACK}?ok=botpromo#botpromo`);
+}
+
+export async function botPromoNowAction() {
+  await requireAdmin();
+  if (!(await getTgState()).channel) fail("channelfirst", PBACK);
+  const r = await runBotPromo({ force: true }).catch(() => null);
+  revalidatePath(BACK);
+  if (!r?.posted) fail("promosend", PBACK);
+  redirect(`${BACK}?ok=botpromoposted#botpromo`);
 }
