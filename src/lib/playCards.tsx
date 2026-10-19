@@ -42,7 +42,8 @@ const sign = (k: string, t: string, f: string, v: string) =>
   crypto.createHmac("sha256", process.env.SESSION_SECRET ?? "feekr").update(`card\n${k}\n${t}\n${f}\n${v}`).digest("base64url").slice(0, 22);
 
 export function cardUrl(kind: CardKind, text: string, slug: string, variant: string): string {
-  const q = new URLSearchParams({ k: kind, t: text, f: slug, v: variant, s: sign(kind, text, slug, variant) });
+  // x: bump it when the cards' design changes, so Telegram fetches the new picture instead of its cached one
+  const q = new URLSearchParams({ k: kind, t: text, f: slug, v: variant, s: sign(kind, text, slug, variant), x: "2" });
   return `${SITE_URL}/api/tg-image/card?${q}`;
 }
 
