@@ -1,7 +1,8 @@
 // Russian versions of published articles: translated by Claude once an article goes live (or by the
 // admin's button for the older ones), shown on the Russian site and listed in the sitemap.
 import { after } from "next/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { CATALOG_TAG } from "./stats";
 import { db } from "./db";
 import { translateArticleRu } from "./translate";
 import { aiOn } from "./ai";
@@ -14,7 +15,8 @@ export async function translateOne(id: number): Promise<string | null> {
   const r = await translateArticleRu(a);
   if (!r.ok) return r.detail;
   await db.article.update({ where: { id }, data: { titleRu: r.ru.title, excerptRu: r.ru.excerpt || null, bodyRu: r.ru.body } });
-  for (const p of [`/blog/${a.slug}`, `/ru/blog/${a.slug}`, "/blog", "/ru/blog"]) revalidatePath(p);
+  revalidateTag(CATALOG_TAG); // the home page keeps its newest posts in this cache
+  for (const p of [`/blog/${a.slug}`, `/ru/blog/${a.slug}`, "/blog", "/ru/blog", "/", "/ru"]) revalidatePath(p);
   return null;
 }
 
