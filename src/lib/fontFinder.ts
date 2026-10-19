@@ -221,6 +221,12 @@ export function splitTouching(ink: Ink, letters: Comp[], want: number): Comp[] {
 
 /** The main line of text as letters left to right (dots, accents and ʻ marks joined to their letter). */
 export function cutLine(ink: Ink, want = 0): Comp[] | null {
+  const sets = cutLines(ink, want);
+  return sets ? sets[0] : null;
+}
+
+/** The text as lines of letters, top to bottom: usually one line, several when the typed text only fits the lines together. */
+export function cutLines(ink: Ink, want = 0): Comp[][] | null {
   let comps = ink.comps.filter((c) => c.area >= 8);
   if (comps.length < 2) return null;
   const maxH = Math.max(...comps.map((c) => c.maxY - c.minY + 1));
@@ -256,13 +262,33 @@ export function cutLine(ink: Ink, want = 0): Comp[] | null {
   }
   const lines = pieces.map((g) => lettersOf(g, medH)).filter((l): l is Comp[] => !!l);
   if (!lines.length) return null;
-  if (!want) return lines[0];
+  if (!want) return [lines[0]];
   // touching letters make a line look shorter than it is, so a line with a few too few letters stays in the running;
   // among near-equal ones the bigger type wins (the text people ask about is rarely the small print)
   const dist = (l: Comp[]) => (l.length < want ? want - l.length + 0.5 : l.length - want);
   const hOf = (l: Comp[]) => median(l.map((c) => c.maxY - c.minY + 1));
   const bestD = Math.min(...lines.map(dist));
-  return lines.filter((l) => dist(l) <= bestD + 0.6).reduce((best, l) => (hOf(l) > hOf(best) ? l : best));
+  const single = lines.filter((l) => dist(l) <= bestD + 0.6).reduce((best, l) => (hOf(l) > hOf(best) ? l : best));
+  if (dist(single) <= 0.6) return [single];
+  // the text may run over several lines (a wrapped title): try runs of lines of the same size, one under another.
+  // A line with clearly too few pieces can't hold the whole text; a run with at least as many might (sliced or glitch
+  // fonts give more pieces than letters, so too many is no reason to refuse it).
+  const boxOf = (l: Comp[]) => l.reduce((a, c) => unite(a, c));
+  const stacked = groups.filter((g) => g.length >= 2).map((g) => lettersOf(g, medH)).filter((l): l is Comp[] => !!l).sort((a, b) => boxOf(a).minY - boxOf(b).minY);
+  let combo: Comp[][] | null = null, comboD = dist(single) - 0.4;
+  const incomplete = single.length < want * 0.85;
+  for (let i = 0; i < stacked.length; i++) {
+    for (let j = i + 1; j < stacked.length && j < i + 4; j++) {
+      const run = stacked.slice(i, j + 1);
+      const h0 = hOf(run[0]);
+      const ok = run.every((l, k) => hOf(l) > h0 * 0.65 && hOf(l) < h0 * 1.5 && (k === 0 || boxOf(l).minY - boxOf(run[k - 1]).maxY < h0 * 1.5));
+      if (!ok) break;
+      const n = run.flat().length;
+      const d = incomplete && n >= want ? Math.min(dist(run.flat()), n - want) * 0.1 : dist(run.flat());
+      if (d < comboD) { comboD = d; combo = run; }
+    }
+  }
+  return combo ?? [single];
 }
 
 /** One line's pieces as letters, left to right (dots, accents and ʻ marks joined to their letter). */
@@ -375,29 +401,45 @@ export async function findFonts(image: Buffer, textRaw: string): Promise<FindRes
   if (chars.length < 2 || text.length > FIND_TEXT_MAX) return { ok: false, reason: "text" };
   const ink = await readInk(image);
   if (!ink) return { ok: false, reason: "image" };
-  let letters = cutLine(ink, chars.length);
-  if (!letters) return { ok: false, reason: "letters" };
-  if (letters.length < chars.length) letters = splitTouching(ink, letters, chars.length);
+  let sets = cutLines(ink, chars.length);
+  if (!sets) return { ok: false, reason: "letters" };
+  const boxOfLine = (l: Comp[]) => l.reduce((x, c) => unite(x, c));
+  // the picture's letters: exactly the typed ones (touching ones cut apart, pieces of one letter joined), or else the whole line is compared
+  const settle = (lines: Comp[][]): { letters: Comp[]; idx: number[]; boxes: Comp[] } => {
+    const boxes = lines.map(boxOfLine);
+    const lineOf = (c: Comp) => { const y = (c.minY + c.maxY) / 2; let k = 0; for (let i = 1; i < boxes.length; i++) if (Math.abs(y - (boxes[i].minY + boxes[i].maxY) / 2) < Math.abs(y - (boxes[k].minY + boxes[k].maxY) / 2)) k = i; return k; };
+    let letters = lines.flat();
+    if (letters.length < chars.length) letters = splitTouching(ink, letters, chars.length);
+    letters.sort((p, q) => lineOf(p) - lineOf(q) || p.minX - q.minX);
+    while (letters.length > chars.length && letters.length > 1) {
+      let k = -1, gap = Infinity;
+      for (let i = 0; i + 1 < letters.length; i++) { if (lineOf(letters[i]) !== lineOf(letters[i + 1])) continue; const g = letters[i + 1].minX - letters[i].maxX; if (g < gap) { gap = g; k = i; } }
+      if (k < 0) break;
+      letters.splice(k, 2, unite(letters[k], letters[k + 1]));
+    }
+    return { letters, idx: letters.map(lineOf), boxes };
+  };
+  let st = settle(sets);
+  if (sets.length > 1 && st.letters.length !== chars.length) { sets = [sets.reduce((a, l) => (l.length > a.length ? l : a))]; st = settle(sets); }
+  const { letters, idx } = st;
+  const multi = sets.length > 1;
   const box = letters.reduce((a, c) => unite(a, c));
-  // the picture's letters: exactly the typed ones, or else the whole line is compared
-  while (letters.length > chars.length && letters.length > 1) {
-    let k = 0, gap = Infinity;
-    for (let i = 0; i + 1 < letters.length; i++) { const g = letters[i + 1].minX - letters[i].maxX; if (g < gap) { gap = g; k = i; } }
-    letters.splice(k, 2, unite(letters[k], letters[k + 1]));
-  }
   const byLetter = letters.length === chars.length;
   const lineW = Math.max(16, Math.min(480, Math.round((LINE_H * (box.maxX - box.minX + 1)) / (box.maxY - box.minY + 1))));
-  const imgLine = blur(bitmapOf(ink, letters, box, lineW, LINE_H), lineW, LINE_H);
+  const imgLine = multi ? null : blur(bitmapOf(ink, letters, box, lineW, LINE_H), lineW, LINE_H);
   const lineH = box.maxY - box.minY + 1;
   const imgLetters = byLetter
-    ? letters.map((c) => ({ bm: blur(bitmapOf(ink, [c], c, LW, LW), LW, LW), aspect: (c.maxX - c.minX + 1) / (c.maxY - c.minY + 1), top: (box.maxY - c.minY) / lineH, bottom: (box.maxY - c.maxY) / lineH }))
+    ? letters.map((c, i) => { const lb = st.boxes[idx[i]], lh = lb.maxY - lb.minY + 1; return { bm: blur(bitmapOf(ink, [c], c, LW, LW), LW, LW), aspect: (c.maxX - c.minX + 1) / (c.maxY - c.minY + 1), top: (lb.maxY - c.minY) / lh, bottom: (lb.maxY - c.maxY) / lh }; })
     : [];
+  // the typed letters of each line, to normalise the font's letters line by line the way the picture's are
+  const runs: number[][] = [];
+  idx.forEach((l, i) => { (runs[l] ??= []).push(i); });
 
   const scored: { c: Candidate; score: number }[] = [];
   for (const { key, c } of await candidates()) {
     let lineScore = 1;
-    const line = (() => { try { return lineOf(c.font, text); } catch { return null; } })();
-    if (line) {
+    const line = multi ? null : (() => { try { return lineOf(c.font, text); } catch { return null; } })();
+    if (line && imgLine) {
       const bm = line.w === lineW ? imgLine : blur(bitmapOf(ink, letters, box, line.w, LINE_H), line.w, LINE_H);
       lineScore = mad(blur(line.bm, line.w, LINE_H), bm) * 2 + 0.3 * Math.abs(Math.log(line.aspect / ((box.maxX - box.minX + 1) / lineH)));
     }
@@ -405,17 +447,18 @@ export async function findFonts(image: Buffer, textRaw: string): Promise<FindRes
     if (byLetter) {
       const fl = chars.map((ch) => letterOf(c, key, ch));
       if (fl.every((l) => l)) {
-        const hi = Math.max(...fl.map((l) => l!.top)), lo = Math.min(...fl.map((l) => l!.bottom)), span = hi - lo || 1;
+        const ext = runs.map((r) => { const hi = Math.max(...r.map((i) => fl[i]!.top)), lo = Math.min(...r.map((i) => fl[i]!.bottom)); return { lo, span: hi - lo || 1 }; });
         let sum = 0;
         fl.forEach((l, i) => {
           const im = imgLetters[i];
+          const { lo, span } = ext[idx[i]];
           const shape = mad(blur(l!.bm, LW, LW), im.bm) * 2;
           const aspect = Math.abs(Math.log(l!.aspect / im.aspect));
           const vert = Math.abs((l!.top - lo) / span - im.top) + Math.abs((l!.bottom - lo) / span - im.bottom);
           const inkd = Math.abs(mean(l!.bm) - mean(im.bm));
           sum += shape + 0.25 * aspect + 0.4 * vert + 0.6 * inkd;
         });
-        score = 0.7 * (sum / fl.length) + 0.3 * lineScore;
+        score = multi ? sum / fl.length : 0.7 * (sum / fl.length) + 0.3 * lineScore;
       } else score = lineScore + 0.5; // the font lacks a letter of the text
     }
     scored.push({ c, score });
