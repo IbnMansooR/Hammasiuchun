@@ -525,3 +525,19 @@ model AiUsage {
 
   @@id([day, task, model])
 }
+
+// A ready brand starter: five colours and two fonts of our library (lib/brandKit). The library is
+// filled once by Claude (checked by code: contrast, distinctness, real fonts) and then served from here.
+model BrandKit {
+  id          Int      @id @default(autoincrement())
+  industry    String
+  mood        String
+  name        String
+  note        String   @default("")
+  colors      String // JSON {bg,text,primary,accent,soft}
+  headingSlug String
+  bodySlug    String
+  createdAt   DateTime @default(now())
+
+  @@index([industry, mood])
+}

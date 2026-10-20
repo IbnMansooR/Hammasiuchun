@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import crypto from "node:crypto";
 import { draftFontTexts, pairFonts, readDraft } from "@/lib/aiFonts";
 import { dropQuoteDraft, draftArticle, draftQuotes, getArticleAuto, readQuoteDrafts, saveArticleAuto } from "@/lib/aiIdeas";
+import { fillOnce, getFill, saveFill } from "@/lib/brandKit";
 import { translatePending } from "@/lib/articleRu";
 import { updateTgState, isClock, ALL_DAYS } from "@/lib/tgState";
 
@@ -89,4 +90,18 @@ export async function translateArticlesAction() {
   await requireAdmin();
   const r = await translatePending(3);
   done(r.done ? `ok=translated&n=${r.done}` : `error=translate&detail=${encodeURIComponent(r.detail ?? "tarjima qilinadigan maqola qolmadi")}`);
+}
+
+export async function saveBrandFillAction(fd: FormData) {
+  await requireAdmin();
+  const target = Number(fd.get("target"));
+  if (!Number.isInteger(target) || target < 20 || target > 1000) done("error=sched&detail=maqsad+20+dan+1000+gacha");
+  await saveFill({ ...(await getFill()), on: fd.get("on") === "on", target });
+  done("ok=saved");
+}
+
+export async function fillBrandNowAction() {
+  await requireAdmin();
+  const r = await fillOnce();
+  done(r.made ? `ok=brandfill&n=${r.made}` : `error=brandfill&detail=${encodeURIComponent(r.detail ?? "shablon qoʻshilmadi")}`);
 }

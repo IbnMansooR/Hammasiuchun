@@ -61,6 +61,7 @@ export async function sendHelp(chatId: string): Promise<void> {
     "🎭 <b>Qaysi shrift sen?</b> /test: 5 ta savol, shaxsiy shrifting va doʻstlarga yuboriladigan karta.",
     "🖼 <b>Fon rasmi.</b> /fon: istalgan matnni telefon fon rasmiga aylantiring.",
     "🏷 <b>Brend nomi.</b> /brend: nomingiz 4 xil shrift va rangda.",
+    "🎨 <b>Brend palitrasi.</b> /palitra: sohangiz va kayfiyatingizga 5 rangli palitra va mos shriftlar.",
     "🔤 <b>Oʻzbek harflari.</b> /harflar: oʻ gʻ ʼ va ў қ ғ ҳ qaysi shriftlarda bor.",
     `🔎 <b>Qidiruv.</b> Istalgan chatda <code>@${esc(botUsername())} nomi</code> deb yozing: shriftni doʻstingizga yuborasiz.`,
     "📣 <b>Reklama.</b> /reklama: Feekr kanali yoki saytida reklama berish uchun ariza.",

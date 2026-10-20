@@ -9,6 +9,7 @@ import { runScout } from "@/lib/fontScout";
 import { runChannelAds } from "@/lib/channelAds";
 import { runContentScout } from "@/lib/contentScout";
 import { runArticleDraft } from "@/lib/aiIdeas";
+import { runBrandFill } from "@/lib/brandKit";
 import { runQuizReminders } from "@/lib/tgQuiz";
 import { runChannelQuiz } from "@/lib/channelQuiz";
 import { runBotPromo } from "@/lib/botPromo";
@@ -33,7 +34,9 @@ export async function GET(req: Request) {
   const promo = autopost.posted ? null : await runBotPromo().catch(() => ({ posted: false, reason: "error" }));
   // A weekly article draft for the admins to approve (heavy: not after a post).
   const article = autopost.posted ? null : await runArticleDraft().catch(() => ({ made: false, reason: "error" }));
+  // The brand palette library fills itself, one batch a tick, until the target (once; then it stops).
+  const brand = autopost.posted || article?.made || (content && (content.news || content.designers)) ? null : await runBrandFill().catch(() => ({ made: 0, reason: "error" }));
   // A short evening nudge for players whose streak ends today.
   const quiz = await runQuizReminders().catch(() => ({ sent: 0 }));
-  return NextResponse.json({ ads, autopost, scout, content, quiz, cquiz, promo, article });
+  return NextResponse.json({ ads, autopost, scout, content, quiz, cquiz, promo, article, brand });
 }

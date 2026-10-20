@@ -18,6 +18,7 @@ import { ensureMenu, handleHelpCallback, menuCommand, sendHelp, setBotCommands }
 import { clearAsk, takeAsk } from "@/lib/tgMenu";
 import { askFind, FIND_ASK, handleFindReply, handlePhoto } from "@/lib/tgFind";
 import { handleQuizCallback, showDaily, showLeaderboard } from "@/lib/tgQuiz";
+import { askKit, handleKitCallback } from "@/lib/tgKit";
 import { askBrand, askWallpaper, handleBrandCallback, handleTestCallback, handleWallCallback, isPlayReply, makeBrand, makeWallpaper, startTest } from "@/lib/tgPlay";
 import { botStats, noteBlocked, noteBot, startSource, statsText, type BotKind } from "@/lib/botStats";
 import { SITE_URL } from "@/lib/site";
@@ -59,6 +60,7 @@ export async function POST(req: NextRequest) {
     else if (cb?.data?.startsWith("t:")) await handleTestCallback(cb);
     else if (cb?.data?.startsWith("q:")) after(() => handleQuizCallback(cb).catch(() => {}));
     else if (cb?.data?.startsWith("f:")) after(() => handleWallCallback(cb).catch(() => {})); // draws a picture: answer Telegram first
+    else if (cb?.data?.startsWith("k:")) after(() => handleKitCallback(cb).catch(() => {})); // draws a picture
     else if (cb?.data?.startsWith("b:")) after(() => handleBrandCallback(cb).catch(() => {}));
     else if (cb?.data?.startsWith("ad:f:")) await handleAdFlowCallback(cb);
     else if (cb?.data?.startsWith("ad:")) await handleAdRequestCallback(cb);
@@ -113,7 +115,7 @@ async function onPrivateMessage(from: From, textIn: string, replyText?: string) 
     const adAnswer = !text.trim().startsWith("/") && (await inAdFlow(chatId));
     const play = !text.trim().startsWith("/") ? isPlayReply(replyText) : null;
     const kind: BotKind = cmd === "/start" ? "start" : cmd === "/help" ? "help" : cmd === "/harflar" ? "letters" : cmd === "/reklama" || adAnswer ? "ads"
-      : cmd === "/topish" || (!text.trim().startsWith("/") && replyText?.startsWith(FIND_ASK)) ? "find" : cmd === "/viktorina" || cmd === "/reyting" ? "quiz" : cmd === "/test" ? "test" : cmd === "/fon" || play === "wall" ? "wall" : cmd === "/brend" || play === "brand" ? "brand"
+      : cmd === "/topish" || (!text.trim().startsWith("/") && replyText?.startsWith(FIND_ASK)) ? "find" : cmd === "/viktorina" || cmd === "/reyting" ? "quiz" : cmd === "/test" ? "test" : cmd === "/fon" || play === "wall" ? "wall" : cmd === "/brend" || cmd === "/palitra" || play === "brand" ? "brand"
       : cmd === "/stop" ? "stop" : !text.trim().startsWith("/") ? (text.trim() ? "sample" : "other") : "other";
     await noteBot(chatId, kind, cmd === "/start" ? startSource(payload) : null);
   }
@@ -132,6 +134,7 @@ async function onPrivateMessage(from: From, textIn: string, replyText?: string) 
   if (cmd === "/reyting" || (cmd === "/start" && payload === "reyting")) return showLeaderboard(from);
   if (cmd === "/fon") return askWallpaper(chatId);
   if (cmd === "/brend") return askBrand(chatId);
+  if (cmd === "/palitra") return askKit(chatId);
   // The answer to a /fon, /brend or picture question: the next plain text (or a reply to the question itself).
   // The picture takes a few seconds, so Telegram gets its answer first.
   const pending = !text.trim().startsWith("/") ? await takeAsk(chatId) : null;

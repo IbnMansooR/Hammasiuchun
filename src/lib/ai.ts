@@ -4,9 +4,10 @@ import Anthropic from "@anthropic-ai/sdk";
 import { db } from "./db";
 import { tashkentDay } from "./analytics";
 
-export type AiTask = "translate" | "describe" | "article" | "quote" | "fact" | "pairs" | "ocr" | "test";
+export type AiTask = "translate" | "palette" | "describe" | "article" | "quote" | "fact" | "pairs" | "ocr" | "test";
 export const AI_TASKS: Record<AiTask, string> = {
   translate: "Yangiliklar tarjimasi",
+  palette: "Brend palitralari",
   describe: "Shrift tavsiflari",
   article: "Maqola qoralamalari",
   quote: "Iqtiboslar",

@@ -8,7 +8,7 @@ export const MENU: [string, string][][] = [
   [["🖼 Fon rasmi", "/fon"], ["🏷 Brend nomi", "/brend"]],
   [["🏆 Reyting", "/reyting"], ["🔤 Harflar", "/harflar"]],
   [["🔍 Shrift topish", "/topish"], ["📣 Reklama", "/reklama"]],
-  [["ℹ️ Yordam", "/help"]],
+  [["🎨 Brend palitrasi", "/palitra"], ["ℹ️ Yordam", "/help"]],
 ];
 const MENU_TEXT = new Map(MENU.flat());
 /** A tapped menu button arrives as its label: the command it means, or null. */

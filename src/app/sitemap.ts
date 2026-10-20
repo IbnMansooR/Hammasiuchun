@@ -7,7 +7,7 @@ import { PUBLIC_FAMILY } from "@/lib/license";
 // under the 50k-URL sitemap limit.
 export const dynamic = "force-dynamic";
 
-const STATIC = ["", "/fonts", "/pairs", "/dizaynerlar", "/blog", "/about", "/license", "/support", "/shrift-topish", "/reklama"];
+const STATIC = ["", "/fonts", "/pairs", "/dizaynerlar", "/blog", "/about", "/license", "/support", "/shrift-topish", "/reklama", "/brend"];
 // Pages that have a real Russian version (works are written once, in Uzbek; articles get their Russian twin below once translated).
 const RU = new Set(["", "/fonts", "/pairs", "/dizaynerlar", "/about", "/license", "/support", "/shrift-topish", "/reklama"]);
 

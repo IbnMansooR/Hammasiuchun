@@ -2,8 +2,9 @@ import { db } from "@/lib/db";
 import { PUBLIC_FAMILY } from "@/lib/license";
 import { readDraft } from "@/lib/aiFonts";
 import { getArticleAuto, readQuoteDrafts } from "@/lib/aiIdeas";
+import { INDUSTRIES, getFill, libraryCount } from "@/lib/brandKit";
 import { MOOD_LABEL } from "@/lib/quotes";
-import { acceptDraftAction, acceptQuoteAction, draftArticleNowAction, draftFontsAction, draftQuotesAction, pairFontsAction, rejectDraftAction, rejectQuoteAction, saveArticleAutoAction, translateArticlesAction } from "@/app/admin/fontAiActions";
+import { acceptDraftAction, acceptQuoteAction, draftArticleNowAction, draftFontsAction, draftQuotesAction, pairFontsAction, rejectDraftAction, rejectQuoteAction, saveArticleAutoAction, saveBrandFillAction, fillBrandNowAction, translateArticlesAction } from "@/app/admin/fontAiActions";
 import Notice from "@/components/admin/Notice";
 import SubmitButton from "@/components/SubmitButton";
 
@@ -12,7 +13,7 @@ export const maxDuration = 120;
 
 export default async function AiTexts({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string; detail?: string; n?: string }> }) {
   const { ok, error, detail, n } = await searchParams;
-  const [quotes, auto] = await Promise.all([readQuoteDrafts(), getArticleAuto()]);
+  const [quotes, auto, fill, lib] = await Promise.all([readQuoteDrafts(), getArticleAuto(), getFill(), libraryCount()]);
   const [pending, noRu, noPairs, artNoRu] = await Promise.all([
     db.family.findMany({ where: { aiDraft: { not: null }, NOT: { aiDraft: "-" } }, select: { slug: true, name: true, tagline: true, description: true, aiDraft: true }, take: 20 }),
     db.family.count({ where: { ...PUBLIC_FAMILY, descriptionRu: null } }),
@@ -33,6 +34,8 @@ export default async function AiTexts({ searchParams }: { searchParams: Promise<
       {ok === "rejected" && <Notice>Rad etildi.</Notice>}
       {ok === "translated" && <Notice>{`${n} ta maqola ruschaga tarjima qilindi: /ru/blog da koʻrinadi.`}</Notice>}
       {error === "translate" && <Notice tone="error">{`Bajarilmadi: ${(detail ?? "").slice(0, 200)}`}</Notice>}
+      {ok === "brandfill" && <Notice>{`${n} ta yangi palitra qoʻshildi.`}</Notice>}
+      {error === "brandfill" && <Notice tone="error">{`Bajarilmadi: ${(detail ?? "").slice(0, 200)}`}</Notice>}
       {ok === "quotes" && <Notice>{`${n} ta ibora tayyor, pastda koʻring.`}</Notice>}
       {ok === "quoteadded" && <Notice>Ibora qoʻshildi: postlarda ishlatiladi.</Notice>}
       {ok === "saved" && <Notice>Saqlandi.</Notice>}
@@ -63,6 +66,18 @@ export default async function AiTexts({ searchParams }: { searchParams: Promise<
             </div>
           </div>
         ))}
+      </section>
+
+      <section className="adm-card adm-pad" aria-labelledby="h-brand">
+        <h2 className="adm-h2" id="h-brand">Brend palitralari kutubxonasi</h2>
+        <p className="adm-text">Saytdagi <a className="link" href="/brend">/brend</a> sahifasi uchun tayyor shablonlar: soha va kayfiyat boʻyicha 5 rangli palitra va 2 shrift. AI ularni bir marta yozadi, kod esa kontrast va oʻxshashlikni tekshiradi. Keyin hammasi bazadan beriladi, API kerak emas. Hozir: <strong>{lib.total}</strong> ta, maqsad: <strong>{fill.target}</strong>. Har 5 daqiqada bitta soha uchun 10 tagacha qoʻshiladi (1 chaqiruv, taxminan $0.01).</p>
+        <form action={saveBrandFillAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+          <label><input type="checkbox" name="on" defaultChecked={fill.on} /> Avtomatik toʻldirish yoqilgan</label>
+          <label>Maqsad <input type="number" name="target" min={20} max={1000} defaultValue={fill.target} style={{ width: 90 }} /></label>
+          <SubmitButton className="btn btn-sm" pendingLabel="…">Saqlash</SubmitButton>
+        </form>
+        <form action={fillBrandNowAction} style={{ marginTop: 10 }}><SubmitButton className="btn btn-sm" pendingLabel="Yozilmoqda…">Hozir 10 ta qoʻshish</SubmitButton></form>
+        <p className="adm-meta" style={{ marginTop: 10 }}>{INDUSTRIES.map(([k, v]) => `${v}: ${lib.byIndustry.get(k) ?? 0}`).join(" · ")}</p>
       </section>
 
       <section className="adm-card adm-pad" aria-labelledby="h-ru">

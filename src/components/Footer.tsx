@@ -34,6 +34,7 @@ export default async function Footer() {
             <Link href="/fonts?cat=Display">Display</Link>
             <Link href="/fonts?cyr=1">{t.cyrillic}</Link>
             <Link href="/pairs">{t.pairs}</Link>
+            <Link href="/brend">Brend palitrasi</Link>
           </div>
           <div className="col">
             <h3>Feekr</h3>
