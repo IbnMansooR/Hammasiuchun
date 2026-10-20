@@ -96,7 +96,7 @@ export async function saveBrandFillAction(fd: FormData) {
   await requireAdmin();
   const target = Number(fd.get("target"));
   if (!Number.isInteger(target) || target < 20 || target > 1000) done("error=sched&detail=maqsad+20+dan+1000+gacha");
-  await saveFill({ ...(await getFill()), on: fd.get("on") === "on", target });
+  await saveFill({ ...(await getFill()), on: fd.get("on") === "on", target, fails: 0 });
   done("ok=saved");
 }
 

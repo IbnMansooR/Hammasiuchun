@@ -41,8 +41,10 @@ export async function handleKitCallback(q: CallbackQuery): Promise<void> {
   if (!mood) return;
   const n = Number(m[4] ?? 0);
   const [industry] = INDUSTRIES[i];
-  let kits = await kitsFor(industry, mood[0], 40, false);
-  if (kits.length === 0) kits = await kitsFor(industry, null, 40, false); // nothing in this mood yet: the kind of business as a whole
+  // This mood first, then the rest of the kind of business, so "Yana" always has something new to show.
+  const own = await kitsFor(industry, mood[0], 40, false);
+  const rest = (await kitsFor(industry, null, 60, false)).filter((k) => !own.some((o) => o.id === k.id));
+  const kits = [...own, ...rest];
   if (kits.length === 0) {
     await sendMessage(chatId, `Bu soha uchun shablonlar hali tayyorlanmoqda. Saytda koʻring: ${siteLink(`/brend?soha=${industry}&kayfiyat=${mood[0]}`)}`);
     return;

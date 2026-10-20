@@ -71,6 +71,7 @@ export default async function AiTexts({ searchParams }: { searchParams: Promise<
       <section className="adm-card adm-pad" aria-labelledby="h-brand">
         <h2 className="adm-h2" id="h-brand">Brend palitralari kutubxonasi</h2>
         <p className="adm-text">Saytdagi <a className="link" href="/brend">/brend</a> sahifasi uchun tayyor shablonlar: soha va kayfiyat boʻyicha 5 rangli palitra va 2 shrift. AI ularni bir marta yozadi, kod esa kontrast va oʻxshashlikni tekshiradi. Keyin hammasi bazadan beriladi, API kerak emas. Hozir: <strong>{lib.total}</strong> ta, maqsad: <strong>{fill.target}</strong>. Har 5 daqiqada bitta soha uchun 10 tagacha qoʻshiladi (1 chaqiruv, taxminan $0.01).</p>
+        {fill.fails >= 8 && <p className="adm-text" style={{ color: "#b3261e" }}>Ketma-ket {fill.fails} marta yangi palitra qabul qilinmadi: avtomatik toʻldirish toʻxtatildi (AI oʻzini takrorlayapti, kalit yoki chegara muammosi boʻlishi mumkin). “Hozir 10 ta qoʻshish” xatoni koʻrsatadi; saqlaganingizda hisoblagich yangilanadi.</p>}
         <form action={saveBrandFillAction} style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
           <label><input type="checkbox" name="on" defaultChecked={fill.on} /> Avtomatik toʻldirish yoqilgan</label>
           <label>Maqsad <input type="number" name="target" min={20} max={1000} defaultValue={fill.target} style={{ width: 90 }} /></label>

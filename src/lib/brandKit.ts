@@ -249,13 +249,13 @@ export async function fillOnce(): Promise<{ made: number; total: number; detail?
 }
 
 /** What the admin set: filling on or off and how many templates to aim for. */
-export type FillState = { on: boolean; target: number };
+export type FillState = { on: boolean; target: number; fails: number };
 export async function getFill(): Promise<FillState> {
   try {
     const row = await db.setting.findUnique({ where: { key: "brand-fill" } });
     const v = row ? (JSON.parse(row.value) as Partial<FillState>) : {};
-    return { on: typeof v.on === "boolean" ? v.on : true, target: Number.isInteger(v.target) && v.target! >= 20 && v.target! <= 1000 ? v.target! : 500 };
-  } catch { return { on: true, target: 500 }; }
+    return { on: typeof v.on === "boolean" ? v.on : true, target: Number.isInteger(v.target) && v.target! >= 20 && v.target! <= 1000 ? v.target! : 500, fails: Number.isInteger(v.fails) && v.fails! > 0 ? v.fails! : 0 };
+  } catch { return { on: true, target: 500, fails: 0 }; }
 }
 export const saveFill = (s: FillState) => db.setting.upsert({ where: { key: "brand-fill" }, update: { value: JSON.stringify(s) }, create: { key: "brand-fill", value: JSON.stringify(s) } });
 
@@ -266,5 +266,9 @@ export async function runBrandFill(): Promise<{ made: number; reason?: string }>
   const { total } = await libraryCount();
   if (total >= f.target) return { made: 0, reason: "done" };
   const r = await fillOnce();
+  // Many empty rounds in a row (the AI keeps repeating itself, the key is refused, the budget is used up): stop, so no money goes round in circles.
+  const fails = r.made ? 0 : f.fails + 1;
+  if (fails !== f.fails || (fails >= MAX_FAILS && f.on)) await saveFill({ ...f, fails, on: f.on && fails < MAX_FAILS }).catch(() => null);
   return { made: r.made, reason: r.detail };
 }
+export const MAX_FAILS = 8;
