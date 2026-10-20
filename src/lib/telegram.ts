@@ -82,19 +82,34 @@ export function sendMessage(chatId: string | number, html: string, keyboard?: Ke
   });
 }
 
+/** Draws one of our own pictures once ourselves, so the CDN has it when Telegram asks: Telegram gives up on a
+ * picture that takes a few seconds to draw (a big font on a cold start) and the post would go out without it. */
+export async function warmImage(url: string | null | undefined): Promise<void> {
+  if (!url || !url.startsWith(SITE_URL)) return;
+  for (let i = 0; i < 2; i++) {
+    const ok = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(20_000) }).then(async (r) => { await r.arrayBuffer(); return r.ok; }, () => false);
+    if (ok) return;
+  }
+}
+
 /** A photo with a caption; if Telegram can't fetch the image, the same text goes out as a plain message. */
 export async function sendPhotoOrText(chatId: string | number, photo: string | null, html: string, keyboard?: Keyboard, extra: Record<string, unknown> = {}) {
   if (photo) {
-    const r = await tg<TgMessage>("sendPhoto", {
-      chat_id: chatId,
-      photo,
-      caption: html,
-      parse_mode: "HTML",
-      ...(keyboard ? { reply_markup: { inline_keyboard: keyboard } } : {}),
-      ...extra,
-    });
-    // 400 "wrong file identifier/HTTP URL specified", "failed to get HTTP URL content", …
-    if (r.ok || r.code !== 400 || !/url|file|photo|image/i.test(r.description)) return r;
+    await warmImage(photo);
+    // Twice: a picture Telegram could not fetch the first time is usually ready the second.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const r = await tg<TgMessage>("sendPhoto", {
+        chat_id: chatId,
+        photo,
+        caption: html,
+        parse_mode: "HTML",
+        ...(keyboard ? { reply_markup: { inline_keyboard: keyboard } } : {}),
+        ...extra,
+      });
+      // 400 "wrong file identifier/HTTP URL specified", "failed to get HTTP URL content", …
+      if (r.ok || r.code !== 400 || !/url|file|photo|image/i.test(r.description)) return r;
+      if (attempt === 0) await new Promise((res) => setTimeout(res, 2500));
+    }
   }
   return sendMessage(chatId, html, keyboard, extra);
 }

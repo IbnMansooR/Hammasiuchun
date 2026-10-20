@@ -6,7 +6,7 @@
 import { after } from "next/server";
 import { db } from "./db";
 import { tashkentDay } from "./analytics";
-import { botUsername, esc, pause, sendMessage, tg, sendPhotoOrText, type Keyboard } from "./telegram";
+import { botUsername, esc, pause, sendMessage, tg, sendPhotoOrText, warmImage, type Keyboard } from "./telegram";
 import { getTgState, isClock } from "./tgState";
 import { cardUrl } from "./playCards";
 import { answer } from "./tgAdmin";
@@ -107,7 +107,9 @@ async function revealPost(day: string): Promise<boolean> {
   const lines = q.options.map((o, i) => `${i === q.correct ? "✅" : "▫️"} ${esc(o.name)} — ${pct(counts[i])}%`).join("\n");
   const fact = await fontFact(q.slug).catch(() => null);
   const caption = `✅ <b>Javob: ${esc(q.options[q.correct].name)}</b>\n\n${fact ? `💡 ${esc(fact)}\n\n` : ""}${total ? `👥 ${total} kishi javob berdi, ${pct(counts[q.correct])}% toʻgʻri topdi:\n${lines}` : "Bu safar hech kim javob bermadi."}\n\nYangi savol bugun ${cq.time} da. Reyting va mashq — botda.`;
-  const r = await tg("editMessageMedia", { chat_id: post.chatId, message_id: post.messageId, media: { type: "photo", media: cardUrl("quiz", q.word, q.slug, `${q.palette}r`), caption, parse_mode: "HTML" }, reply_markup: { inline_keyboard: [linkRow()] } });
+  const revealUrl = cardUrl("quiz", q.word, q.slug, `${q.palette}r`);
+  await warmImage(revealUrl);
+  const r = await tg("editMessageMedia", { chat_id: post.chatId, message_id: post.messageId, media: { type: "photo", media: revealUrl, caption, parse_mode: "HTML" }, reply_markup: { inline_keyboard: [linkRow()] } });
   await updateChannelQuiz((s) => { if (s.posts[day]) s.posts[day].revealed = true; });
   return r.ok;
 }
