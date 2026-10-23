@@ -1366,3 +1366,33 @@ Pictures taken from the fonts' own GitHub repositories (Inter `misc/readme/intro
 - **Site:** `/brend` (footer link): choose business kind and mood, or an own colour and a brand name; live previews in the real fonts, five swatches that copy their hex, "CSS nusxalash", and "Rasm sifatida" (a signed 1080×1080 PNG with the name in the heading font). `/ru/brend` works and is noindex. The page never calls the AI.
 - **Bot:** `/palitra` (and the menu button "🎨 Brend palitrasi"): industry → mood → a picture with the colour codes and fonts, "Yana" (next one, then other moods), "Boshqa kayfiyat", and a link to the site.
 - **Tests:** unit checks (colour maths, 1000 rule kits valid, parser refusals), e2e-kit 34 checks (admin fill with a bad palette dropped, look-alikes refused, pairwise distance, font spread, page filters, own colour, hostile input, signed picture and tampering, bot flow, cron fill to a target, stall protection), and the whole regression set (e2e 68, tg 74, tg2 80, ru 65, sec 37, seo 26, ai 14, ai2 25, ai3 24, content 105, cquiz 46) green.
+
+## 27. Full QA pass, 23 Oct 2026 (site + bot + admin + live production)
+
+**Scope and method.** Live site (every sitemap URL sampled: 93 pages incl. 60 fonts, 160 distinct internal links, 24 API probes with hostile input), a real browser on 25 pages × 3 contexts (desktop light, mobile light, mobile dark: axe, overflow, console errors, broken images), 36 user-journey checks on the live site, Lighthouse (mobile + desktop), security headers and unauthenticated API access, Supabase security and performance advisors, production data sanity, `npm audit`, a scripted bot conversation (21 commands/inputs), a crawl of all 17 admin pages (axe, errors, overflow), and the full end-to-end regression (22 suites, 1,162+ checks).
+
+**Result before fixes:** 0 failed regression checks; live site 93/93 pages 200, 0 dead links, 0 server errors on 31 hostile inputs, security headers complete (CSP with nonce, HSTS, X-Frame-Options DENY, COOP, Permissions-Policy), all admin/cron/webhook endpoints refuse unauthenticated calls, Supabase advisors: only the intended "RLS enabled, no policy" notes (deny-all by design), no warnings. Lighthouse: article 99/100/100/100, brend 96-100, fonts 99, home desktop 100.
+
+### Findings and what was done
+
+| # | Severity | Finding | Status |
+|---|---|---|---|
+| 1 | High | **Brand palette library stalled at 17/500 and switched itself off** (8 empty rounds). The AI converged on the same cream-and-pomegranate palettes, so ~90% were rejected as look-alikes. | Fixed: every slot now carries a **recipe** (primary hue walks the wheel by the golden angle, accent turn, background kind), the code checks the AI followed it, names are normalised and de-duplicated, distance threshold 0.2 → 0.15. The stall guard worked as designed. **To do after deploy:** re-enable the fill (counter reset). |
+| 2 | High (my own regression) | `/brend`: the colour field always has a value, so using the form always switched to "own colour" mode and ignored the library. Found by the live journey test, not by the earlier suite. | Fixed: a "shu rangdan boshlash" checkbox (hidden `own=0` + checkbox `own=1`); test added. |
+| 3 | Medium | News excerpt kept **raw Markdown** from a feed (`[guides](https://…)`), which also overflowed the page 76 px on mobile. | Fixed at the source (`plain()` strips links, bare URLs and dangling `[…`), `overflow-wrap` on lead/prose/cards, the one affected article repaired in the database. |
+| 4 | Medium | **Intermittent React hydration error #418** (live ≈ 8% of automated loads on 6 pages; local ≈ 1% under load). The server HTML and the client DOM are structurally identical, blocking metadata did not help, dev mode never showed it: cause not found. Visible effect: none (React recovers by re-rendering). | **Open, instrumented:** an inline script now counts these errors as `client_error` and the stats page shows the count, so real visitors' rate becomes visible. |
+| 5 | Medium (security hygiene) | `npm audit`: Next.js 15.5.27 (critical: image-optimizer RCE only with SVG, Server Actions DoS), postcss, deepmerge-ts via the Prisma CLI. No 15.x release is outside the affected range. | **Open, assessed:** the SVG path is off (no `images` config, `dangerouslyAllowSVG` false), PostCSS/deepmerge are build-time only; DoS is mitigated by the platform. A follow-up task proposes the Next 16 upgrade. |
+| 6 | Medium (a11y) | `/brend` form labels failed contrast in dark mode (an undefined CSS token fell back to grey). | Fixed (`--muted`). |
+| 7 | Medium (a11y) | `/admin/articles/new`: 4 fields without labels + 1 select without a name (axe critical). | Fixed (label `for`/`id`), test added. |
+| 8 | Medium (a11y) | Telegram login widget iframe has no title (axe serious on /login, /register). | Fixed (a MutationObserver names it). |
+| 9 | Low | Article `<title>`/description too long for search results (up to 118 / 252 characters). | Fixed: cut at a word (title 55, description 160). |
+| 10 | Low | `robots.txt` blocked `/api/cover/` (the og:image of articles). | Fixed (allowed). |
+| 11 | Low | Vote of the swatch copy button gave no feedback when the clipboard was refused. | Fixed (fallback + message). |
+| 12 | Low | Bot: the welcome did not mention the buttons; text over 60 characters was silently cut; an unknown command repeated the whole welcome. | Fixed (feature line, notice, short hint). |
+| 13 | Low | Mobile tap target: logo 23 px high. | Fixed (min-height). Card links were a false alarm (stretched over the card). |
+| 14 | Info | Performance: home on mobile 72 (LCP 4.2 s: 1.2 s of script evaluation, 1.1 s layout under 4× throttling, 1.1 MB, mostly preview webfonts); font page CLS 0.178 (title font swap moves the download card). TTFB median 0.5 s, first hit of `/`, `/fonts` 2.5–4 s (cold). | Open, no change: see recommendations. |
+| 15 | Info | Test infrastructure: several suites depended on the wall clock (autopost grace at 20:00, promo schedule, daily reminders) and failed after 20:00 local; now independent of it. | Fixed (test side). |
+
+**New tests:** e2e-kit 36 (recipes, own-colour form), e2e-misc 14 (beacon, meta lengths, robots, bot messages, form labels, stats tile), unit checks for the recipes (10), feed text cleanup (5), colour maths (12).
+
+**Recommendations (not done):** reduce the number of preview webfonts the home page loads at first paint (or `content-visibility` on lower sections) to lift the mobile score; reserve space for the font hero title to remove the CLS; Next 16 upgrade; read the new "Brauzer xatolari" tile for a week before spending more time on the hydration error.
