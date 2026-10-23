@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   });
   if (!p || !p.isPublished) return {}; // don't leak draft titles/excerpts via 404 metadata
   const ru = locale === "ru" && !!p.bodyRu;
-  const title = cut((ru && p.titleRu) || p.title, 70);
+  const title = cut((ru && p.titleRu) || p.title, 55);
   const description = cut((ru ? p.excerptRu : p.excerpt) ?? "", 160) || undefined;
   const image = p.coverImage || `/api/cover/${slug}${ru ? "?l=ru" : ""}`;
   return {
