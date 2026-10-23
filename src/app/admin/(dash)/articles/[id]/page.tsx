@@ -14,7 +14,7 @@ export default async function EditArticle({ params }: { params: Promise<{ id: st
     <>
       <div className="adm-head">
         <h1 style={{ margin: 0 }}>Maqolani tahrirlash</h1>
-        {article.isPublished && <a href={`/blog/${article.slug}`} target="_blank" className="btn btn-sm">↗ Ko&apos;rish</a>}
+        {article.isPublished && <a href={`/blog/${article.slug}`} target="_blank" className="btn btn-sm">↗ Koʻrish</a>}
       </div>
       <ArticleForm article={article} />
     </>

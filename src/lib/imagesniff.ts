@@ -15,3 +15,35 @@ export function sniffImageFamily(buf: Buffer): string | null {
 export const EXT_FAMILY: Record<string, string> = {
   ".jpg": "jpeg", ".jpeg": "jpeg", ".png": "png", ".gif": "gif", ".webp": "webp", ".avif": "avif",
 };
+
+/** Pixel size from the file header (JPEG/PNG/GIF/WebP); null when unknown (e.g. AVIF). */
+export function imageSize(buf: Buffer): { width: number; height: number } | null {
+  const fam = sniffImageFamily(buf);
+  try {
+    if (fam === "png") return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+    if (fam === "gif") return { width: buf.readUInt16LE(6), height: buf.readUInt16LE(8) };
+    if (fam === "webp") {
+      const chunk = buf.subarray(12, 16).toString("ascii");
+      if (chunk === "VP8X") return { width: 1 + buf.readUIntLE(24, 3), height: 1 + buf.readUIntLE(27, 3) };
+      if (chunk === "VP8L") {
+        const b = buf.readUInt32LE(21);
+        return { width: 1 + (b & 0x3fff), height: 1 + ((b >> 14) & 0x3fff) };
+      }
+      if (chunk === "VP8 ") return { width: buf.readUInt16LE(26) & 0x3fff, height: buf.readUInt16LE(28) & 0x3fff };
+    }
+    if (fam === "jpeg") {
+      let i = 2;
+      while (i + 9 < buf.length) {
+        if (buf[i] !== 0xff) { i++; continue; }
+        const marker = buf[i + 1];
+        const len = buf.readUInt16BE(i + 2);
+        // SOF0..SOF15, minus DHT (C4), JPG (C8) and DAC (CC)
+        if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+          return { width: buf.readUInt16BE(i + 7), height: buf.readUInt16BE(i + 5) };
+        }
+        i += 2 + len;
+      }
+    }
+  } catch { /* truncated header */ }
+  return null;
+}

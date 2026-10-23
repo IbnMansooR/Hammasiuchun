@@ -1,17 +1,27 @@
 "use server";
+import { translateSoon } from "@/lib/articleRu";
 import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { cookies, headers } from "next/headers";
+import { after } from "next/server";
 import crypto from "node:crypto";
+import bcrypt from "bcryptjs";
 import path from "node:path";
 import * as wawoff2 from "wawoff2";
 import { db } from "@/lib/db";
 import { getSession, verifyCredentials, createSession, destroySession } from "@/lib/auth";
 import { parseFontBuffer, slugify, safeFolder, shortHash, styleSlug as mkStyleSlug } from "@/lib/fontmeta";
 import { putUpload, deleteUpload, writeFont, writeWebfont } from "@/lib/storage";
-import { DEFAULT_SETTINGS, saveSiteSettings } from "@/lib/settings";
+import { DEFAULT_SETTINGS, SETTINGS_TAG, getSiteSettings, saveSiteSettings } from "@/lib/settings";
+import { cleanVerification } from "@/lib/seo";
 import { sniffImageFamily, EXT_FAMILY } from "@/lib/imagesniff";
-import { grantOrderPurchases } from "@/lib/purchases";
+import { LICENSE_CLASSES } from "@/lib/license";
+import { CATALOG_TAG } from "@/lib/stats";
+import { esc } from "@/lib/telegram";
+import {
+  CODE_TTL_S, MAX_CODE_TRIES, TWOFA_COOKIE, alertAdmins, codeHash, newCode, sameHash, sendCode, signPending,
+  twoFactorChats, verifyPending, weakPasswordReason, whereLine,
+} from "@/lib/adminSecurity";
 
 const IMAGE_EXT = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"]);
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -31,12 +41,16 @@ function bool(fd: FormData, k: string): boolean {
   return v === "on" || v === "true" || v === "1";
 }
 
-/* ---------------- auth (DB-backed throttling) ---------------- */
+/* ---------------- auth (DB-backed throttling + Telegram second step) ---------------- */
 // Persisted in the LoginAttempt table rather than an in-memory Map: this app
 // deploys to Vercel serverless, where a module-level Map does not survive
 // across separate function instances, so an in-memory lockout is unreliable.
-const MAX_FAILS = 8;
+const MAX_FAILS = 8; // per IP
 const LOCK_MS = 15 * 60 * 1000;
+// Per username too, so many addresses can't share the guessing. Wider limit: a lockout here
+// also stops the owner, but the second step (Telegram code) already blocks a stolen password.
+const MAX_USER_FAILS = 20;
+const USER_LOCK_MS = 60 * 60 * 1000;
 
 async function clientKey(): Promise<string> {
   const h = await headers();
@@ -44,30 +58,134 @@ async function clientKey(): Promise<string> {
   return fwd.split(",")[0].trim() || h.get("x-real-ip") || "unknown";
 }
 
-export async function loginAction(fd: FormData) {
-  const key = await clientKey();
+/** Count a failure; true when this one locked the key. */
+async function countFailure(key: string, max: number, lockMs: number): Promise<boolean> {
   const now = new Date();
   const a = await db.loginAttempt.findUnique({ where: { key } });
-  if (a?.lockedUntil && a.lockedUntil > now) redirect("/admin/login?error=locked");
-
-  const username = str(fd, "username");
-  const password = str(fd, "password");
-  if (await verifyCredentials(username, password)) {
-    if (a) await db.loginAttempt.delete({ where: { key } }).catch(() => {});
-    await createSession(username);
-    redirect("/admin");
-  }
-  // record failure + small delay to blunt brute force
   const stale = !!(a?.lockedUntil && a.lockedUntil <= now);
   const count = (stale || !a ? 0 : a.count) + 1;
-  const lockedUntil = count >= MAX_FAILS ? new Date(now.getTime() + LOCK_MS) : null;
+  const lockedUntil = count >= max ? new Date(now.getTime() + lockMs) : null;
   await db.loginAttempt.upsert({
     where: { key },
     update: { count: lockedUntil ? 0 : count, lockedUntil },
     create: { key, count: lockedUntil ? 0 : count, lockedUntil },
   });
+  return !!lockedUntil;
+}
+
+const locked = async (key: string) => {
+  const a = await db.loginAttempt.findUnique({ where: { key } });
+  return !!(a?.lockedUntil && a.lockedUntil > new Date());
+};
+
+async function setPendingCookie(token: string | null) {
+  const store = await cookies();
+  if (!token) { store.delete({ name: TWOFA_COOKIE, path: "/admin" }); return; }
+  store.set(TWOFA_COOKIE, token, {
+    httpOnly: true, sameSite: "strict", secure: process.env.NODE_ENV === "production", path: "/admin", maxAge: CODE_TTL_S,
+  });
+}
+
+async function signedIn(username: string, passwordHash: string, how: string) {
+  await createSession(username, passwordHash);
+  const where = await whereLine();
+  after(() => alertAdmins(`✅ Admin panelga kirildi (${how}).\n${where}\n\nSiz boʻlmasangiz, darhol parolni almashtiring: Admin → Sozlamalar → Xavfsizlik.`).catch(() => {}));
+}
+
+export async function loginAction(fd: FormData) {
+  const ipKey = await clientKey();
+  if (await locked(ipKey)) redirect("/admin/login?error=locked");
+
+  const username = str(fd, "username").slice(0, 100);
+  const password = str(fd, "password").slice(0, 200);
+  const userKey = `alogin-u:${username.toLowerCase()}`;
+  if (username && (await locked(userKey))) redirect("/admin/login?error=locked");
+
+  const admin = await verifyCredentials(username, password);
+  if (admin) {
+    await db.loginAttempt.deleteMany({ where: { key: { in: [ipKey, userKey] } } }).catch(() => {});
+    const chats = await twoFactorChats();
+    if (!chats.length) {
+      await signedIn(admin.username, admin.passwordHash, "faqat parol bilan");
+      redirect("/admin");
+    }
+    // Second step: a one-time code in the admin's Telegram.
+    const { code, jti } = newCode();
+    if (!(await sendCode(chats, code))) redirect("/admin/login?error=tgsend");
+    await setPendingCookie(await signPending({ u: admin.username, h: codeHash(jti, code), jti }));
+    redirect("/admin/login?step=code");
+  }
+
+  // record failure + small delay to blunt brute force
+  const ipLocked = await countFailure(ipKey, MAX_FAILS, LOCK_MS);
+  const userLocked = username ? await countFailure(userKey, MAX_USER_FAILS, USER_LOCK_MS) : false;
+  if (ipLocked || userLocked) {
+    const where = await whereLine();
+    const what = userLocked
+      ? `“${esc(username)}” loginiga ${MAX_USER_FAILS} marta notoʻgʻri parol kiritildi. Bu login 1 soatga yopildi.`
+      : `Bitta manzildan ${MAX_FAILS} marta notoʻgʻri parol kiritildi. Bu manzil 15 daqiqaga bloklandi.`;
+    after(() => alertAdmins(`⚠️ Admin panelga kirishga urinish. ${what}\n${where}`).catch(() => {}));
+  }
   await new Promise((r) => setTimeout(r, 400));
   redirect("/admin/login?error=1");
+}
+
+/** Second step: the code from Telegram. */
+export async function verifyAdminCodeAction(fd: FormData) {
+  const store = await cookies();
+  const pending = await verifyPending(store.get(TWOFA_COOKIE)?.value);
+  if (!pending) redirect("/admin/login?error=expired");
+  const key = `2fa:${pending.jti}`;
+  if (await locked(key)) {
+    await setPendingCookie(null);
+    redirect("/admin/login?error=expired");
+  }
+  const code = str(fd, "code").replace(/\D/g, "");
+  if (code.length !== 6 || !sameHash(codeHash(pending.jti, code), pending.h)) {
+    if (await countFailure(key, MAX_CODE_TRIES, CODE_TTL_S * 1000)) {
+      await setPendingCookie(null);
+      const where = await whereLine();
+      after(() => alertAdmins(`⚠️ Admin kirish kodi ${MAX_CODE_TRIES} marta notoʻgʻri kiritildi, kod bekor qilindi. Parol toʻgʻri kiritilgan edi: siz boʻlmasangiz, parolni almashtiring.\n${where}`).catch(() => {}));
+      redirect("/admin/login?error=expired");
+    }
+    await new Promise((r) => setTimeout(r, 400));
+    redirect("/admin/login?step=code&error=code");
+  }
+  // One use only: burn this code before signing in.
+  await countFailure(key, 1, CODE_TTL_S * 1000);
+  await setPendingCookie(null);
+  const admin = await db.admin.findUnique({ where: { username: pending.u }, select: { username: true, passwordHash: true } });
+  if (!admin) redirect("/admin/login?error=1");
+  await signedIn(admin.username, admin.passwordHash, "parol + Telegram kodi");
+  redirect("/admin");
+}
+
+/** Change the admin password. Every other device is signed out (their tokens carry the old fingerprint). */
+export async function changeAdminPasswordAction(fd: FormData) {
+  const s = await assertAdmin();
+  const back = (e: string) => redirect(`/admin/settings?pw=${e}#security`);
+  const key = `apw:${s.username.toLowerCase()}`;
+  if (await locked(key)) back("locked");
+  // Trimmed like the login form, so the new password always works there.
+  const current = str(fd, "current");
+  const next = str(fd, "next");
+  const repeat = str(fd, "repeat");
+  const admin = await verifyCredentials(s.username, current.slice(0, 200));
+  if (!admin) {
+    await countFailure(key, 5, LOCK_MS);
+    back("current");
+  }
+  if (next !== repeat) back("repeat");
+  if (next === current) back("same");
+  const weak = weakPasswordReason(next, s.username);
+  if (weak) back(weak);
+  const passwordHash = await bcrypt.hash(next, 12);
+  await db.admin.update({ where: { username: s.username }, data: { passwordHash } });
+  await db.loginAttempt.deleteMany({ where: { key } }).catch(() => {});
+  await createSession(s.username, passwordHash);
+  const where = await whereLine();
+  after(() => alertAdmins(`🔑 Admin paroli almashtirildi. Boshqa barcha qurilmalardagi kirishlar bekor qilindi.\n${where}`).catch(() => {}));
+  redirect("/admin/settings?pw=ok#security");
 }
 
 export async function logoutAction() {
@@ -101,11 +219,16 @@ export async function saveArticleAction(fd: FormData) {
     // Avoid a P2002 crash if the (new) slug collides with a different article.
     const clash = await db.article.findUnique({ where: { slug } });
     if (clash && clash.id !== id) { slug = `${slug}-${shortHash(String(id))}`; data.slug = slug; }
-    await db.article.update({ where: { id }, data });
+    // An edited Uzbek text invalidates its Russian copy: it is translated again once the article is live.
+    const changed = existing.title !== data.title || existing.excerpt !== data.excerpt || existing.body !== data.body;
+    await db.article.update({ where: { id }, data: changed ? { ...data, titleRu: null, excerptRu: null, bodyRu: null } : data });
+    if (published && (changed || !existing.bodyRu)) translateSoon(id);
   } else {
     if (await db.article.findUnique({ where: { slug } })) slug = `${slug}-${Date.now().toString(36)}`;
-    await db.article.create({ data: { ...data, slug } });
+    const made = await db.article.create({ data: { ...data, slug } });
+    if (published) translateSoon(made.id);
   }
+  revalidateTag(CATALOG_TAG);
   revalidatePath("/blog");
   revalidatePath(`/blog/${slug}`);
   revalidatePath("/");
@@ -119,6 +242,7 @@ export async function deleteArticleAction(fd: FormData) {
   if (Number.isInteger(id) && id > 0) {
     try { await db.article.delete({ where: { id } }); } catch { /* already gone */ }
   }
+  revalidateTag(CATALOG_TAG);
   revalidatePath("/blog");
   revalidatePath("/");
   revalidatePath("/admin/articles");
@@ -178,11 +302,6 @@ export async function setOrderStatusAction(fd: FormData) {
   const status = str(fd, "status");
   if (!Number.isInteger(id) || id <= 0 || !ORDER_STATUSES.has(status)) return;
   await db.order.update({ where: { id }, data: { status } });
-
-  // Marking a logged-in customer's order "done" (e.g. after confirming a bank
-  // transfer over Telegram) is the manual equivalent of a successful payment
-  // webhook — grant the same re-downloadable ownership either way.
-  if (status === "done") await grantOrderPurchases(id, "manual");
   revalidatePath("/admin/orders");
 }
 
@@ -204,27 +323,47 @@ export async function saveSettingsAction(fd: FormData) {
     url: str(fd, `${d.key}_url`),
     enabled: bool(fd, `${d.key}_on`),
   }));
-  const rate = Number(str(fd, "usdToUzsRate"));
+  const current = await getSiteSettings();
   await saveSiteSettings({
+    ...current,
     socials,
     contactEmail: str(fd, "contactEmail") || DEFAULT_SETTINGS.contactEmail,
     contactTelegram: str(fd, "contactTelegram") || DEFAULT_SETTINGS.contactTelegram,
-    usdToUzsRate: Number.isFinite(rate) && rate > 0 ? rate : DEFAULT_SETTINGS.usdToUzsRate,
   });
+  revalidateTag(SETTINGS_TAG);
   revalidatePath("/", "layout"); // footer is in the shared layout
   revalidatePath("/support");
   redirect("/admin/settings?saved=1");
+}
+
+/** Google Search Console / Yandex Webmaster ownership codes, shown as <meta> tags on every page. */
+export async function saveSearchVerificationAction(fd: FormData) {
+  await assertAdmin();
+  const rawG = str(fd, "googleVerification");
+  const rawY = str(fd, "yandexVerification");
+  // An easy mix-up: the sitemap address goes into Google / Yandex, not here.
+  if ([rawG, rawY].some((v) => /sitemap|^https?:\/\//i.test(v))) redirect("/admin/settings?error=sitemap#search");
+  // "google-site-verification=…" is the DNS (TXT record) code of a "Domain" property: it cannot work as a meta tag.
+  if (/^\s*(google|yandex)-(site-)?verification\s*=/i.test(rawG) || /^\s*yandex-verification\s*[:=]/i.test(rawY)) {
+    redirect("/admin/settings?error=dns#search");
+  }
+  const google = cleanVerification(rawG);
+  const yandex = cleanVerification(rawY);
+  if ((rawG && !google) || (rawY && !yandex)) redirect("/admin/settings?error=verification#search");
+  const current = await getSiteSettings();
+  await saveSiteSettings({ ...current, googleVerification: google, yandexVerification: yandex });
+  revalidateTag(SETTINGS_TAG);
+  revalidatePath("/", "layout");
+  redirect("/admin/settings?saved=search#search");
 }
 
 /* ---------------- family metadata edit ---------------- */
 export async function saveFamilyAction(fd: FormData) {
   await assertAdmin();
   const slug = str(fd, "slug");
-  const priceRaw = Number(str(fd, "price"));
-  if (!Number.isFinite(priceRaw) || priceRaw < 0 || priceRaw > 100000) {
-    redirect(`/admin/fonts/${slug}?error=price`);
-  }
-  const tier = str(fd, "tier") || "demo";
+  // Every font is free; whether it may be shown depends on its licence class.
+  const licenseClass = str(fd, "licenseClass");
+  if (!(LICENSE_CLASSES as readonly string[]).includes(licenseClass)) redirect(`/admin/fonts/${slug}?error=license`);
   await db.family.update({
     where: { slug },
     data: {
@@ -234,14 +373,16 @@ export async function saveFamilyAction(fd: FormData) {
       history: str(fd, "history") || null,
       usage: str(fd, "usage") || null,
       designer: str(fd, "designer") || null,
-      tier,
-      isFree: tier === "free",
-      priceCents: tier === "free" ? 0 : Math.round(priceRaw * 100),
+      licenseClass,
+      tier: "free",
+      isFree: true,
+      priceCents: 0,
       isPublished: bool(fd, "isPublished"),
       isFeatured: bool(fd, "isFeatured"),
       isNew: bool(fd, "isNew"),
     },
   });
+  revalidateTag(CATALOG_TAG);
   revalidatePath(`/fonts/${slug}`);
   revalidatePath("/fonts");
   revalidatePath("/");
@@ -311,7 +452,7 @@ export async function uploadFontFamilyAction(fd: FormData) {
       slug, ...technical, category,
       designer: meta.designer, manufacturer: meta.manufacturer,
       copyright: meta.copyright, licenseClass: meta.licenseClass,
-      tier: "demo", isFree: false, priceCents: 100, popularity: styles.length,
+      tier: "free", isFree: true, priceCents: 0, popularity: styles.length,
     },
   });
   // Replace styles atomically so a failure can't leave the family with zero cuts.
@@ -320,6 +461,7 @@ export async function uploadFontFamilyAction(fd: FormData) {
     db.style.createMany({ data: styles.map((s) => ({ familyId: fam.id, ...s })) }),
   ]);
 
+  revalidateTag(CATALOG_TAG);
   revalidatePath("/fonts");
   revalidatePath(`/fonts/${slug}`);
   revalidatePath("/about");

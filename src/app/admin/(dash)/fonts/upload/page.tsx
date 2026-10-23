@@ -7,7 +7,7 @@ export const metadata = { title: "Admin — Shrift yuklash" };
 const ERRORS: Record<string, string> = {
   name: "Oila nomini kiriting.",
   files: "Kamida bitta font fayli tanlang.",
-  parse: "Fayllarni o'qib bo'lmadi. TTF / OTF / WOFF2 ekanini tekshiring.",
+  parse: "Fayllarni oʻqib boʻlmadi. TTF / OTF / WOFF2 ekanini tekshiring.",
 };
 
 export default async function UploadFont({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
@@ -16,11 +16,11 @@ export default async function UploadFont({ searchParams }: { searchParams: Promi
     <>
       <h1>Yangi shrift oilasini yuklash</h1>
       <p className="muted" style={{ maxWidth: 640, marginTop: -12, marginBottom: 22 }}>
-        Bitta oilaning barcha uslublarini (Regular, Bold, Italic…) tanlang. Tizim har birini o&apos;qib,
-        WOFF2 ga o&apos;giradi va katalogga qo&apos;shadi. Qoidaga ko&apos;ra oilada kamida 3 ta uslub bo&apos;lgani ma&apos;qul.
+        Bitta oilaning barcha uslublarini (Regular, Bold, Italic…) tanlang. Tizim har birini oʻqib,
+        WOFF2 ga oʻgiradi va katalogga qoʻshadi. Qoidaga koʻra oilada kamida 3 ta uslub boʻlgani maʼqul.
       </p>
       {error && (
-        <div style={{ background: "#fdecec", color: "#b91c1c", padding: "10px 14px", borderRadius: 10, fontSize: 14, marginBottom: 18, maxWidth: 640 }}>
+        <div className="adm-notice adm-notice-error" role="alert" style={{ maxWidth: 640 }}>
           {ERRORS[error] ?? "Xatolik yuz berdi."}
         </div>
       )}
@@ -32,16 +32,16 @@ export default async function UploadFont({ searchParams }: { searchParams: Promi
           </div>
           <div className="field">
             <label>Toifa</label>
-            <select name="category" defaultValue="Sans">
+            <select name="category" defaultValue="Sans" aria-label="Toifa">
               {CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>)}
             </select>
           </div>
         </div>
         <div className="field">
           <label>Font fayllari (TTF / OTF / WOFF2, bir nechta)</label>
-          <input type="file" name="files" multiple accept=".ttf,.otf,.woff2" required />
+          <input type="file" name="files" multiple accept=".ttf,.otf,.woff2" required aria-label="Shrift fayllari (.ttf, .otf, .woff2)" />
         </div>
-        <SubmitButton pendingLabel="Yuklanmoqda…">Yuklash va qo&apos;shish</SubmitButton>
+        <SubmitButton pendingLabel="Yuklanmoqda…">Yuklash va qoʻshish</SubmitButton>
       </form>
     </>
   );

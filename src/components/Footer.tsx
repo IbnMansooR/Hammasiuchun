@@ -1,48 +1,65 @@
-import Link from "next/link";
+import Link from "./LLink";
+import LangSwitch from "./LangSwitch";
+import { getT } from "@/i18n/server";
 import { getSiteSettings } from "@/lib/settings";
+import { getPublicCounts } from "@/lib/stats";
+import { formatNumber } from "@/lib/format";
+import { Logo, Wordmark } from "./Logo";
+import { IconArrow } from "./Icons";
 
 export default async function Footer() {
-  const { socials } = await getSiteSettings();
+  const [{ socials }, { families }, d] = await Promise.all([getSiteSettings(), getPublicCounts(), getT()]);
+  const t = d.footer;
   const visible = socials.filter((s) => s.enabled && s.url);
   return (
     <footer className="footer">
       <div className="container">
+        <div className="footer-cta">
+          <h2>{t.ctaA}<em>{t.ctaFree}</em>.</h2>
+          <Link href="/fonts" className="btn btn-light btn-lg">{t.openCatalog} <IconArrow className="ico" /></Link>
+        </div>
         <div className="footer-grid">
           <div>
-            <div style={{ fontWeight: 800, fontSize: 22, letterSpacing: "-.03em" }}>Feekr</div>
-            <p className="muted" style={{ maxWidth: 320, marginTop: 12, color: "rgba(255,255,255,.6)" }}>
-              Mustaqil shrift ombori. Dizaynerlar va brendlar uchun 2000+ oila.
+            <Link href="/" className="footer-mark" aria-label={d.header.home} style={{ display: "inline-block" }}><Logo /></Link>
+            <p className="footer-about">
+              {t.about}
+              {families > 0 ? t.families(formatNumber(families)) : ""}
             </p>
           </div>
           <div className="col">
-            <h4>Shriftlar</h4>
-            <Link href="/fonts">Barcha shriftlar</Link>
-            <Link href="/pairs">Juftliklar</Link>
-            <Link href="/fonts?filter=free">Bepul shriftlar</Link>
+            <h3>{t.fonts}</h3>
+            <Link href="/fonts">{t.allFonts}</Link>
             <Link href="/fonts?cat=Sans">Sans-serif</Link>
-            <Link href="/fonts?cat=Display">Display</Link>
             <Link href="/fonts?cat=Serif">Serif</Link>
+            <Link href="/fonts?cat=Display">Display</Link>
+            <Link href="/fonts?cyr=1">{t.cyrillic}</Link>
+            <Link href="/pairs">{t.pairs}</Link>
+            <Link href="/brend">Brend palitrasi</Link>
           </div>
           <div className="col">
-            <h4>Kompaniya</h4>
-            <Link href="/about">Biz haqimizda</Link>
-            <Link href="/blog">Blog</Link>
-            <Link href="/support">Yordam</Link>
-            <Link href="/license">Litsenziya</Link>
+            <h3>Feekr</h3>
+            <Link href="/about">{t.about2}</Link>
+            <Link href="/blog">{t.blog}</Link>
+            <Link href="/license">{t.license}</Link>
+            <Link href="/support">{t.support}</Link>
+            <Link href="/maxfiylik">{t.privacy}</Link>
+            <Link href="/shrift-topish">{t.finder}</Link>
+            <Link href="/reklama">{t.ads}</Link>
+            <LangSwitch variant="long" />
           </div>
           {visible.length > 0 && (
             <div className="col">
-              <h4>Ijtimoiy</h4>
+              <h3>{t.social}</h3>
               {visible.map((s) => (
                 <a key={s.key} href={s.url} target="_blank" rel="noreferrer noopener">{s.label}</a>
               ))}
             </div>
           )}
         </div>
-        <div className="big">Feekr®</div>
+        <div className="footer-word" aria-hidden="true"><Wordmark /></div>
         <div className="footer-bottom">
-          <span>© {new Date().getFullYear()} Feekr. Barcha huquqlar himoyalangan.</span>
-          <span>Toshkent, Oʻzbekiston</span>
+          <span>© {new Date().getFullYear()} Feekr · {t.city}</span>
+          <span>{t.eachLicence} · <Link href="/license">{t.terms}</Link></span>
         </div>
       </div>
     </footer>
