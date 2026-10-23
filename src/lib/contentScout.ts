@@ -265,7 +265,7 @@ export async function runContentScout({ force = false } = {}): Promise<ContentRe
 /* ---------------- putting it on the site and in the channel ---------------- */
 
 function refresh(paths: string[]) {
-  revalidateTag(CATALOG_TAG);
+  revalidateTag(CATALOG_TAG, { expire: 0 });
   for (const p of ["/", "/blog", "/dizaynerlar", "/dizaynerlar/profil", "/admin/content", ...paths]) revalidatePath(p);
 }
 

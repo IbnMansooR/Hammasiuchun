@@ -33,7 +33,7 @@ function httpsUrl(raw: string): string | null {
 }
 
 function refresh() {
-  revalidateTag(ADS_TAG);
+  revalidateTag(ADS_TAG, { expire: 0 });
   revalidatePath("/");
   revalidatePath("/dizaynerlar");
   revalidatePath("/admin/ads");
