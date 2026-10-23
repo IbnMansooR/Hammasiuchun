@@ -25,12 +25,13 @@ type Card = { key: string; id: number | null; name: string; note: string; kit: K
 const cssOf = (k: Kit, h: string, b: string) =>
   `:root {\n  --bg: ${k.bg};\n  --text: ${k.text};\n  --primary: ${k.primary};\n  --accent: ${k.accent};\n  --soft: ${k.soft};\n  --font-heading: "${h}", serif;\n  --font-body: "${b}", sans-serif;\n}`;
 
-export default async function BrendPage({ searchParams }: { searchParams: Promise<{ soha?: string; kayfiyat?: string; rang?: string; own?: string; nom?: string }> }) {
+export default async function BrendPage({ searchParams }: { searchParams: Promise<{ soha?: string; kayfiyat?: string; rang?: string; own?: string | string[]; nom?: string }> }) {
   const sp = await searchParams;
   const industry = sp.soha && isIndustry(sp.soha) ? sp.soha : "";
   const mood = sp.kayfiyat && isMood(sp.kayfiyat) ? sp.kayfiyat : "";
   // The colour field always has a value, so it counts only when "start from my colour" is ticked (or the address has rang= without the form).
-  const wantsOwn = sp.own === "1" || (sp.own === undefined && !!sp.rang);
+  const ownVal = Array.isArray(sp.own) ? sp.own[sp.own.length - 1] : sp.own; // the form sends own=0 first and own=1 when ticked
+  const wantsOwn = ownVal === "1" || (ownVal === undefined && !!sp.rang);
   const base = wantsOwn && sp.rang && isHex(`#${sp.rang.replace(/^#/, "")}`) ? `#${sp.rang.replace(/^#/, "").toLowerCase()}` : "";
   const brand = (sp.nom ?? "").replace(/[<>]/g, "").slice(0, 24).trim() || "Brendingiz";
 
@@ -83,7 +84,7 @@ export default async function BrendPage({ searchParams }: { searchParams: Promis
         <label>Oʻz rangingiz
           <span className="kit-own">
             <input type="color" name="rang" defaultValue={base || "#009a76"} aria-label="Asosiy rang" />
-            <label className="kit-own-check"><input type="checkbox" name="own" value="1" defaultChecked={!!base} /> shu rangdan boshlash</label>
+            <label className="kit-own-check"><input type="hidden" name="own" value="0" /><input type="checkbox" name="own" value="1" defaultChecked={!!base} /> shu rangdan boshlash</label>
           </span>
         </label>
         <label>Brend nomi

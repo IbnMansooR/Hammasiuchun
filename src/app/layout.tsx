@@ -59,7 +59,9 @@ export const viewport: Viewport = {
 };
 
 // Applies a saved light/dark choice before first paint (no flash). The admin follows the same choice.
-const THEME_SCRIPT = `try{var t=localStorage.getItem('feekr_theme');if(t==='dark'||t==='light')document.documentElement.dataset.theme=t}catch(e){}`;
+// It also registers, before anything else runs, a listener that counts React hydration errors (#418, #423, #425)
+// as the "client_error" event: they are recoverable and invisible to visitors, so this is how we learn how often they happen.
+const THEME_SCRIPT = `try{var t=localStorage.getItem('feekr_theme');if(t==='dark'||t==='light')document.documentElement.dataset.theme=t}catch(e){}try{addEventListener('error',function(e){var m=String(e&&e.message||'');if(/#(418|423|425)\\b|ydrat/.test(m))navigator.sendBeacon('/api/track',new Blob([JSON.stringify({n:'client_error',p:location.pathname,m:'hydration'})],{type:'application/json'}))})}catch(e){}`;
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const nonce = (await headers()).get("x-nonce") ?? undefined;

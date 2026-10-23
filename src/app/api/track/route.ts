@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // Events the browser may report. Sign-ups are recorded on the server only.
-const CLIENT_EVENTS = new Set(["view", "leave", "download", "wish", "prompt_show", "prompt_click", "prompt_dismiss", "ad_view", "ad_click"]);
+const CLIENT_EVENTS = new Set(["view", "leave", "download", "wish", "prompt_show", "prompt_click", "prompt_dismiss", "ad_view", "ad_click", "client_error"]);
 const MAX_BODY = 2048;
 const DAY = 24 * 60 * 60 * 1000;
 

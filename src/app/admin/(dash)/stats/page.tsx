@@ -2,6 +2,7 @@ import Link from "next/link";
 import { formatNumber } from "@/lib/format";
 import { PERIODS, getStats, parsePeriod } from "@/lib/statsQueries";
 import BarChart from "@/components/admin/BarChart";
+import { db } from "@/lib/db";
 
 export const metadata = { title: "Admin — Statistika" };
 
@@ -25,6 +26,8 @@ function dur(ms: number): string {
 export default async function StatsPage({ searchParams }: { searchParams: Promise<{ days?: string }> }) {
   const days = parsePeriod((await searchParams).days);
   const s = await getStats(days);
+  // Hydration errors seen in visitors' browsers (recoverable: the page still works), counted by an inline script in the layout.
+  const clientErrors = await db.hit.count({ where: { name: "client_error", at: { gte: new Date(Date.now() - days * 86_400_000) } } }).catch(() => 0);
   const empty = s.kpi.views === 0;
   const top = s.funnel[0]?.n || 0;
   const devTotal = s.devices.reduce((a, d) => a + d.visitors, 0) || 1;
@@ -59,6 +62,7 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
         <div className="stat"><div className="n">{formatNumber(s.kpi.downloads)}</div><div className="l">Yuklab olish bosildi</div></div>
         <div className="stat"><div className="n">{formatNumber(s.kpi.wishes)}</div><div className="l">♡ ga qoʻshildi</div></div>
         <div className="stat"><div className="n">{formatNumber(s.kpi.signups)}</div><div className="l">Roʻyxatdan oʻtdi{s.kpi.visitors ? ` · ${pct(s.kpi.conversion)}` : ""}</div></div>
+        <div className="stat"><div className="n">{formatNumber(clientErrors)}</div><div className="l">Brauzer xatolari (hydration, sahifa ishlayveradi)</div></div>
       </div>
 
       {empty ? (
