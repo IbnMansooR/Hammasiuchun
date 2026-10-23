@@ -2,7 +2,7 @@
 // letter of it (Uzbek ʻ ʼ and ғ қ ҳ ў included), four at a time, with links to each font.
 import { esc, sendMessage, sendPhotoOrText, siteLink, tg, type Keyboard } from "./telegram";
 import { hasProfanity } from "./profanity";
-import { PER_PAGE, cleanSampleText, matchFonts, sampleFonts, sampleImageUrl, uzbekize, type Match } from "./fontSamples";
+import { MAX_TEXT, PER_PAGE, cleanSampleText, matchFonts, sampleFonts, sampleImageUrl, uzbekize, type Match } from "./fontSamples";
 
 // A soft per-instance brake against someone flooding the bot (each sample renders a picture).
 const recent = new Map<string, { n: number; t: number }>();
@@ -72,6 +72,7 @@ export async function sendSample(chatId: string, raw: string): Promise<void> {
   }
   const typed = cleanSampleText(raw);
   if (!typed) return;
+  if (raw.replace(/[«»<>]/g, "").replace(/\s+/g, " ").trim().length > MAX_TEXT) await sendMessage(chatId, `ℹ️ Matn ${MAX_TEXT} belgigacha qisqartirildi.`);
   // Swearing is not set in pictures (Uzbek and Russian; English is left alone: designers use it).
   if (hasProfanity(typed)) {
     await sendMessage(chatId, "Bunday soʻzlarni yozib boʻlmaydi. Iltimos, boshqa matn yozing: brend nomi, ibora yoki ism.");

@@ -1306,8 +1306,10 @@ section.adm-card + section.adm-card, .stat-grid + section.adm-card { margin-top:
 
 /* Brend palitrasi */
 .kit-form { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; margin: 8px 0 4px; }
-.kit-form label { display: grid; gap: 6px; font-size: 13px; color: var(--ink-3, #6b6a65); }
-.kit-form select, .kit-form input[type=text] { height: 44px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink, inherit); padding: 0 12px; font: inherit; min-width: 180px; }
+.kit-form label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+.kit-own { display: flex; align-items: center; gap: 10px; }
+.kit-own-check { display: flex !important; align-items: center; gap: 6px; font-size: 13px; min-height: 44px; }
+.kit-form select, .kit-form input[type=text] { height: 44px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--fg); padding: 0 12px; font: inherit; min-width: 180px; }
 .kit-form input[type=color] { width: 56px; height: 44px; border: 1px solid var(--line); border-radius: 10px; padding: 3px; background: var(--bg); }
 .kit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; margin: 22px 0 60px; }
 .kit-card { border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: var(--bg); display: flex; flex-direction: column; }
@@ -1321,6 +1323,7 @@ section.adm-card + section.adm-card, .stat-grid + section.adm-card { margin-top:
 .kit-swatch:focus-visible { outline: 3px solid var(--accent, #009a76); outline-offset: -3px; }
 .kit-swatch-role { font-size: 10px; font-weight: 600; letter-spacing: .02em; }
 .kit-swatch-hex { font-size: 10.5px; }
+.kit-meta .muted { color: var(--muted); }
 .kit-meta { padding: 16px 18px 18px; display: grid; gap: 6px; }
 .kit-meta h2 { font-size: 18px; margin: 0; }
 .kit-meta p { margin: 0; }
@@ -1329,3 +1332,9 @@ section.adm-card + section.adm-card, .stat-grid + section.adm-card { margin-top:
 .kit-actions .kit-swatch { height: 36px !important; width: 110px; border-radius: 999px; border: 1px solid var(--line); align-items: center; justify-content: center; padding: 0; flex-direction: row; }
 .kit-actions .kit-swatch-role { display: none; }
 @media (max-width: 480px) { .kit-grid { grid-template-columns: 1fr; } .kit-swatch-hex { font-size: 9px; } }
+
+/* Tap target of at least 24px (WCAG 2.2, 2.5.8). The card links are stretched over their whole card (::after), so they already pass. */
+.logo { display: inline-flex; align-items: center; min-height: 28px; }
+
+/* Long unbroken strings (an address in a news summary) must never widen the page. */
+.lead, .prose, .post-card h2, .post-card p, .hero-title { overflow-wrap: anywhere; }

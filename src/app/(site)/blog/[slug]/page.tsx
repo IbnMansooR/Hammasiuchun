@@ -9,6 +9,9 @@ import { IconChevron } from "@/components/Icons";
 import { alternates, getLocale } from "@/i18n/server";
 import { DICTS } from "@/i18n/dict";
 
+/** A search result shows about 60 characters of title and 160 of description: cut at a word, not in the middle of one. */
+const cut = (t: string, max: number) => (t.length <= max ? t : `${t.slice(0, max - 1).replace(/\s+\S*$/, "")}…`);
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const locale = await getLocale();
@@ -18,8 +21,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   });
   if (!p || !p.isPublished) return {}; // don't leak draft titles/excerpts via 404 metadata
   const ru = locale === "ru" && !!p.bodyRu;
-  const title = (ru && p.titleRu) || p.title;
-  const description = (ru ? p.excerptRu : p.excerpt) ?? undefined;
+  const title = cut((ru && p.titleRu) || p.title, 70);
+  const description = cut((ru ? p.excerptRu : p.excerpt) ?? "", 160) || undefined;
   const image = p.coverImage || `/api/cover/${slug}${ru ? "?l=ru" : ""}`;
   return {
     title,

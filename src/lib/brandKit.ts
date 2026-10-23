@@ -77,7 +77,7 @@ export function kitProblems(k: Kit): string | null {
 export function kitDistance(a: Kit, b: Kit): number {
   return distance(a.primary, b.primary) + distance(a.accent, b.accent) * 0.6 + distance(a.bg, b.bg) * 0.8;
 }
-export const MIN_KIT_DISTANCE = 0.2;
+export const MIN_KIT_DISTANCE = 0.15;
 
 /** Text colour that reads on a swatch (for labels). */
 export const readableOn = (bg: string) => (contrast("#ffffff", bg) >= contrast("#0e0e0d", bg) ? "#ffffff" : "#0e0e0d");
@@ -198,21 +198,51 @@ export async function libraryCount(): Promise<{ total: number; byIndustry: Map<s
 /* ---------------- filling the library with Claude ---------------- */
 
 const SYSTEM = `You are a brand designer making ready colour palettes for small businesses in Uzbekistan.
-For ONE kind of business you get a list of moods. For EACH mood make ONE palette of five hex colours with roles: bg (page background), text (body text, must read well on bg), primary (brand colour, clearly visible on bg), accent (a second, contrasting highlight), soft (a quiet tint for cards).
-Make the palettes truly different from each other: different hue families, different light and dark backgrounds; avoid always using blue and avoid grey-only palettes. Use the local feel where it fits the mood (for example turquoise, ceramic blues, saffron, pomegranate red, cotton white for "milliy"). Give each a short evocative Uzbek name (2 to 3 words, Latin script, oʻ gʻ with U+02BB) and one Uzbek sentence (up to 90 characters) about when it suits.
-Answer with JSON only: [{"mood":"…","name":"…","note":"…","bg":"#rrggbb","text":"#rrggbb","primary":"#rrggbb","accent":"#rrggbb","soft":"#rrggbb"}]`;
+For ONE kind of business you get a list of slots, one per mood. For EACH slot make ONE palette of five hex colours with roles: bg (page background), text (body text, must read well on bg), primary (brand colour, clearly visible on bg), accent (a second, contrasting highlight), soft (a quiet tint for cards).
+Every slot gives a recipe you MUST follow, so that all palettes in the library differ from each other:
+- primary_hue: the hue of "primary" in degrees on the HSL wheel (0 red, 30 orange, 60 yellow, 120 green, 180 cyan, 240 blue, 300 magenta); stay within 20 degrees of it;
+- accent_hue: the hue of "accent", within 25 degrees of it;
+- background: the kind of background (light_warm, light_cool, light_tint, dark_neutral, dark_deep, mid_tone). "light_*" = very light (above 90% lightness), "dark_*" = very dark (below 15%), "mid_tone" = a clearly coloured medium background (sand, clay, sage, dusty blue) with strongly contrasting text.
+Within the recipe, express the mood and the local feel where it fits. Give each a short evocative Uzbek name (2 to 3 words, Latin script, oʻ gʻ with U+02BB, only the first letter capital) and one Uzbek sentence (up to 90 characters) about when it suits.
+Answer with JSON only, in the same order as the slots: [{"mood":"…","name":"…","note":"…","bg":"#rrggbb","text":"#rrggbb","primary":"#rrggbb","accent":"#rrggbb","soft":"#rrggbb"}]`;
 
 const clip = (v: unknown, n: number) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, n) : "");
+/** "Qora CHOY" / "qora choy" → "Qora choy": one style for every name. */
+export const normName = (s: string) => { const t = s.trim(); return t.charAt(0).toUpperCase() + t.slice(1).toLowerCase(); };
+
+export type Slot = { mood: string; primary_hue: number; accent_hue: number; background: (typeof BACKGROUNDS)[number] };
+export const BACKGROUNDS = ["light_warm", "light_cool", "dark_neutral", "light_tint", "dark_deep", "mid_tone"] as const;
+const ACCENT_TURNS = [150, 180, 30, 210, 60, 120];
+/** The recipe of the n-th palette in the library: hues walk the wheel by the golden angle, so any run of slots is spread out. */
+export function slotsFor(industryIdx: number, startN: number): Slot[] {
+  return MOODS.map(([mood], i) => {
+    const n = startN + i;
+    const primary_hue = Math.round((n * 137.508 + industryIdx * 23) % 360);
+    return { mood, primary_hue, accent_hue: (primary_hue + ACCENT_TURNS[n % ACCENT_TURNS.length]) % 360, background: BACKGROUNDS[(n + industryIdx) % BACKGROUNDS.length] };
+  });
+}
+const hueGap = (a: number, b: number) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
+/** Did the palette follow its recipe? (a vivid primary near the hue; the kind of background) */
+export function followsSlot(k: Kit, slot: Slot): boolean {
+  const [h, sat] = toHsl(k.primary);
+  if (sat > 0.2 && hueGap(h, slot.primary_hue) > 40) return false;
+  const lum = luminance(k.bg);
+  if (slot.background.startsWith("light")) return lum > 0.6;
+  if (slot.background.startsWith("dark")) return lum < 0.08;
+  return lum > 0.08 && lum < 0.6;
+}
 
 export type RawKit = { mood: string; name: string; note: string } & Kit;
-export function parseKits(raw: string): RawKit[] {
+export function parseKits(raw: string, slots?: Slot[]): RawKit[] {
   const m = /\[[\s\S]*\]/.exec(raw);
   if (!m) return [];
   try {
     return (JSON.parse(m[0]) as Record<string, unknown>[]).flatMap((o) => {
       const k = { bg: String(o.bg ?? "").toLowerCase(), text: String(o.text ?? "").toLowerCase(), primary: String(o.primary ?? "").toLowerCase(), accent: String(o.accent ?? "").toLowerCase(), soft: String(o.soft ?? "").toLowerCase() };
-      const mood = clip(o.mood, 20), name = clip(o.name, 40), note = clip(o.note, 110);
+      const mood = clip(o.mood, 20), name = normName(clip(o.name, 40)), note = clip(o.note, 110);
       if (!isMood(mood) || name.length < 3 || /<|>|https?:/.test(name + note) || kitProblems(k)) return [];
+      const slot = slots?.find((s) => s.mood === mood);
+      if (slots && (!slot || !followsSlot(k, slot))) return [];
       return [{ mood, name, note, ...k }];
     });
   } catch { return []; }
@@ -221,31 +251,36 @@ export function parseKits(raw: string): RawKit[] {
 /** One Claude call: a palette for every mood of the kind of business with the fewest kits. Returns how many were kept. */
 export async function fillOnce(): Promise<{ made: number; total: number; detail?: string }> {
   const { total, byIndustry } = await libraryCount();
-  const industry = [...INDUSTRIES].sort((a, b) => (byIndustry.get(a[0]) ?? 0) - (byIndustry.get(b[0]) ?? 0))[0][0];
-  const existing = (await db.brandKit.findMany({ where: { industry }, select: { colors: true, name: true } })).flatMap((r) => { try { return [{ kit: JSON.parse(r.colors) as Kit, name: r.name }]; } catch { return []; } });
-  const round = Math.floor(existing.length / MOODS.length);
+  const industryIdx = INDUSTRIES.map(([k]) => k).indexOf([...INDUSTRIES].sort((a, b) => (byIndustry.get(a[0]) ?? 0) - (byIndustry.get(b[0]) ?? 0))[0][0]);
+  const industry = INDUSTRIES[industryIdx][0];
+  const existing = await db.brandKit.findMany({ select: { colors: true, name: true, industry: true, headingSlug: true, bodySlug: true } });
+  const slots = slotsFor(industryIdx, total);
   const r = await ai({
     task: "palette", system: SYSTEM, effort: "low", maxTokens: 3500, timeoutMs: 45_000,
-    user: JSON.stringify({ industry: industryLabel(industry), round: round + 1, moods: MOODS.map(([k, v]) => ({ mood: k, meaning: v })), already_used_names: existing.map((e) => e.name).slice(-40), note: round ? "Previous rounds exist: choose clearly different hues and styles from the usual ones." : "" }),
+    user: JSON.stringify({ industry: industryLabel(industry), slots: slots.map((s) => ({ ...s, meaning: moodLabel(s.mood) })) }),
   });
   if (!r.ok) return { made: 0, total, detail: r.detail };
-  const all = await db.brandKit.findMany({ select: { colors: true, headingSlug: true, bodySlug: true } });
-  const known: Kit[] = all.flatMap((x) => { try { return [JSON.parse(x.colors) as Kit]; } catch { return []; } });
+  const known: Kit[] = existing.flatMap((x) => { try { return [JSON.parse(x.colors) as Kit]; } catch { return []; } });
+  const names = new Set(existing.map((x) => x.name.toLowerCase()));
   const used = new Map<string, number>();
-  for (const x of all) { for (const k of [`${x.headingSlug}+${x.bodySlug}`, x.headingSlug]) used.set(k, (used.get(k) ?? 0) + 1); }
+  for (const x of existing) { for (const k of [`${x.headingSlug}+${x.bodySlug}`, x.headingSlug]) used.set(k, (used.get(k) ?? 0) + 1); }
   let made = 0;
-  for (const raw of parseKits(r.text)) {
+  for (const raw of parseKits(r.text, slots)) {
     const kit: Kit = { bg: raw.bg, text: raw.text, primary: raw.primary, accent: raw.accent, soft: raw.soft };
     if (known.some((o) => kitDistance(o, kit) < MIN_KIT_DISTANCE)) continue; // too alike to an existing one
-    const f = await pickFonts(raw.mood, `${industry}${raw.mood}${raw.name}`, used);
+    // The same name twice would confuse people: the second gets its mood after it.
+    let name = raw.name;
+    if (names.has(name.toLowerCase())) name = `${name} · ${moodLabel(raw.mood).split(" ")[0].toLowerCase()}`;
+    if (names.has(name.toLowerCase())) continue;
+    const f = await pickFonts(raw.mood, `${industry}${raw.mood}${name}`, used);
     if (!f) continue;
-    await db.brandKit.create({ data: { industry, mood: raw.mood, name: raw.name, note: raw.note, colors: JSON.stringify(kit), headingSlug: f.headingSlug, bodySlug: f.bodySlug } });
-    known.push(kit);
+    await db.brandKit.create({ data: { industry, mood: raw.mood, name, note: raw.note, colors: JSON.stringify(kit), headingSlug: f.headingSlug, bodySlug: f.bodySlug } });
+    known.push(kit); names.add(name.toLowerCase());
     used.set(`${f.headingSlug}+${f.bodySlug}`, (used.get(`${f.headingSlug}+${f.bodySlug}`) ?? 0) + 1);
     used.set(f.headingSlug, (used.get(f.headingSlug) ?? 0) + 1);
     made++;
   }
-  return { made, total: total + made, detail: made ? undefined : "yangi shablon qabul qilinmadi (oʻxshash yoki kontrast past)" };
+  return { made, total: total + made, detail: made ? undefined : "yangi shablon qabul qilinmadi (oʻxshash, retseptga mos emas yoki kontrast past)" };
 }
 
 /** What the admin set: filling on or off and how many templates to aim for. */

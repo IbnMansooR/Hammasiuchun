@@ -172,6 +172,8 @@ async function onPrivateMessage(from: From, textIn: string, replyText?: string) 
     return;
   }
 
+  // An unknown command is not a reason to repeat the whole welcome.
+  if (cmd !== "/start") { await sendMessage(chatId, "Bunday buyruq yoʻq. Pastdagi tugmalardan foydalaning yoki /help ni bosing."); return; }
   await sendWelcome(chatId);
 }
 
@@ -182,6 +184,7 @@ async function sendWelcome(chatId: string) {
     "",
     "✍️ Menga istalgan matn yozing (60 belgigacha): uni shriftlarimizda rasm qilib qaytaraman.",
     "🔤 /harflar: oʻzbek harflari (oʻ gʻ ʼ, ў қ ғ ҳ) qaysi shriftlarda bor.",
+    "🎯 Pastdagi tugmalarda: viktorina, “Qaysi shrift sen?”, fon rasmi, brend nomi, 🎨 brend palitrasi va rasmdan shrift topish.",
     `🔎 Istalgan chatda <code>@${esc(botUsername())} nomi</code> deb yozib, shriftni doʻstingizga yuboring.`,
     "🔔 Kabinetda “Telegramni ulash”ni bossangiz, shaxsiy xabarlar va yangi shriftlar shu yerga keladi.",
     "📣 /reklama: Feekr kanali yoki saytida reklama berish uchun ariza.",

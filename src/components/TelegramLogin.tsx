@@ -21,7 +21,13 @@ export default function TelegramLogin({ bot }: { bot: string }) {
     if (locale === "ru") s.setAttribute("data-lang", "ru");
     s.setAttribute("data-request-access", "write"); // lets the bot send the copies of site messages the person turns on
     el.appendChild(s);
-    return () => { el.textContent = ""; };
+    // The widget's iframe arrives later and has no title (screen readers announce it as "frame"): name it.
+    const title = locale === "ru" ? "Войти через Telegram" : "Telegram orqali kirish";
+    const name = () => el.querySelectorAll("iframe").forEach((f) => { if (!f.title) f.title = title; });
+    const mo = new MutationObserver(name);
+    mo.observe(el, { childList: true, subtree: true });
+    name();
+    return () => { mo.disconnect(); el.textContent = ""; };
   }, [bot, locale]);
   return <div ref={box} className="tg-login" role="group" aria-label={locale === "ru" ? "Продолжить через Telegram" : "Telegram orqali davom etish"} />;
 }

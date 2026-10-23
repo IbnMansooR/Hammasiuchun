@@ -20,7 +20,9 @@ export function plain(html: string): string {
   const unwrapped = html.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1");
   // The summary is often escaped HTML (&lt;p&gt;): decode once, then drop the tags.
   const once = /&lt;\w/.test(unwrapped) ? decode(unwrapped) : unwrapped;
-  return decode(once.replace(/<(script|style)[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+  const text = decode(once.replace(/<(script|style)[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " "));
+  // Some feeds put Markdown in their summary: "[useful guides](https://…)" becomes "useful guides", bare addresses go.
+  return text.replace(/\[([^\]]*)\]\(\s*https?:\/\/[^)\s]*\s*\)/gi, "$1").replace(/https?:\/\/\S+/gi, "").replace(/\s*\[[^\]]*$/, "…").replace(/\s+/g, " ").trim();
 }
 
 /** At most `max` characters, ending at a sentence or a word. */
