@@ -124,7 +124,7 @@ code, kbd { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; fo
 .rule-top { border-top: 1px solid var(--line); }
 
 /* ---------- type ---------- */
-.display { font-family: var(--font-display); font-weight: 500; letter-spacing: -.035em; line-height: .98; }
+.display { font-family: var(--font-display); font-weight: 500; letter-spacing: -.035em; line-height: .98; overflow-wrap: anywhere; hyphens: auto; }
 .page-head { padding-block: 56px 36px; }
 .page-head h1 { font-family: var(--font-display); font-weight: 500; font-size: clamp(44px, 6.4vw, 96px); letter-spacing: -.035em; line-height: .98; }
 .page-head .lead { margin-top: 18px; }
@@ -672,6 +672,7 @@ select.sel { width: auto; height: 34px; padding: 0 32px 0 14px; border-radius: 9
 .footer-word svg { width: 100%; height: auto; max-width: none; opacity: .96; }
 .footer-bottom { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 22px 0 28px; border-top: 1px solid var(--footer-line); color: var(--footer-muted); font-size: 13px; }
 .footer-bottom a:hover { color: var(--footer-fg); }
+.footer-bottom, .footer-bottom a, .footer .col a { overflow-wrap: anywhere; }
 
 /* ---------- registration & account extras ---------- */
 .perks { list-style: none; margin: 0 0 20px; padding: 0; display: grid; gap: 10px; }
