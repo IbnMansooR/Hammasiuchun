@@ -56,7 +56,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           <span>{typeLabel[p.type] ?? typeLabel.blog}</span>
         </nav>
         {t.langNote && !ru && <p className="muted" style={{ marginTop: 16 }}>{t.langNote}</p>}
-        <div lang={ru ? "ru" : "uz"}>
+        <div lang={ru ? "ru" : p.tags.split(",").includes("en") ? "en" : "uz"}>
         <header style={{ padding: "32px 0 36px" }}>
           <h1 className="display" style={{ fontSize: "clamp(40px, 5.4vw, 72px)" }}>{title}</h1>
           {excerpt && <p className="lead" style={{ marginTop: 20 }}>{excerpt}</p>}
