@@ -8,7 +8,7 @@ import { unstable_cache } from "next/cache";
 import { db } from "./db";
 import { PUBLIC_FAMILY } from "./license";
 import { previewStyle } from "./fonts";
-import { readFont } from "./storage";
+import { readFont, readFontStrict, StorageUnavailable } from "./storage";
 import { ogFonts } from "./og";
 import { SITE_URL } from "./site";
 import { MARK, WORD } from "@/components/Logo";
@@ -58,7 +58,8 @@ async function sampleOf(f: FamilyRow): Promise<SampleFont | null> {
   const pv = previewStyle(cuts);
   const cut = pv && cuts.find((s) => s.style === pv.style);
   if (!cut) return null;
-  const data = await readFont(f.folder, cut.file).catch(() => null);
+  // A storage failure must not look like "can't be drawn": the caches below would remember it for weeks.
+  const data = await readFontStrict(f.folder, cut.file).catch((e) => { if (e instanceof StorageUnavailable) throw e; return null; });
   const font = data && data.length <= MAX_BYTES ? staticFont(data) : null;
   if (!data || !font || !(await satoriDraws(data))) return null;
   const chars = CANDIDATES.filter((cp) => font.hasGlyphForCodePoint(cp)).map((cp) => String.fromCodePoint(cp)).join("");
@@ -67,7 +68,7 @@ async function sampleOf(f: FamilyRow): Promise<SampleFont | null> {
 
 /** Public families that can draw samples, most downloaded first, with the characters each covers.
  * Built once a day (it reads every family's file), then served from the cache. */
-export const sampleFonts = unstable_cache(
+const buildSampleFonts = unstable_cache(
   async (): Promise<SampleFont[]> => {
     const fams = await db.family.findMany({ where: PUBLIC_FAMILY, orderBy: [{ downloads: "desc" }, { name: "asc" }], select: FAMILY_SELECT });
     const out: SampleFont[] = [];
@@ -81,20 +82,35 @@ export const sampleFonts = unstable_cache(
   { revalidate: 60 * 60 * 24, tags: ["sample-fonts"] },
 );
 
+/** Same list as before; while storage is down it is empty for now and, unlike a real answer, not cached. */
+export async function sampleFonts(): Promise<SampleFont[]> {
+  try {
+    return await buildSampleFonts();
+  } catch (e) {
+    if (e instanceof StorageUnavailable) return [];
+    throw e;
+  }
+}
+
 /** One public family's sample (or null when it can't be drawn), reading only that family's file.
  * Cached per family and version, so a new upload is seen at once; the channel posters use this,
  * since the whole catalogue (thousands of files) can't be read within one request. */
 export async function familySample(slug: string): Promise<SampleFont | null> {
   const f = await db.family.findFirst({ where: { ...PUBLIC_FAMILY, slug }, select: { updatedAt: true } });
   if (!f) return null;
-  return unstable_cache(
-    async () => {
-      const row = await db.family.findFirst({ where: { ...PUBLIC_FAMILY, slug }, select: FAMILY_SELECT });
-      return row ? sampleOf(row) : null;
-    },
-    ["tg-family-sample-v1", slug, String(f.updatedAt.getTime())],
-    { revalidate: 60 * 60 * 24 * 30 },
-  )();
+  try {
+    return await unstable_cache(
+      async () => {
+        const row = await db.family.findFirst({ where: { ...PUBLIC_FAMILY, slug }, select: FAMILY_SELECT });
+        return row ? sampleOf(row) : null;
+      },
+      ["tg-family-sample-v1", slug, String(f.updatedAt.getTime())],
+      { revalidate: 60 * 60 * 24 * 30 },
+    )();
+  } catch (e) {
+    if (e instanceof StorageUnavailable) return null; // not cached: the next request asks storage again
+    throw e;
+  }
 }
 
 /** Official Uzbek Latin signs: oʻ gʻ use ʻ (U+02BB), the tutuq belgisi inside a word is ʼ (U+02BC).

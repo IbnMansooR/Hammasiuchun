@@ -3,7 +3,7 @@ import * as fontkit from "fontkit";
 import { db } from "@/lib/db";
 import { isPublicFamily } from "@/lib/license";
 import { previewStyle, CATEGORY_LABEL } from "@/lib/fonts";
-import { readFont } from "@/lib/storage";
+import { readFontStrict, StorageUnavailable } from "@/lib/storage";
 import { OG_SIZE, OgFrame, ogFonts, type OgFont } from "@/lib/og";
 
 export const runtime = "nodejs";
@@ -34,11 +34,16 @@ export default async function Image({ params }: { params: Promise<{ slug: string
   const pub = !!f && isPublicFamily(f);
 
   let specimen: OgFont | null = null;
+  let storageDown = false; // then the plain card below is a stopgap, not the final picture
   if (f && pub) {
     const pv = previewStyle(f.styles);
     const cut = pv && f.styles.find((s) => s.style === pv.style);
     if (cut && cut.ext !== "woff2") {
-      const data = await readFont(f.folder, cut.file).catch((e) => { console.error("og: font read failed", slug, e instanceof Error ? e.message : e); return null; });
+      const data = await readFontStrict(f.folder, cut.file).catch((e) => {
+        if (e instanceof StorageUnavailable) storageDown = true;
+        console.error("og: font read failed", slug, e instanceof Error ? e.message : e);
+        return null;
+      });
       if (!data) console.error("og: font file missing", slug, f.folder, cut.file);
       else if (satoriCanUse(data)) specimen = { name: "Specimen", data, weight: 400, style: "normal" };
       else console.error("og: specimen not usable by Satori", slug, cut.file);
@@ -72,6 +77,11 @@ export default async function Image({ params }: { params: Promise<{ slug: string
     png = await render(false).arrayBuffer();
   }
   return new Response(png, {
-    headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400, s-maxage=86400" },
+    headers: {
+      "Content-Type": "image/png",
+      // The real picture is stable: keep it at the edge for a week, so storage is read once per font. A stopgap card
+      // made while storage was down must not stick: Telegram and crawlers would keep the wrong picture.
+      "Cache-Control": storageDown ? "public, max-age=60, s-maxage=60" : "public, max-age=86400, s-maxage=604800, stale-while-revalidate=2592000",
+    },
   });
 }

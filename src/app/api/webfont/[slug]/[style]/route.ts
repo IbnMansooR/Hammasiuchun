@@ -43,9 +43,9 @@ function ok(buf: Buffer) {
   return new Response(new Uint8Array(buf), {
     headers: {
       "Content-Type": "font/woff2",
-      // Only free, redistributable families reach this point, so the CDN may
-      // cache them. s-maxage keeps an unpublished family from lingering >1 day.
-      "Cache-Control": "public, max-age=604800, s-maxage=86400",
+      // Only free, redistributable families reach this point, so the CDN may cache them: storage is read
+      // once per font per week, not once per visitor. s-maxage still bounds how long an unpublished family lingers.
+      "Cache-Control": "public, max-age=604800, s-maxage=604800, stale-while-revalidate=2592000",
     },
   });
 }
