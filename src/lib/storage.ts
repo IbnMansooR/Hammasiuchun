@@ -38,7 +38,12 @@ const key = (...parts: string[]) =>
 async function dl(bucket: string, objectKey: string): Promise<Buffer | null> {
   const c = await client();
   const { data, error } = await c.storage.from(bucket).download(objectKey);
-  if (error || !data) return null;
+  if (error || !data) {
+    // A missing object is normal for the webfont cache; anything else is worth a line in the log.
+    const msg = error ? `${(error as { name?: string }).name ?? "error"}: ${error.message}` : "no data";
+    if (!/not found|does not exist/i.test(msg)) console.error("storage: download failed", bucket, objectKey, msg);
+    return null;
+  }
   return Buffer.from(await data.arrayBuffer());
 }
 async function up(bucket: string, objectKey: string, buf: Buffer, contentType: string): Promise<void> {
