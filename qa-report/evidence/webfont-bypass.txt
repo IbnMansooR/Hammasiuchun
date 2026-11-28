@@ -1,0 +1,28 @@
+# FKR-01 evidence — paid cut served by /api/webfont (2026-10-04T09:12:19Z)
+
+$ curl -s -o /dev/null -w "%{http_code}" https://feekrfont.uz/api/download/geometria/BoldItalic   # official download of a paid cut
+403
+
+$ curl -sI https://feekrfont.uz/api/webfont/geometria/BoldItalic   # no headers at all
+HTTP/2 200 
+cache-control: public, max-age=31536000, immutable
+content-type: font/woff2
+x-vercel-cache: HIT
+first 4 bytes: wOF2  size: 58372 bytes
+
+$ curl -sI -H "Sec-Fetch-Site: same-origin" https://feekrfont.uz/api/webfont/geometria/ExtraBold   # spoofed header, cache MISS
+HTTP/2 200 
+cache-control: public, max-age=31536000, immutable
+content-type: font/woff2
+x-vercel-cache: HIT
+
+$ curl -sI https://feekrfont.uz/api/webfont/geometria/ExtraBold   # immediately after, NO header -> served from Vercel CDN
+HTTP/2 200 
+age: 1002
+cache-control: public, max-age=31536000, immutable
+strict-transport-security: max-age=63072000
+x-vercel-cache: HIT
+
+Decompressed geometria/Bold (earlier run): Family=Geometria, Subfamily=Bold, 820 glyphs, 601 codepoints, GPOS+kern, usWeightClass=700,
+copyright 'Copyright (c) 2012 by Vyacheslav Kirilenko, Gayane Bagdasaryan. All rights reserved.' -> a complete, installable font.
+(Font binaries were deleted after analysis; none are stored in this repo.)

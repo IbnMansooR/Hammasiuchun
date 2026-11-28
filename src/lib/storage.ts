@@ -35,11 +35,23 @@ function within(root: string, target: string): boolean {
 const key = (...parts: string[]) =>
   parts.map((p) => p.replace(/\\/g, "/").replace(/\.\.+/g, "").replace(/^\/+|\/+$/g, "")).join("/");
 
-async function dl(bucket: string, objectKey: string): Promise<Buffer | null> {
+/** Storage is reachable but refused or failed (quota 402, outage, network): not the same as "no such file". */
+export class StorageUnavailable extends Error {}
+
+async function dlRaw(bucket: string, objectKey: string): Promise<{ buf: Buffer | null; transient: boolean }> {
   const c = await client();
   const { data, error } = await c.storage.from(bucket).download(objectKey);
-  if (error || !data) return null;
-  return Buffer.from(await data.arrayBuffer());
+  if (error || !data) {
+    // A missing object is normal for the webfont cache; anything else is worth a line in the log.
+    const msg = error ? `${(error as { name?: string }).name ?? "error"}: ${error.message}` : "no data";
+    const missing = /not.?found|does not exist|no such/i.test(msg);
+    if (!missing) console.error("storage: download failed", bucket, objectKey, msg);
+    return { buf: null, transient: !missing };
+  }
+  return { buf: Buffer.from(await data.arrayBuffer()), transient: false };
+}
+async function dl(bucket: string, objectKey: string): Promise<Buffer | null> {
+  return (await dlRaw(bucket, objectKey)).buf;
 }
 async function up(bucket: string, objectKey: string, buf: Buffer, contentType: string): Promise<void> {
   const c = await client();
@@ -52,6 +64,15 @@ export async function readFont(folder: string, file: string): Promise<Buffer | n
   const p = path.join(LIB, folder, file);
   if (!within(LIB, p) || !fsSync.existsSync(p)) return null;
   return fs.readFile(p);
+}
+
+/** Like readFont, but throws StorageUnavailable when storage failed (not when the file is simply absent).
+ * For code that caches its answer: a failure must not be remembered as "this font can't be drawn". */
+export async function readFontStrict(folder: string, file: string): Promise<Buffer | null> {
+  if (!usingSupabase) return readFont(folder, file);
+  const r = await dlRaw(BUCKET_FONTS, key(folder, file));
+  if (r.transient) throw new StorageUnavailable(`fonts/${folder}/${file}`);
+  return r.buf;
 }
 
 export async function writeFont(folder: string, file: string, buf: Buffer): Promise<void> {

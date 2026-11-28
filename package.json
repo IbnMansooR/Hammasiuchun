@@ -15,9 +15,11 @@
     "db:push": "prisma db push",
     "db:seed": "node scripts/seed.mjs",
     "db:studio": "prisma studio",
-    "storage:upload": "node scripts/upload-to-storage.mjs"
+    "storage:upload": "node scripts/upload-to-storage.mjs",
+    "meta:refresh": "node scripts/refresh-meta.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
     "@prisma/client": "^6.2.0",
     "@supabase/supabase-js": "^2.110.0",
     "bcryptjs": "^2.4.3",
@@ -27,6 +29,8 @@
     "next": "^15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "sharp": "^0.35.5",
+    "subset-font": "^2.9.0",
     "wawoff2": "^2.0.1"
   },
   "devDependencies": {

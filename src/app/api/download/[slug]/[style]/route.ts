@@ -1,6 +1,8 @@
+import { after } from "next/server";
 import { db } from "@/lib/db";
-import { previewStyle } from "@/lib/fonts";
+import { isRedistributable } from "@/lib/license";
 import { readFont } from "@/lib/storage";
+import { overLimit, tooManyRequests } from "@/lib/softLimit";
 
 export const runtime = "nodejs";
 
@@ -10,10 +12,13 @@ const MIME: Record<string, string> = {
   woff2: "font/woff2",
 };
 
+// Every published family is free: any single cut can be downloaded, as long as
+// the family's licence allows Feekr to redistribute it.
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ slug: string; style: string }> },
 ) {
+  if (overLimit("cut", req.headers, 120, 10 * 60_000)) return tooManyRequests(600);
   const { slug: rawSlug, style: rawStyle } = await params;
   const slug = rawSlug.replace(/[^a-z0-9-]/gi, "").toLowerCase();
   const style = rawStyle.replace(/[^A-Za-z0-9]/g, "");
@@ -23,33 +28,22 @@ export async function GET(
     const fam = await db.family.findUnique({
       where: { slug },
       select: {
-        name: true, folder: true, tier: true,
-        styles: { select: { style: true, weight: true, italic: true, ext: true, file: true } },
+        name: true, folder: true, isPublished: true, licenseClass: true,
+        styles: { where: { style }, select: { style: true, ext: true, file: true }, take: 1 },
       },
     });
-    if (!fam) return new Response("Not found", { status: 404 });
-
-    let st = fam.styles.find((s) => s.style === style);
-    // Free families: fall back to the closest cut when the exact style is absent.
-    if (!st && fam.tier === "free") {
-      st = previewStyle(fam.styles) as (typeof fam.styles)[number] | undefined;
-    }
-    if (!st) return new Response("Not found", { status: 404 });
-
-    // free → any cut; demo → Regular/Italic only; paid → nothing.
-    const allowed =
-      fam.tier === "free" ||
-      (fam.tier === "demo" && (st.style === "Regular" || st.style === "Italic"));
-    if (!allowed) {
-      return new Response("Bu shrift litsenziya bilan yuklanadi. Iltimos, savatga qo'shing.", { status: 403 });
+    const st = fam?.styles[0];
+    if (!fam || !st || !fam.isPublished || !isRedistributable(fam.licenseClass)) {
+      return new Response("Not found", { status: 404 });
     }
 
     const buf = await readFont(fam.folder, st.file);
     if (!buf) return new Response("Missing source", { status: 404 });
 
-    const suffix = fam.tier === "free" ? "" : "-DEMO";
     const base = fam.name.replace(/[^A-Za-z0-9]+/g, "") || slug;
-    const dlName = `${base}-${st.style}${suffix}.${st.ext}`;
+    const dlName = `${base}-${st.style}.${st.ext}`;
+    // Count it once the file is on its way; a failed counter never blocks a download.
+    after(() => db.family.update({ where: { slug }, data: { downloads: { increment: 1 } } }).catch(() => {}));
     return new Response(new Uint8Array(buf), {
       headers: {
         "Content-Type": MIME[st.ext] ?? "application/octet-stream",

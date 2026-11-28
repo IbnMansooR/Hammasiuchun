@@ -1,4 +1,5 @@
 // Helpers for rendering the type library on the web.
+import type { Locale } from "@/i18n/config";
 
 export type StyleLite = { style: string; weight: number; italic: boolean };
 
@@ -11,18 +12,24 @@ export const CATEGORY_LABEL: Record<string, string> = {
   Serif: "Serif",
   Slab: "Slab-serif",
   Display: "Display",
-  Script: "Qo'lyozma",
+  Script: "Qoʻlyozma",
   Monospace: "Monospace",
   Dingbat: "Belgilar",
 };
 
-export const SORTS: Record<string, string> = {
-  popular: "Ommabop",
-  az: "A–Z",
-  za: "Z–A",
-  styles: "Ko'p uslub",
-  new: "Yangi",
+const CATEGORY_LABEL_RU: Record<string, string> = {
+  Sans: "Без засечек",
+  Serif: "С засечками",
+  Slab: "Брусковые",
+  Display: "Акцидентные",
+  Script: "Рукописные",
+  Monospace: "Моноширинные",
+  Dingbat: "Символы",
 };
+
+export function categoryLabel(category: string, locale: Locale = "uz"): string {
+  return (locale === "ru" ? CATEGORY_LABEL_RU : CATEGORY_LABEL)[category] ?? category;
+}
 
 /** CSS font-family token for a family (weight/style-resolved). */
 export function cssFamily(slug: string): string {
@@ -82,4 +89,39 @@ export const WEIGHT_LABEL: Record<number, string> = {
 };
 
 export const PANGRAM = "The quick brown fox jumps over the lazy dog";
+
+/** Uzbek specimen line. Uses the official ʻ (U+02BB) when the font has it,
+ * otherwise ‘ (U+2018) — the substitute most fonts (and most Uzbek text) have. */
+export function uzSample(support?: { uzLatin: boolean } | null): string {
+  const a = support?.uzLatin ? "ʻ" : "‘";
+  return `O${a}zbekiston — g${a}oyalar, quyosh va shriftlar yurti`;
+}
+export const UZ_SAMPLE = uzSample(null);
 export const ALPHABET = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz";
+
+/** Short default specimen for a card, matched to the category's voice. Uses ‘
+ * (U+2018) for oʻ/gʻ: nearly every font has it, far fewer have U+02BB. */
+const CARD_SAMPLE: Record<string, string> = {
+  Sans: "Shrift — brendning ovozi",
+  Serif: "So‘z va shakl uyg‘unligi",
+  Slab: "Kuchli, ishonchli, aniq",
+  Display: "Ovozingizni toping",
+  Script: "Shirin so‘zlar",
+  Monospace: "const shrift = 'bepul';",
+  Dingbat: "ABCDEFGHIJ abcdefghij",
+};
+const CARD_SAMPLE_RU: Record<string, string> = {
+  Sans: "Шрифт — голос бренда",
+  Serif: "Гармония слова и формы",
+  Slab: "Сильный, надёжный, точный",
+  Display: "Найдите свой голос",
+  Script: "Тёплые слова",
+  Monospace: "const шрифт = 'бесплатно';",
+  Dingbat: "ABCDEFGHIJ abcdefghij",
+};
+/** On Russian pages a family with Cyrillic shows a Russian line; Latin-only ones keep the Uzbek one. */
+export function cardSample(category: string, cyrillicOnly = false, locale: Locale = "uz", hasCyrillic = cyrillicOnly): string {
+  if (locale === "ru" && hasCyrillic) return CARD_SAMPLE_RU[category] ?? CARD_SAMPLE_RU.Sans;
+  if (cyrillicOnly) return "Шрифт — бренд овози";
+  return CARD_SAMPLE[category] ?? CARD_SAMPLE.Sans;
+}

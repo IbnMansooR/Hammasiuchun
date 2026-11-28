@@ -1,11 +1,7 @@
-import { getCurrentUser } from "@/lib/userAuth";
-import { paymeEnabled } from "@/lib/payme";
-import { clickEnabled } from "@/lib/click";
-import CartClient from "./CartClient";
+import { permanentRedirect } from "next/navigation";
+import { lhref } from "@/i18n/server";
 
-export const metadata = { title: "Savatcha" };
-
+// All fonts are free now — there is no cart. Keep old links/bookmarks working.
 export default async function CartPage() {
-  const user = await getCurrentUser();
-  return <CartClient loggedIn={!!user} paymeEnabled={paymeEnabled} clickEnabled={clickEnabled} />;
+  permanentRedirect(await lhref("/wishlist"));
 }

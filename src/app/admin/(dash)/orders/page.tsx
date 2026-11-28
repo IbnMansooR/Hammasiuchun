@@ -18,10 +18,10 @@ export default async function OrdersPage() {
       </div>
 
       {orders.length === 0 ? (
-        <p className="muted">Hali buyurtma yo&apos;q.</p>
+        <p className="muted">Hali buyurtma yoʻq.</p>
       ) : (
         <table className="adm-table">
-          <thead><tr><th>Shriftlar</th><th>Jami</th><th>Aloqa</th><th>Holat</th><th>Sana</th><th></th></tr></thead>
+          <thead><tr><th>Shriftlar</th><th>Jami</th><th>Aloqa</th><th>Holat</th><th>Sana</th><th><span className="sr-only">Amallar</span></th></tr></thead>
           <tbody>
             {orders.map((o) => {
               let items: OrderItem[] = [];
@@ -36,8 +36,8 @@ export default async function OrdersPage() {
                   <td style={{ textAlign: "right" }}>
                     <form action={deleteOrderAction}>
                       <input type="hidden" name="id" value={o.id} />
-                      <ConfirmButton className="chip" style={{ color: "#b91c1c" }} message="Buyurtma o'chirilsinmi? Bu amalni qaytarib bo'lmaydi.">
-                        O&apos;chirish
+                      <ConfirmButton className="chip chip-danger" message="Buyurtma oʻchirilsinmi? Bu amalni qaytarib boʻlmaydi.">
+                        Oʻchirish
                       </ConfirmButton>
                     </form>
                   </td>

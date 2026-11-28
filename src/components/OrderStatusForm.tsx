@@ -2,7 +2,7 @@
 import { setOrderStatusAction } from "@/app/admin/actions";
 
 const STATUS_BADGE: Record<string, string> = { new: "badge-new", contacted: "", done: "badge-free" };
-const STATUS_LABEL: Record<string, string> = { new: "Yangi", contacted: "Bog'lanildi", done: "Yakunlandi" };
+const STATUS_LABEL: Record<string, string> = { new: "Yangi", contacted: "Bogʻlanildi", done: "Yakunlandi" };
 
 export default function OrderStatusForm({ id, status }: { id: number; status: string }) {
   return (
@@ -17,7 +17,7 @@ export default function OrderStatusForm({ id, status }: { id: number; status: st
         onChange={(e) => e.currentTarget.form?.requestSubmit()}
       >
         <option value="new">Yangi</option>
-        <option value="contacted">Bog&apos;lanildi</option>
+        <option value="contacted">Bogʻlanildi</option>
         <option value="done">Yakunlandi</option>
       </select>
     </form>

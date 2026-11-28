@@ -11,13 +11,9 @@ const FEATURED = ["montserrat", "poppins", "gilroy", "tt-commons", "muller", "ge
   "sf-pro-display", "fonseca", "zuume", "aileron", "creato-display", "zona-pro", "tt-norms"];
 const NEW = ["muller", "zuume", "fonseca", "creato-display", "geometria"];
 
-// Deterministic tier split: ~50% free, ~30% demo, ~20% paid (stable per slug).
-function tierFor(slug) {
-  let h = 0;
-  for (let i = 0; i < slug.length; i++) h = (h * 31 + slug.charCodeAt(i)) >>> 0;
-  const r = h % 100;
-  return r < 50 ? "free" : r < 80 ? "demo" : "paid";
-}
+// Licence classes an admin sets by hand after confirming the rights — a re-seed
+// must never overwrite them with the class derived from the font file.
+const CONFIRMED = ["Own", "Licensed"];
 
 const TAGLINES = {
   montserrat: "Buenos-Ayres ko'chalaridan ilhomlangan geometrik grotesk.",
@@ -36,13 +32,11 @@ async function seedFonts() {
   const catalogSlugs = [];
   for (const f of cat.families) {
     catalogSlugs.push(f.slug);
-    const tier = tierFor(f.slug);
-    const isFree = tier === "free";
     // Font-derived technical fields — always refreshed from the catalog.
     const technical = {
       name: f.family, folder: f.folder, manufacturer: f.manufacturer,
       copyright: f.copyright, license: f.license, licenseUrl: f.licenseUrl,
-      licenseClass: f.licenseClass, version: f.version, glyphs: f.glyphs || 0,
+      version: f.version, glyphs: f.glyphs || 0,
       hasLatin: !!f.hasLatin, hasCyrillic: !!f.hasCyrillic, hasItalic: !!f.hasItalic,
       styleCount: f.styleCount,
     };
@@ -50,7 +44,7 @@ async function seedFonts() {
     // clobbers admin edits made through the panel.
     const defaults = {
       category: f.category, designer: f.designer, designerUrl: f.designerUrl,
-      tier, isFree, priceCents: isFree ? 0 : 100,
+      tier: "free", isFree: true, priceCents: 0, // every font is free
       isFeatured: FEATURED.includes(f.slug), isNew: NEW.includes(f.slug),
       tagline: TAGLINES[f.slug] || null,
       popularity: FEATURED.includes(f.slug) ? 100 : f.styleCount,
@@ -58,7 +52,11 @@ async function seedFonts() {
     const fam = await db.family.upsert({
       where: { slug: f.slug },
       update: technical,
-      create: { slug: f.slug, ...technical, ...defaults },
+      create: { slug: f.slug, ...technical, ...defaults, licenseClass: f.licenseClass },
+    });
+    await db.family.updateMany({
+      where: { id: fam.id, licenseClass: { notIn: CONFIRMED } },
+      data: { licenseClass: f.licenseClass },
     });
     const styleData = Array.isArray(f.styles) ? f.styles : [];
     await db.$transaction([

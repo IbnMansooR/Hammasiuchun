@@ -20,21 +20,23 @@ export function getSecret(): Uint8Array {
   return new TextEncoder().encode(s);
 }
 
-export async function signSession(username: string): Promise<string> {
-  return new SignJWT({ username })
+/** `pv` is a fingerprint of the admin's password hash (lib/adminSecurity): a new password voids old sessions. */
+export async function signSession(username: string, pv: string): Promise<string> {
+  return new SignJWT({ username, pv, typ: "admin" })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("7d")
     .sign(getSecret());
 }
 
-/** Verify a token; returns the username or null. Algorithm is pinned to HS256. */
-export async function verifyToken(token: string | undefined): Promise<{ username: string } | null> {
+/** Verify a token; returns the username or null. Algorithm is pinned to HS256.
+ * Edge-safe (middleware): the password fingerprint is checked against the DB in auth.ts. */
+export async function verifyToken(token: string | undefined): Promise<{ username: string; pv: string } | null> {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, getSecret(), { algorithms: ["HS256"] });
-    if (!payload.username) return null;
-    return { username: String(payload.username) };
+    if (payload.typ !== "admin" || !payload.username || typeof payload.pv !== "string") return null;
+    return { username: String(payload.username), pv: payload.pv };
   } catch {
     return null;
   }
