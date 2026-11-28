@@ -78,7 +78,7 @@ const buildSampleFonts = unstable_cache(
     }
     return out;
   },
-  ["tg-sample-fonts-v1"],
+  ["tg-sample-fonts-v2"],
   { revalidate: 60 * 60 * 24, tags: ["sample-fonts"] },
 );
 
@@ -104,7 +104,7 @@ export async function familySample(slug: string): Promise<SampleFont | null> {
         const row = await db.family.findFirst({ where: { ...PUBLIC_FAMILY, slug }, select: FAMILY_SELECT });
         return row ? sampleOf(row) : null;
       },
-      ["tg-family-sample-v1", slug, String(f.updatedAt.getTime())],
+      ["tg-family-sample-v2", slug, String(f.updatedAt.getTime())],
       { revalidate: 60 * 60 * 24 * 30 },
     )();
   } catch (e) {
