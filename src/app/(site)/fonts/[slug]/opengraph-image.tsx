@@ -16,7 +16,8 @@ function satoriCanUse(data: Buffer): boolean {
   try {
     const f = fontkit.create(data) as fontkit.Font;
     return Object.keys(f.variationAxes ?? {}).length === 0 && !("CFF2" in (f as unknown as Record<string, unknown>));
-  } catch {
+  } catch (e) {
+    console.error("og: fontkit could not read the specimen", e instanceof Error ? e.message : e);
     return false;
   }
 }
@@ -37,8 +38,12 @@ export default async function Image({ params }: { params: Promise<{ slug: string
     const pv = previewStyle(f.styles);
     const cut = pv && f.styles.find((s) => s.style === pv.style);
     if (cut && cut.ext !== "woff2") {
-      const data = await readFont(f.folder, cut.file).catch(() => null);
-      if (data && satoriCanUse(data)) specimen = { name: "Specimen", data, weight: 400, style: "normal" };
+      const data = await readFont(f.folder, cut.file).catch((e) => { console.error("og: font read failed", slug, e instanceof Error ? e.message : e); return null; });
+      if (!data) console.error("og: font file missing", slug, f.folder, cut.file);
+      else if (satoriCanUse(data)) specimen = { name: "Specimen", data, weight: 400, style: "normal" };
+      else console.error("og: specimen not usable by Satori", slug, cut.file);
+    } else {
+      console.error("og: no preview cut", slug, !!cut);
     }
   }
   const name = f && pub ? f.name : "Feekr";
@@ -62,7 +67,8 @@ export default async function Image({ params }: { params: Promise<{ slug: string
   let png: ArrayBuffer;
   try {
     png = await render(!!specimen).arrayBuffer();
-  } catch {
+  } catch (e) {
+    console.error("og: Satori failed on the specimen, using the UI font", slug, e instanceof Error ? e.message : e);
     png = await render(false).arrayBuffer();
   }
   return new Response(png, {
