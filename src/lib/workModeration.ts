@@ -6,7 +6,7 @@ import { notifyUser, type Note } from "./notify";
 import { WORKS_TAG, splitTags } from "./works";
 
 export function revalidateWorks(slugs: string[], fonts: string[]) {
-  revalidateTag(WORKS_TAG);
+  revalidateTag(WORKS_TAG, { expire: 0 });
   revalidatePath("/dizaynerlar");
   for (const s of slugs) revalidatePath(`/dizaynerlar/${s}`);
   for (const f of fonts) revalidatePath(`/fonts/${f}`);

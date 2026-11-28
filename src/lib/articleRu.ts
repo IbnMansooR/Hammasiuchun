@@ -15,7 +15,7 @@ export async function translateOne(id: number): Promise<string | null> {
   const r = await translateArticleRu(a);
   if (!r.ok) return r.detail;
   await db.article.update({ where: { id }, data: { titleRu: r.ru.title, excerptRu: r.ru.excerpt || null, bodyRu: r.ru.body } });
-  revalidateTag(CATALOG_TAG); // the home page keeps its newest posts in this cache
+  revalidateTag(CATALOG_TAG, { expire: 0 }); // the home page keeps its newest posts in this cache
   for (const p of [`/blog/${a.slug}`, `/ru/blog/${a.slug}`, "/blog", "/ru/blog", "/", "/ru"]) revalidatePath(p);
   return null;
 }

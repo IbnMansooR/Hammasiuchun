@@ -123,7 +123,7 @@ export async function addDesignerAction(fd: FormData) {
 }
 
 function refreshDesigner(slug: string) {
-  revalidateTag(CATALOG_TAG);
+  revalidateTag(CATALOG_TAG, { expire: 0 });
   for (const p of ["/dizaynerlar", "/dizaynerlar/profil", `/dizaynerlar/profil/${slug}`, BACK]) revalidatePath(p);
 }
 

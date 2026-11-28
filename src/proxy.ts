@@ -25,7 +25,7 @@ function contentSecurityPolicy(nonce: string): string {
   ].join("; ");
 }
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Russian pages live under /ru: the same routes, rendered in Russian. Admin, API and files have no

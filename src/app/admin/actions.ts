@@ -228,7 +228,7 @@ export async function saveArticleAction(fd: FormData) {
     const made = await db.article.create({ data: { ...data, slug } });
     if (published) translateSoon(made.id);
   }
-  revalidateTag(CATALOG_TAG);
+  revalidateTag(CATALOG_TAG, { expire: 0 });
   revalidatePath("/blog");
   revalidatePath(`/blog/${slug}`);
   revalidatePath("/");
@@ -242,7 +242,7 @@ export async function deleteArticleAction(fd: FormData) {
   if (Number.isInteger(id) && id > 0) {
     try { await db.article.delete({ where: { id } }); } catch { /* already gone */ }
   }
-  revalidateTag(CATALOG_TAG);
+  revalidateTag(CATALOG_TAG, { expire: 0 });
   revalidatePath("/blog");
   revalidatePath("/");
   revalidatePath("/admin/articles");
@@ -330,7 +330,7 @@ export async function saveSettingsAction(fd: FormData) {
     contactEmail: str(fd, "contactEmail") || DEFAULT_SETTINGS.contactEmail,
     contactTelegram: str(fd, "contactTelegram") || DEFAULT_SETTINGS.contactTelegram,
   });
-  revalidateTag(SETTINGS_TAG);
+  revalidateTag(SETTINGS_TAG, { expire: 0 });
   revalidatePath("/", "layout"); // footer is in the shared layout
   revalidatePath("/support");
   redirect("/admin/settings?saved=1");
@@ -352,7 +352,7 @@ export async function saveSearchVerificationAction(fd: FormData) {
   if ((rawG && !google) || (rawY && !yandex)) redirect("/admin/settings?error=verification#search");
   const current = await getSiteSettings();
   await saveSiteSettings({ ...current, googleVerification: google, yandexVerification: yandex });
-  revalidateTag(SETTINGS_TAG);
+  revalidateTag(SETTINGS_TAG, { expire: 0 });
   revalidatePath("/", "layout");
   redirect("/admin/settings?saved=search#search");
 }
@@ -382,7 +382,7 @@ export async function saveFamilyAction(fd: FormData) {
       isNew: bool(fd, "isNew"),
     },
   });
-  revalidateTag(CATALOG_TAG);
+  revalidateTag(CATALOG_TAG, { expire: 0 });
   revalidatePath(`/fonts/${slug}`);
   revalidatePath("/fonts");
   revalidatePath("/");
@@ -461,7 +461,7 @@ export async function uploadFontFamilyAction(fd: FormData) {
     db.style.createMany({ data: styles.map((s) => ({ familyId: fam.id, ...s })) }),
   ]);
 
-  revalidateTag(CATALOG_TAG);
+  revalidateTag(CATALOG_TAG, { expire: 0 });
   revalidatePath("/fonts");
   revalidatePath(`/fonts/${slug}`);
   revalidatePath("/about");

@@ -12,7 +12,7 @@ export const metadata = { title: "Sahifa topilmadi", robots: { index: false } };
 // thrown from within its own pages, not routes that never matched at all.
 // Renders the same site chrome so a mistyped URL doesn't look like a broken page.
 export default async function NotFound() {
-  // Render per request (not prerendered): the CSP nonce from middleware must
+  // Render per request (not prerendered): the CSP nonce from the proxy must
   // match the page's scripts, or a static 404 would have all its JS blocked.
   await headers();
   return (

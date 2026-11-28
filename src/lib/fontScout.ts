@@ -196,7 +196,7 @@ export async function importFamily(name: string): Promise<ImportResult> {
       styles: { create: styles.map(({ buf: _b, ...s }) => s) },
     },
   });
-  revalidateTag(CATALOG_TAG);
+  revalidateTag(CATALOG_TAG, { expire: 0 });
   for (const p of ["/fonts", `/fonts/${slug}`, "/", "/about", "/admin/fonts", "/admin/telegram"]) revalidatePath(p);
   return { ok: true, slug };
 }
